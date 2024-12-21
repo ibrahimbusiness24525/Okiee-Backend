@@ -16,8 +16,9 @@ const app = express();
 
 connectDB();
 
-app.use(cors());
-app.use(bodyParser.json());
+app.use(cors({
+    origin: 'https://okiee.vercel.app'
+}));app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.json({ limit: "50mb" }));  // Increase payload limit
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
