@@ -23,7 +23,12 @@ app.use(express.json());
 app.use(express.json({ limit: "50mb" }));  // Increase payload limit
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-
+app.get("/", (req, res) => {
+    res.json({
+        message: "This is a dummy test route. Your server is running fine!",
+        status: "success"
+    });
+});
 app.use("/api/admin", adminRoutes);
 app.use("/api/phone", addPhoneRoutes);
 app.use("/api/invoice", invoicesRoutes);
