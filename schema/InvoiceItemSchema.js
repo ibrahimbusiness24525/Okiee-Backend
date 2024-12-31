@@ -20,6 +20,14 @@ const InvoiceItemSchema = new mongoose.Schema({
     type:String,
     required:true
   },
+  imei: {
+    type: String,
+    required: true,
+  },
+  imei2: {
+    type: String,
+    required: false,
+  },
   warranty:{
     type:String,
     required:true

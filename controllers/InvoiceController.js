@@ -1,40 +1,70 @@
 const { validationResult } = require("express-validator");
 const InvoiceSchema = require("../schema/InvoiceItemSchema");
+const AddPhoneSchema = require("../schema/AddMobilePhoneSchema");
 
-// Create Invoice
 exports.createInvoice = async (req, res) => {
     const { shopId, invoiceNumber, invoiceDate, items, totalAmount } = req.body;
 
     try {
+        // Validate request body
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(400).json({ errors: errors.array() });
         }
 
-        // Create a new invoice instance
-        const invoice = new InvoiceSchema({
-            shopId,
-            invoiceNumber,
-            invoiceDate,
-            items,
-            totalAmount,
-        });
+        const deletedItems = [];
 
-        // Save the invoice to the database
-        const savedInvoice = await invoice.save();
+        try {
+            // Delete phones from AddPhoneSchema corresponding to the items
+            for (const item of items) {
+                if (item.mobileId) {
+                    const deletedItem = await AddPhoneSchema.findByIdAndDelete(item.mobileId);
+                    if (!deletedItem) {
+                        // Rollback previously deleted items
+                        for (const rollbackItem of deletedItems) {
+                            await AddPhoneSchema.create(rollbackItem);
+                        }
+                        return res.status(400).json({
+                            message: "Failed to delete mobile item, please try again."
+                        });
+                    }
+                    deletedItems.push(deletedItem); // Store successfully deleted items for rollback if needed
+                }
+            }
 
-        return res.status(201).json({
-            message: "Invoice created successfully!",
-            invoice: savedInvoice,
-        });
+            // Create a new invoice instance
+            const invoice = new InvoiceSchema({
+                shopId,
+                invoiceNumber,
+                invoiceDate,
+                items,
+                totalAmount,
+            });
+
+            // Save the invoice to the database
+            const savedInvoice = await invoice.save();
+
+            return res.status(201).json({
+                message: "Invoice created successfully!",
+                invoice: savedInvoice,
+            });
+        } catch (error) {
+            // Rollback previously deleted items if invoice creation fails
+            for (const rollbackItem of deletedItems) {
+                await AddPhoneSchema.create(rollbackItem);
+            }
+            throw error;
+        }
     } catch (error) {
-        console.error(error);
+        console.error("Error creating invoice:", error);
         return res.status(500).json({
             message: "Internal server error, please try again",
             error: error.message,
         });
     }
 };
+
+
 
 // Delete Invoice
 exports.deleteInvoice = async (req, res) => {

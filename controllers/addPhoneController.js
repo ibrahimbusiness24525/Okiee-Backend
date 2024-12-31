@@ -17,9 +17,7 @@ exports.addPhone = async (req, res) => {
     }
 
     // Log the uploaded files to debug
-    console.log(req.files); // Add this line to ensure files are uploaded
-
-    const { companyName, modelSpecifications, imei, demandPrice, imei2, finalPrice, shopid, color } = req.body;
+    const { companyName, modelSpecifications, imei, demandPrice, imei2, finalPrice, shopid, color, purchasePrice, specs } = req.body;
 
     try {
       // Handle validation (Optional)
@@ -44,8 +42,10 @@ exports.addPhone = async (req, res) => {
         images,
         companyName,
         modelSpecifications,
+        specs,
         imei,
         demandPrice,
+        purchasePrice,
         imei2,
         finalPrice,
         shopId: shopid,
@@ -75,7 +75,7 @@ exports.updatePhone = async (req, res) => {
           return res.status(400).json({ message: 'Image upload failed', error: err.message });
         }
     const { id } = req.params;
-    const { images, companyName, modelSpecifications, imei, demandPrice, imei2, finalPrice,color } = req.body;
+    const { images, companyName, modelSpecifications, specs, imei, demandPrice, imei2, finalPrice,color,purchasePrice } = req.body;
 
     try {
         const errors = validationResult(req);
@@ -91,8 +91,10 @@ exports.updatePhone = async (req, res) => {
                 images,
                 companyName,
                 modelSpecifications,
+                specs,
                 imei,
                 demandPrice,
+                purchasePrice,
                 imei2: imei2 || '',
                 finalPrice,
                 color
