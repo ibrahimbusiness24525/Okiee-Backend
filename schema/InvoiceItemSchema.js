@@ -16,6 +16,10 @@ const InvoiceItemSchema = new mongoose.Schema({
     type:String,
     required:true
   },
+  purchaseAmount:{
+    type:String,
+    required:true
+  },
   mobileCompany:{
     type:String,
     required:true
@@ -38,6 +42,7 @@ const InvoiceItemSchema = new mongoose.Schema({
     default:1,
     min: 1, // Ensure at least 1 quantity
   },
+
 });
 
 // Define the schema for an invoice

@@ -1,6 +1,7 @@
 const { validationResult } = require("express-validator");
 const InvoiceSchema = require("../schema/InvoiceItemSchema");
 const AddPhoneSchema = require("../schema/AddMobilePhoneSchema");
+const mongoose = require("mongoose");
 
 exports.createInvoice = async (req, res) => {
     const { shopId, invoiceNumber, invoiceDate, items, totalAmount } = req.body;
@@ -33,8 +34,9 @@ exports.createInvoice = async (req, res) => {
             }
 
             // Create a new invoice instance
+            const convertedShopId = mongoose.Types.ObjectId(shopId);
             const invoice = new InvoiceSchema({
-                shopId,
+                shopId:convertedShopId,
                 invoiceNumber,
                 invoiceDate,
                 items,
