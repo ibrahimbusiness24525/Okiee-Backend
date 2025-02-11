@@ -5,24 +5,23 @@ const InvoiceItemSchema = new mongoose.Schema({
   invoiceNumber: {
     type: String,
     required: true,
-    unique: true,
   },
-  mobileId: {
+  mobileId: { // Fixed name to avoid duplicate key issue
     type: mongoose.Schema.Types.ObjectId,
-    ref: "AddPhone", // Reference to the Invoice model
-    required: true, // You need to pass the invoice ID for each item
+    ref: "PurchasePhone",
+    required: true,
   },
-  mobileName:{
-    type:String,
-    required:true
+  mobileName: {
+    type: String,
+    required: true,
   },
-  purchaseAmount:{
-    type:String,
-    required:true
+  purchaseAmount: {
+    type: String,
+    required: true,
   },
-  mobileCompany:{
-    type:String,
-    required:true
+  mobileCompany: {
+    type: String,
+    required: true,
   },
   imei: {
     type: String,
@@ -32,24 +31,23 @@ const InvoiceItemSchema = new mongoose.Schema({
     type: String,
     required: false,
   },
-  warranty:{
-    type:String,
-    required:true
+  warranty: {
+    type: String,
+    required: true,
   },
   quantity: {
     type: Number,
     required: true,
-    default:1,
-    min: 1, // Ensure at least 1 quantity
+    default: 1,
+    min: 1,
   },
-
 });
 
 // Define the schema for an invoice
 const InvoiceSchema = new mongoose.Schema({
   shopId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User", // Reference to User model (shop)
+    ref: "User",
     required: true,
   },
   invoiceNumber: {
@@ -62,7 +60,7 @@ const InvoiceSchema = new mongoose.Schema({
     required: true,
     default: Date.now,
   },
-  items: [InvoiceItemSchema], // List of Invoice Items
+  items: [InvoiceItemSchema], // List of invoice items
   totalAmount: {
     type: Number,
     required: true,
