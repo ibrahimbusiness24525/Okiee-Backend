@@ -1,3 +1,4 @@
+const { default: mongoose } = require('mongoose');
 const Ledger = require('../schema/LedgerSchema');
 
 // Update opening cash
@@ -31,6 +32,35 @@ exports.getAllRecords = async (req, res) => {
       return res.status(500).json({ message: 'Error fetching ledger records', error });
     }
   };
+
+  exports.getLedgerById = async (req, res) => {
+    const { id } = req.params;
+  
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid ledger ID format!" });
+    }
+    try {
+      // Validate ObjectId format before querying
+      
+      const ledger = await Ledger.findById(id);
+  
+      if (!ledger) {
+        return res.status(404).json({ message: "Ledger record not found!" });
+      }
+  
+      return res.status(200).json({
+        message: "Ledger details fetched successfully!",
+        ledger,
+      });
+    } catch (error) {
+      console.error("Error fetching ledger record by ID:", error);
+      return res.status(500).json({
+        message: "Error fetching the ledger record",
+        error: error.message,
+      });
+    }
+  };
+  
 // Update Cash Received
 exports.updateCashReceived = async (req, res) => {
   const { amount, source } = req.body;
@@ -128,69 +158,7 @@ exports.updateExpense = async (req, res) => {
 };
 
 
-// exports.updateCashReceived = async (req, res) => {
-//   const { amount } = req.body;
-//   const today = new Date().toISOString().split('T')[0]; // Get current date
 
-//   try {
-//     const ledger = await Ledger.findOne({ date: today });
-
-//     if (!ledger) {
-//       return res.status(404).json({ message: "No ledger record for today found!" });
-//     }
-
-//     ledger.cashReceived = amount;
-//     await ledger.save();
-
-//     return res.status(200).json({ message: 'Cash received updated successfully!', ledger });
-//   } catch (error) {
-//     return res.status(500).json({ message: 'Error updating cash received', error });
-//   }
-// };
-
-
-// exports.updateCashPaid = async (req, res) => {
-//   const { amount } = req.body;
-//   const today = new Date().toISOString().split('T')[0]; // Get current date
-
-//   try {
-//     const ledger = await Ledger.findOne({ date: today });
-
-//     if (!ledger) {
-//       return res.status(404).json({ message: "No ledger record for today found!" });
-//     }
-
-//     ledger.cashPaid = amount;
-//     await ledger.save();
-
-//     return res.status(200).json({ message: 'Cash paid updated successfully!', ledger });
-//   } catch (error) {
-//     return res.status(500).json({ message: 'Error updating cash paid', error });
-//   }
-// };
-
-
-// exports.updateExpense = async (req, res) => {
-//   const { amount } = req.body;
-//   const today = new Date().toISOString().split('T')[0]; // Get current date
-
-//   try {
-//     const ledger = await Ledger.findOne({ date: today });
-
-//     if (!ledger) {
-//       return res.status(404).json({ message: "No ledger record for today found!" });
-//     }
-
-//     ledger.expense = amount;
-//     await ledger.save();
-
-//     return res.status(200).json({ message: 'Expense updated successfully!', ledger });
-//   } catch (error) {
-//     return res.status(500).json({ message: 'Error updating expense', error });
-//   }
-// };
-
-// Archive and create a new ledger for the next day
 
 exports.getTodaysLedger = async (req, res) => {
   const today = new Date().toISOString().split('T')[0];

@@ -554,86 +554,17 @@ exports.sellPhonesFromBulk = async (req, res) => {
 };
 
 
-// exports.sellPhonesFromBulk = async (req, res) => {
-//   try {
-//     const { bulkPhonePurchaseId, imeiNumbers, salePrice, warranty } = req.body;
 
-//     // Validate required fields
-//     if (!bulkPhonePurchaseId || !imeiNumbers || !Array.isArray(imeiNumbers) || imeiNumbers.length === 0) {
-//       return res.status(400).json({ message: "Invalid data: imeiNumbers must be a non-empty array" });
-//     }
-
-//     if (!salePrice || !warranty) {
-//       return res.status(400).json({ message: "Sale price and warranty are required" });
-//     }
-
-//     // Find the bulk phone purchase
-//     const bulkPhonePurchase = await BulkPhonePurchase.findById(bulkPhonePurchaseId).populate({
-//       path: 'ramSimDetails',
-//       populate: {
-//         path: 'imeiNumbers'
-//       }
-//     });
-
-//     if (!bulkPhonePurchase) {
-//       return res.status(404).json({ message: "Bulk phone purchase not found" });
-//     }
-
-//     const soldPhones = [];
-
-//     // Extract phones to be sold based on IMEI numbers
-//     for (const imei of imeiNumbers) {
-//       const ramSim = bulkPhonePurchase.ramSimDetails.find(ramSim => ramSim.imeiNumbers.some(imeiRecord => imeiRecord.imei1 === imei || imeiRecord.imei2 === imei));
-
-//       if (!ramSim) {
-//         return res.status(404).json({ message: `Phone with IMEI ${imei} not found in this bulk purchase` });
-//       }
-
-//       // Find the IMEI record that matches the provided IMEI number
-//       const imeiRecord = ramSim.imeiNumbers.find(imeiRecord => imeiRecord.imei1 === imei || imeiRecord.imei2 === imei);
-
-//       // Create a new SoldPhone record
-//       const soldPhone = new SoldPhone({
-//         bulkPhonePurchaseId,
-//         imei1: imeiRecord.imei1,
-//         imei2: imeiRecord.imei2,
-//         salePrice,
-//         warranty
-//       });
-
-//       // Save the sold phone record
-//       const savedSoldPhone = await soldPhone.save();
-//       soldPhones.push(savedSoldPhone);
-
-//       // Remove the sold IMEI from the bulk purchase's RamSim and Imei collection
-//       await Imei.findByIdAndDelete(imeiRecord._id);
-//       ramSim.imeiNumbers = ramSim.imeiNumbers.filter(imei => imei._id.toString() !== imeiRecord._id.toString());
-//       await ramSim.save();
-//     }
-
-//     // Save the updated bulk phone purchase
-//     await bulkPhonePurchase.save();
-
-//     res.status(200).json({
-//       message: "Phones sold successfully",
-//       soldPhones
-//     });
-
-//   } catch (error) {
-//     console.error("Error selling phones:", error);
-//     res.status(500).json({ message: "Error selling phones", error: error.message });
-//   }
-// };
 
 
 // Get all sales (both single and bulk)
 exports.getAllSales = async (req, res) => {
     try {
         const allSales = await SoldPhone.find()
-            .populate({
-                path: 'bulkPhonePurchaseId',
-                model: 'BulkPhonePurchase',
-            });
+            // .populate({
+            //     path: 'bulkPhonePurchaseId',
+            //     model: 'BulkPhonePurchase',
+            // });
       
         const responseData = allSales.map(sale => ({
             ...sale.toObject(),
