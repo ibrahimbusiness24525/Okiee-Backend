@@ -12,14 +12,14 @@ ledgerRouter.get('/update-ledger/:ledgerId', ledgerController.updateLedgerRecord
 ledgerRouter.post('/end-day', ledgerController.endDay);
 ledgerRouter.get('/all', ledgerController.getAllRecords);
 //get ledger by id
-ledgerRouter.get('/:id', ledgerController.getLedgerById);
+ledgerRouter.get('/detail/:id', ledgerController.getLedgerById);
 
 // Route to fetch today's ledger
-ledgerRouter.get('/todayLedger', ledgerController.getTodaysLedger);
+ledgerRouter.get('/today', ledgerController.getTodaysLedger);
 
 
 //archieve and create new
-ledgerRouter.get('/createNew', ledgerController.archiveAndCreateNewLedger);
+// ledgerRouter.get('/createNew', ledgerController.archiveAndCreateNewLedger);
 
 
 module.exports = ledgerRouter;
