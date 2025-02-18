@@ -13,7 +13,10 @@ const {
     getAllPurchasePhones,
     sellPhonesFromBulk,
     getAllSales,
-    getAllBulkSales
+    getAllBulkSales,
+    getBulkPhoneById,
+    getBulkPhoneSaleById,
+    getSoldBulkPhoneDetailById
 } = require('../controllers/purchasePhoneController');
 
 // Multer setup for file uploads (specific for adding purchase phones)
@@ -48,10 +51,12 @@ router.get('/purchase-phone/filter', getPurchasePhoneByFilter);
 router.post('/sell-phone', sellPhonesFromBulk);
 
 router.get('/all-sales', getAllSales);
+router.get('/bulk-phone/sale/:id', getSoldBulkPhoneDetailById);
 
 // Route to get a specific purchase phone slip by ID
 router.get('/purchase-phone/:id', getPurchasePhoneById);
-
+//Route to get getBulkPhoneById
+router.get("/bulk-phone-purchase/:id",getBulkPhoneById)
 // Route to edit a purchase phone slip by ID
 router.put(
     '/purchase-phone/:id',

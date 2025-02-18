@@ -583,4 +583,24 @@ exports.getAllSales = async (req, res) => {
         });
     }
 };
+exports.getSoldBulkPhoneDetailById = async (req, res) => {
+    try {
+      const {id} = req.params;
+        const saleDetail = await SoldPhone.findById(id).populate({
+                path: 'bulkPhonePurchaseId',
+                model: 'BulkPhonePurchase',
+            });
+
+        res.status(200).json({
+            message: "Sales detail retrived successfully!",
+            data: saleDetail,
+        });
+    } catch (error) {
+        console.error("Error fetching dwetail:", error);
+        res.status(500).json({
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};
 

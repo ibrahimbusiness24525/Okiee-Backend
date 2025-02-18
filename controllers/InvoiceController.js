@@ -128,51 +128,7 @@ exports.createBulkInvoice = async (req, res) => {
     }
   };
   
-// exports.createBulkInvoice = async (req, res) => {
-//     try {
-//       const { shopId, bulkPurchaseId, selectedImeis } = req.body;
-  
-//       // Fetch bulk purchase details
-//       const bulkPurchase = await BulkPhonePurchase.findById(bulkPurchaseId);
-//       if (!bulkPurchase) {
-//         return res.status(404).json({ message: "Bulk purchase not found" });
-//       }
-  
-//       // Filter phones based on selected IMEIs (if provided)
-//       let phones = bulkPurchase.phones;
-//       if (selectedImeis && selectedImeis.length > 0) {
-//         phones = phones.filter(phone => selectedImeis.includes(phone.imei));
-//       }
-  
-    
-  
-//       // Calculate total amount
-//       const totalAmount = phones.reduce((sum, phone) => sum + phone.price, 0);
-  
-//       // Generate unique invoice number
-//       const invoiceNumber = `INV-${Date.now()}`;
-  
-//       // Create invoice
-//       const invoice = new InvoiceItemSchema({
-//         shopId,
-//         bulkPurchaseId,
-//         invoiceNumber,
-//         totalAmount,
-//         items: phones.map(phone => ({
-//           imei: phone.imei,
-//           model: phone.model,
-//           price: phone.price
-//         }))
-//       });
-  
-//       await invoice.save();
-  
-//       res.status(201).json({ message: "Invoice created successfully", invoice });
-//     } catch (error) {
-//       console.error("Failed to generate invoice:", error);
-//       res.status(500).json({ message: "Failed to generate invoice", error });
-//     }
-//   };
+
 exports.deleteInvoice = async (req, res) => {
     const { id } = req.params;
 
@@ -203,7 +159,7 @@ exports.getInvoice = async (req, res) => {
 
     try {
         // Find the invoice by ID
-        const invoice = await InvoiceSchema.findById(id).populate('items.invoiceId');
+        const invoice = await InvoiceSchema.findById(id).populate('items');
 
         if (!invoice) {
             return res.status(404).json({ message: "Invoice not found" });
@@ -227,6 +183,7 @@ const convertedInvoices = (invoice) => {
     
     if (invoice?.items?.length === 1) {
         return {
+            _id: invoice._id,
             invoiceDate: invoice?.invoiceDate,
             invoiceNumber: invoice?.invoiceNumber,
             shopId: invoice?.shopId,
