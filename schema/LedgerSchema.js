@@ -3,6 +3,10 @@ const mongoose = require('mongoose');
 
 const ledgerSchema = new mongoose.Schema(
   {
+    userId:{
+      type:mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
     openingCash: { type: Number, required: true, default: 0 },
     cashPaid: { type: Number, required: true, default: 0 },
     cashReceived: { type: Number, required: true, default: 0 },
