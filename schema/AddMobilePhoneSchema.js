@@ -14,10 +14,7 @@ const AddPhoneSchema = new mongoose.Schema({
     type: String,
     required: true,
   },  
-  modelSpecifications: {
-    type: String,
-    required: true,
-  },  
+ 
   specs: {
     type: String,
     required: true,

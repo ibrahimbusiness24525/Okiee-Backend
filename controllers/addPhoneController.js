@@ -201,9 +201,9 @@ exports.getPhone = async (req, res) => {
 
 // Get all Phones API
 exports.getAllPhones = async (req, res) => {
-  const id = req.params.id;
+  const {userId} = req.params;
   try {
-    const phones = await AddPhoneSchema.find({ shopId: id });
+    const phones = await AddPhoneSchema.find({ user:userId });
     return res.status(200).json({
       message: "Phones retrieved successfully!",
       phones: phones,
@@ -216,3 +216,19 @@ exports.getAllPhones = async (req, res) => {
     });
   }
 };
+// exports.getAllPhones = async (req, res) => {
+//   const id = req.params.id;
+//   try {
+//     const phones = await AddPhoneSchema.find({ shopId: id });
+//     return res.status(200).json({
+//       message: "Phones retrieved successfully!",
+//       phones: phones,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     return res.status(500).json({
+//       message: "Internal server error, please try again",
+//       error: error.message,
+//     });
+//   }
+// };
