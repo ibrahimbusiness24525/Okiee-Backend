@@ -2,9 +2,9 @@ const bcrypt = require("bcryptjs");
 const { validationResult } = require("express-validator");
 const nodemailer = require('nodemailer');
 const UserSchema = require("../schema/UserSchema");
-
+const {generateAuthToken} = require("../services/authServices");
 exports.register = async (req, res) => {
-  const accountId = req.params.accountId
+  // const accountId = req.params.accountId
   const { username, email, password, role } = req.body;
 
   try {
@@ -20,7 +20,7 @@ exports.register = async (req, res) => {
     if (user) {
       return res.status(400).json({ message: "User with this username or emali already exists!" });
     }
-
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = new UserSchema({
@@ -28,16 +28,18 @@ exports.register = async (req, res) => {
       role,
       username,
       password: hashedPassword,
-      accountId,
+      // accountId,
+      otp,
     });
-
     const savedUser = await newUser.save();
+    const token = await generateAuthToken(savedUser);
     return res.status(201).json({
       message: "User registered successfully!",
       user: savedUser,
+      token,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Registration error:", error);
     return res.status(500).json({
       message: "Internal server error, please try again",
       error: error.message,
@@ -71,12 +73,21 @@ exports.login = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ message: "Wrong credentials provided, please try again" });
     }
+    if(isMatch){
+      const token = await generateAuthToken(user);
+      return res.status(200).json({
+        message: "Logged in successfully",
+        redirect: "/dashboard",
+        data: user,
+        token,
+      });
+    }
 
-    return res.status(200).json({
-      message: "Logged in successfully",
-      redirect: "/dashboard",
-      data: user,
-    });
+    // return res.status(200).json({
+    //   message: "Logged in successfully",
+    //   redirect: "/dashboard",
+    //   data: user,
+    // });
   } catch (error) {
     console.error(error);
     return res.status(500).json({

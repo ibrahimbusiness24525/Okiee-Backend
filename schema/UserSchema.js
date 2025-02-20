@@ -32,6 +32,9 @@ const UserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     required: false,
   },
+  otp: {
+    type: String,
+  },
 });
 
 module.exports = mongoose.model("User", UserSchema);

@@ -4,29 +4,43 @@ const Ledger = require('../schema/LedgerSchema');
 // Update opening cash
 exports.updateOpeningCash = async (req, res) => {
   const { amount } = req.body;
-  const today = new Date().toISOString().split('T')[0]; // Get current date
-
+  const today = new Date().toISOString().split("T")[0];
+  const userId = req.user.id; // Ensure this is the logged-in user's ID
+  console.log("Updating points for user:", userId);
   try {
-    const ledger = await Ledger.findOne({ date: today });
+    if (amount < 0) {
+      return res.status(400).json({ message: "Opening cash cannot be negative!" });
+    }
+
+    let ledger = await Ledger.findOneAndUpdate({ date: today, userId: req.user.id });
 
     if (!ledger) {
-      return res.status(404).json({ message: "No ledger record for today found!" });
+      // Create a new ledger record if not found
+      ledger = new Ledger({
+        userId: req.user.id,
+        date: today,
+        openingCash: amount,
+      });
+
+      await ledger.save();
+      return res.status(201).json({ message: "New ledger record created!", ledger });
     }
 
     ledger.openingCash = amount;
     await ledger.save();
 
-    return res.status(200).json({ message: 'Opening cash updated successfully!', ledger });
+    return res.status(200).json({ message: "Opening cash updated successfully!", ledger });
   } catch (error) {
-    return res.status(500).json({ message: 'Error updating opening cash', error });
+    return res.status(500).json({ message: "Error updating opening cash", error });
   }
 };
+
 
 // Get all ledger records
 
 exports.getAllRecords = async (req, res) => {
     try {
-      const records = await Ledger.find().sort({ date: -1 }); // Sort records by date in descending order
+      const records = await Ledger.find({userId: req.user.id}).sort({ date: -1 }); // Sort records by date in descending order
       return res.status(200).json({ message: 'Ledger records fetched successfully!', records });
     } catch (error) {
       return res.status(500).json({ message: 'Error fetching ledger records', error });
@@ -67,7 +81,7 @@ exports.updateCashReceived = async (req, res) => {
   const today = new Date().toISOString().split('T')[0];
 
   try {
-    let ledger = await Ledger.findOne({ date: today });
+    let ledger = await Ledger.findOne({ date: today, userId: req.user.id });
 
     if (!ledger) {
       ledger = new Ledger({
@@ -99,7 +113,7 @@ exports.updateCashPaid = async (req, res) => {
   const today = new Date().toISOString().split('T')[0];
 
   try {
-    let ledger = await Ledger.findOne({ date: today });
+    let ledger = await Ledger.findOne({ date: today, userId: req.user.id });
 
     if (!ledger) {
       ledger = new Ledger({
@@ -131,7 +145,7 @@ exports.updateExpense = async (req, res) => {
   const today = new Date().toISOString().split('T')[0];
 
   try {
-    let ledger = await Ledger.findOne({ date: today });
+    let ledger = await Ledger.findOne({ date: today, userId: req.user.id });
 
     if (!ledger) {
       ledger = new Ledger({
@@ -164,7 +178,7 @@ exports.getTodaysLedger = async (req, res) => {
   const today = new Date().toISOString().split('T')[0];
 
   try {
-    let ledger = await Ledger.findOne({ date: today });
+    let ledger = await Ledger.findOne({ date: today, userId: req.user.id });
 
     if (!ledger) {
       ledger = new Ledger({
@@ -188,14 +202,14 @@ exports.getTodaysLedger = async (req, res) => {
 };
 
 // Archive and Create New Ledger
-exports.archiveAndCreateNewLedger = async () => {
+exports.archiveAndCreateNewLedger = async (req,res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const nextDay = tomorrow.toISOString().split('T')[0];
 
-    let todayLedger = await Ledger.findOne({ date: today });
+    let todayLedger = await Ledger.findOne({ date: today, userId: req.user.id });
 
     if (!todayLedger) {
       todayLedger = new Ledger({
@@ -216,7 +230,7 @@ exports.archiveAndCreateNewLedger = async () => {
       await todayLedger.save();
     }
 
-    const existingLedger = await Ledger.findOne({ date: nextDay });
+    const existingLedger = await Ledger.findOne({ date: nextDay, userId: req.user.id });
     if (!existingLedger) {
       const newLedger = new Ledger({
         openingCash: todayLedger.closingCash,
@@ -243,7 +257,7 @@ exports.archiveAndCreateNewLedger = async () => {
 exports.updateRemainingCash = async (req, res) => {
   try {
     const { ledgerId } = req.params;
-    const ledger = await Ledger.findById(ledgerId);
+    const ledger = await Ledger.findOne({_id:ledgerId, userId: req.user.id});
 
     if (!ledger) {
       return res.status(404).json({ message: "Ledger record not found!" });
@@ -275,7 +289,7 @@ exports.updateLedgerRecord = async (req, res) => {
   const { field, value } = req.body;
 
   try {
-    const ledger = await Ledger.findById(ledgerId);
+    const ledger = await Ledger.findOne({ _id: ledgerId, userId: req.user.id });
     if (!ledger) {
       return res.status(404).json({ message: "Ledger record not found!" });
     }
@@ -302,7 +316,7 @@ exports.endDay = async (req, res) => {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const nextDay = tomorrow.toISOString().split('T')[0];
 
-    let todayLedger = await Ledger.findOne({ date: today });
+    let todayLedger = await Ledger.findOne({ date: today, userId: req.user.id });
 
     if (!todayLedger) {
       todayLedger = new Ledger({
@@ -324,7 +338,7 @@ exports.endDay = async (req, res) => {
     todayLedger.archived = true;
     await todayLedger.save();
 
-    const existingLedger = await Ledger.findOne({ date: nextDay });
+    const existingLedger = await Ledger.findOne({ date: nextDay, userId: req.user.id });
     if (!existingLedger) {
       const newLedger = new Ledger({
         openingCash: todayLedger.closingCash,

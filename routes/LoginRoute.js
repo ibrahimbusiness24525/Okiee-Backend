@@ -5,7 +5,8 @@ const adminController = require('../controllers/adminController');
 const router = express.Router();
 
 router.post(
-  '/addUser/:accountId',
+  '/addUser',
+  // '/addUser/:accountId',
   [
     check('username', 'Username is required').notEmpty(),
     check('password', 'Password must be 8 or more characters').isLength({ min: 8 })
