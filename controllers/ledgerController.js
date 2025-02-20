@@ -12,7 +12,7 @@ exports.updateOpeningCash = async (req, res) => {
       return res.status(400).json({ message: "Opening cash cannot be negative!" });
     }
 
-    let ledger = await Ledger.findOneAndUpdate({ date: today, userId: req.user.id });
+    let ledger = await Ledger.findOne({ date: today, userId: req.user.id });
 
     if (!ledger) {
       // Create a new ledger record if not found
@@ -21,15 +21,20 @@ exports.updateOpeningCash = async (req, res) => {
         date: today,
         openingCash: amount,
       });
-
+      console.log("New Ledger created:", ledger);
       await ledger.save();
       return res.status(201).json({ message: "New ledger record created!", ledger });
     }
+    
+    else{
+      ledger.openingCash = amount;
+      await ledger.save();
+      console.log("updated:", ledger);
+      return res.status(200).json({ message: "Opening cash updated successfully!", ledger });
 
-    ledger.openingCash = amount;
-    await ledger.save();
+    }
+   
 
-    return res.status(200).json({ message: "Opening cash updated successfully!", ledger });
   } catch (error) {
     return res.status(500).json({ message: "Error updating opening cash", error });
   }
