@@ -16,8 +16,9 @@ const PORT = process.env.PORT || 8080;
 const app = express();
 
 connectDB();
+app.use(cors({ origin: "*", credentials: true }));
 
-app.use(cors());
+// app.use(cors());
 // app.use(cors({
 //     origin: 'https://www.okiiee.com', 
 //     methods: ['GET', 'POST', 'PUT', 'DELETE'], 

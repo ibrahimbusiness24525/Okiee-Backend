@@ -2,6 +2,10 @@ const mongoose = require('mongoose');
 
 // Existing schemas
 const PurchasePhoneSchema = new mongoose.Schema({
+   userId:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
   shopid: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Shop",

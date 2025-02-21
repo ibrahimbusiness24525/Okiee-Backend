@@ -187,6 +187,7 @@ exports.getTodaysLedger = async (req, res) => {
 
     if (!ledger) {
       ledger = new Ledger({
+        userId: req.user.id, 
         openingCash: 0,
         cashReceived: 0,
         cashPaid: 0,

@@ -18,6 +18,7 @@ const {
     getBulkPhoneSaleById,
     getSoldBulkPhoneDetailById
 } = require('../controllers/purchasePhoneController');
+const { decoderMiddleware } = require('../services/authServices');
 
 // Multer setup for file uploads (specific for adding purchase phones)
 const upload = multer({ dest: 'uploads/' }); // You can modify the destination as needed
@@ -30,6 +31,11 @@ router.post(
         { name: 'personPicture', maxCount: 1 },
         { name: 'eGadgetStatusPicture', maxCount: 1 }
     ]),
+     (req, res, next) => { 
+        console.log("After Multer:", req.files); 
+        next(); 
+    },
+    decoderMiddleware,
     addPurchasePhone
 );
 
@@ -41,7 +47,7 @@ router.get(
 );
 
 // Route to get all purchase phone slips
-router.get('/purchase-phone', getAllPurchasePhone);
+router.get('/purchase-phone',decoderMiddleware, getAllPurchasePhone);
 // get all bulk and single phones
 router.get('/all-purchase-phone', getAllPurchasePhones);
 

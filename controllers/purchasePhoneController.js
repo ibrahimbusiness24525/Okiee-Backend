@@ -3,20 +3,23 @@ const { Imei, RamSim, BulkPhonePurchase, PurchasePhone,SoldPhone } = require("..
 
 
 exports.addPurchasePhone = async (req, res) => {
+  const {
+      name, fatherName, companyName, modelName, date, cnic,
+      accessories, phoneCondition, specifications, ramMemory,
+      color, imei1, imei2, mobileNumber, isApprovedFromEgadgets,
+      purchasePrice, finalPrice, demandPrice,warranty,shopid
+  } = req.body;
+  // const phonePicture = req.files['phonePicture']?.[0]?.path;
+  // const personPicture = req.files['personPicture']?.[0]?.path;
+  // const eGadgetStatusPicture = req.files['eGadgetStatusPicture']?.[0]?.path;
+  // console.log("This is phone picture", phonePicture)
     try {
-        const {
-            name, fatherName, companyName, modelName, date, cnic,
-            accessories, phoneCondition, specifications, ramMemory,
-            color, imei1, imei2, mobileNumber, isApprovedFromEgadgets,
-            purchasePrice, finalPrice, demandPrice,warranty,shopid
-        } = req.body;
 
-        const phonePicture = req.files['phonePicture']?.[0]?.path;
-        const personPicture = req.files['personPicture']?.[0]?.path;
-        const eGadgetStatusPicture = req.files['eGadgetStatusPicture']?.[0]?.path;
-
+        console.log("This is userId add phone", req.user.id)
         // Create a new entry
+
         const purchasePhone = new PurchasePhone({
+            userId: req.user.id,
             shopid,
             warranty,
             name,
@@ -32,8 +35,8 @@ exports.addPurchasePhone = async (req, res) => {
             color,
             imei1,
             imei2,
-            phonePicture,
-            personPicture,
+            // phonePicture,
+            // personPicture,
             mobileNumber,
             price: {
                 purchasePrice,
@@ -41,7 +44,7 @@ exports.addPurchasePhone = async (req, res) => {
                 demandPrice,
             },
             isApprovedFromEgadgets,
-            eGadgetStatusPicture,
+            // eGadgetStatusPicture,
         });
 
         // Save to database
@@ -98,7 +101,7 @@ exports.getAllPurchasePhone = async (req, res) => {
   const shopid = req.params
     try {
         // If no query parameters are provided, this will return all records
-        const purchasePhones = await PurchasePhone.find();
+        const purchasePhones = await PurchasePhone.find({userId:req.user.id});
 
 
         // Respond with the results
