@@ -98,32 +98,46 @@ exports.getPurchasePhoneByFilter =  async (req, res) => {
 };
 
 exports.getAllPurchasePhone = async (req, res) => {
-  const shopid = req.params
-    try {
-        // If no query parameters are provided, this will return all records
-        const purchasePhones = await PurchasePhone.find({userId:req.user.id});
+  try {
+      // Fetch all purchase phone slips for the logged-in user
+      const purchasePhones = await PurchasePhone.find({ userId: req.user.id }).populate("soldDetails");
 
+      // Format the response to match the required structure
+      const formattedPhones = purchasePhones.map(phone => ({
+          _id: phone._id,
+          images: phone.images || [], // Ensure images field exists
+          companyName: phone.companyName,
+          modelSpecifications: phone.modelName, // Assuming modelName is equivalent
+          specs: `${phone.ramMemory} GB, ${phone.specifications}`, // Adjust as per actual field names
+          imei: phone.imei1,
+          imei2: phone.imei2 || "",
+          demandPrice: phone.price?.demandPrice || 0,
+          purchasePrice: phone.price?.purchasePrice || 0,
+          finalPrice: phone.price?.finalPrice || 0,
+          shopId: phone.shopid, // Ensure correct mapping
+          color: phone.color,
+          __v: phone.__v,
+      }));
 
-        // Respond with the results
-        res.status(200).json({ 
-            message: 'All purchase phone slips retrieved successfully!', 
-            data: purchasePhones
-        });
-    } catch (error) {
-        console.error('Error fetching all purchase phone slips:', error);
-        res.status(500).json({ 
-            message: 'Internal server error', 
-            error: error.message 
-        });
-    }
+      res.status(200).json({
+          message: "Phones retrieved successfully!",
+          phones: formattedPhones
+      });
+  } catch (error) {
+      console.error('Error fetching all purchase phone slips:', error);
+      res.status(500).json({
+          message: 'Internal server error',
+          error: error.message
+      });
+  }
 };
 exports.getAllPurchasePhones = async (req, res) => {
   try {
       // Fetch all single purchase phones
-      const purchasePhones = await PurchasePhone.find().populate("soldDetails");
-      
+      const purchasePhones = await PurchasePhone.find({userId: req.user.id}).populate("soldDetails");
+      console.log("Tis is userIdd",req.user.id)
       // Fetch all bulk purchased phones with RAM and IMEI details
-      const bulkPhones = await BulkPhonePurchase.find()
+      const bulkPhones = await BulkPhonePurchase.find({userId: req.user.id})
           .populate({
               path: "ramSimDetails",
               populate: { path: "imeiNumbers" },
@@ -255,57 +269,6 @@ exports.deletePurchasePhone = async (req, res) => {
     }
 };
 
-// Add a new Bulk Phone Purchase
-// router.post("/bulk-phone-purchase",
-// exports.addBulkPhones = async (req, res) => {
-//   try {
-//     const { partyName, date, companyName, modelName, ramSimDetails, prices } = req.body;
-
-//     const bulkPhonePurchase = new BulkPhonePurchase({
-//       partyName,
-//       date,
-//       companyName,
-//       modelName,
-//       prices,
-//     });
-
-//     const savedBulkPhonePurchase = await bulkPhonePurchase.save();
-
-//     savedBulkPhonePurchase.ramSimDetails = ramSimDetails;
-
-//     await savedBulkPhonePurchase.save();
-
-    // for (const ramSim of ramSimDetails) {
-    //   const newRamSim = new RamSim({
-    //     ramMemory: ramSim.ramMemory,
-    //     simOption: ramSim.simOption,
-    //     bulkPhonePurchaseId: savedBulkPhonePurchase._id,
-    //   });
-
-    //   const savedRamSim = await newRamSim.save();
-
-    //   for (const imei of ramSim.imeiNumbers) {
-    //     const newImei = new Imei({
-    //       imei1: imei.imei1,
-    //       imei2: imei.imei2,
-    //       ramSimId: savedRamSim._id,
-    //     });
-    //     await newImei.save();
-    //     savedRamSim.imeiNumbers.push(newImei._id);
-    //   }
-
-    //   await savedRamSim.save();
-    //   savedBulkPhonePurchase.ramSimDetails.push(savedRamSim._id);
-    // }
-
-//     await savedBulkPhonePurchase.save();
-
-//     res.status(201).json({ message: "Bulk Phone Purchase created successfully", data: savedBulkPhonePurchase });
-//   } catch (error) {
-//     res.status(500).json({ message: "Error creating Bulk Phone Purchase", error: error.message });
-//   }
-// };
-
 exports.addBulkPhones = async (req, res) => {
   try {
     console.log("Incoming Request Body:", req.body); // Debugging
@@ -319,6 +282,7 @@ exports.addBulkPhones = async (req, res) => {
     }
 
     const bulkPhonePurchase = new BulkPhonePurchase({
+      userId: req.user.id,
       partyName,
       date,
       companyName,
@@ -379,7 +343,7 @@ exports.addBulkPhones = async (req, res) => {
 // router.get("/bulk-phone-purchase", 
 exports.getBulkPhone = async (req, res) => {
   try {
-    const bulkPhonePurchases = await BulkPhonePurchase.find()
+    const bulkPhonePurchases = await BulkPhonePurchase.find({userId: req.user.id})
       .populate({
         path: "ramSimDetails",
         model: "RamSim", 

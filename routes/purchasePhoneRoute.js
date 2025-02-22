@@ -40,16 +40,16 @@ router.post(
 );
 
 router.post(
-    '/bulk-phone-purchase',addBulkPhones
+    '/bulk-phone-purchase',decoderMiddleware,addBulkPhones//used
 );
 router.get(
-    '/bulk-phone-purchase',getBulkPhone
+    '/bulk-phone-purchase',decoderMiddleware,getBulkPhone//used to get all bulk only
 );
 
 // Route to get all purchase phone slips
-router.get('/purchase-phone',decoderMiddleware, getAllPurchasePhone);
+router.get('/purchase-phone',decoderMiddleware, getAllPurchasePhone);// used to get single phones only
 // get all bulk and single phones
-router.get('/all-purchase-phone', getAllPurchasePhones);
+router.get('/all-purchase-phone',decoderMiddleware,getAllPurchasePhones);//used
 
 // Route to get purchase phone slips with filtering
 router.get('/purchase-phone/filter', getPurchasePhoneByFilter);

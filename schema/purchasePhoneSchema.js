@@ -53,6 +53,11 @@ const PurchasePhoneSchema = new mongoose.Schema({
 
 
 const SoldPhoneSchema = new mongoose.Schema({
+  userId:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
   bulkPhonePurchaseId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'BulkPhonePurchase',
