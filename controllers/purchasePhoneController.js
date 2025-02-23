@@ -1,5 +1,5 @@
 const multer = require('multer');
-const { Imei, RamSim, BulkPhonePurchase, PurchasePhone,SoldPhone } = require("../schema/purchasePhoneSchema");
+const { Imei, RamSim, BulkPhonePurchase, PurchasePhone,SoldPhone, SingleSoldPhone } = require("../schema/purchasePhoneSchema");
 
 
 exports.addPurchasePhone = async (req, res) => {
@@ -56,6 +56,65 @@ exports.addPurchasePhone = async (req, res) => {
     }
 };
 
+exports.sellSinglePhone = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { purchasePhoneId, salePrice, warranty,  } = req.body;
+    console.log("This is userId",purchasePhoneId,salePrice,warranty, userId)
+
+    if (!purchasePhoneId || !salePrice || !warranty || !userId) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // Find the phone in the PurchasePhone collection
+    const phone = await PurchasePhone.findById(purchasePhoneId);
+    if (!phone) {
+      return res.status(404).json({ message: "Phone not found" });
+    }
+
+    if (phone.isSold) {
+      return res.status(400).json({ message: "Phone is already sold" });
+    }
+
+    // Create SoldPhone record
+    const soldPhone = new SingleSoldPhone({
+      purchasePhoneId,
+      userId,
+      shopid: phone.shopid,
+      imei1: phone.imei1,
+      imei2: phone.imei2,
+      salePrice,
+      warranty,
+    });
+
+    await soldPhone.save();
+
+    // Delete the phone from the PurchasePhone collection
+    await PurchasePhone.findByIdAndDelete(purchasePhoneId);
+
+    res.status(200).json({ message: "Phone sold and removed from inventory", soldPhone });
+  } catch (error) {
+    console.error("Error selling and deleting phone:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+exports.getAllSingleSoldPhones = async (req, res) => {
+  try {
+    const soldPhones = await SingleSoldPhone.find({userId: req.user.id})
+      .populate("userId", "name email") // Populate user details (optional)
+      .populate("shopid", "shopName location") // Populate shop details (optional)
+      .populate("purchasePhoneId"); // If needed, get original phone details
+
+    if (!soldPhones || soldPhones.length === 0) {
+      return res.status(404).json({ message: "No sold phones found" });
+    }
+
+    res.status(200).json({ success: true, soldPhones });
+  } catch (error) {
+    console.error("Error fetching sold phones:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
 // Get all purchase phone slips or filtered results
 exports.getPurchasePhoneByFilter =  async (req, res) => {
     try {
@@ -109,6 +168,7 @@ exports.getAllPurchasePhone = async (req, res) => {
           companyName: phone.companyName,
           modelSpecifications: phone.modelName, // Assuming modelName is equivalent
           specs: `${phone.ramMemory} GB, ${phone.specifications}`, // Adjust as per actual field names
+          phoneCondition: phone.phoneCondition,
           imei: phone.imei1,
           imei2: phone.imei2 || "",
           demandPrice: phone.price?.demandPrice || 0,
@@ -116,6 +176,7 @@ exports.getAllPurchasePhone = async (req, res) => {
           finalPrice: phone.price?.finalPrice || 0,
           shopId: phone.shopid, // Ensure correct mapping
           color: phone.color,
+          warranty: phone.warranty,
           __v: phone.__v,
       }));
 
@@ -300,7 +361,7 @@ exports.addBulkPhones = async (req, res) => {
         ramSimDetails.map(async (ramSim) => {
           const newRamSim = new RamSim({
             ramMemory: ramSim.ramMemory,
-            simOption: ramSim.simOption,
+            simOption: ramSim.simOption,  
             bulkPhonePurchaseId: savedBulkPhonePurchase._id,
           });
 
@@ -437,7 +498,6 @@ exports.sellPhonesFromBulk = async (req, res) => {
   try {
     const { bulkPhonePurchaseId, imeiNumbers, salePrice, warranty } = req.body;
 
-    // Validate required fields
     // if (!bulkPhonePurchaseId || !imeiNumbers || !Array.isArray(imeiNumbers) || imeiNumbers.length === 0) {
     //   return res.status(400).json({ message: "Invalid data: imeiNumbers must be a non-empty array" });
     // }
@@ -479,7 +539,8 @@ exports.sellPhonesFromBulk = async (req, res) => {
         imei1: imeiRecord.imei1,
         imei2: imeiRecord.imei2 || null, // Handle missing imei2
         salePrice,
-        warranty
+        warranty,
+        userId: req.user.id,
       });
 
       // Save the sold phone record
@@ -527,7 +588,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
 // Get all sales (both single and bulk)
 exports.getAllSales = async (req, res) => {
     try {
-        const allSales = await SoldPhone.find()
+        const allSales = await SoldPhone.find({userId: req.user.id})  
             // .populate({
             //     path: 'bulkPhonePurchaseId',
             //     model: 'BulkPhonePurchase',

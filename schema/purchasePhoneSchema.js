@@ -49,6 +49,28 @@ const PurchasePhoneSchema = new mongoose.Schema({
   },
 });
 
+const SingleSoldPhoneSchema = new mongoose.Schema({
+  purchasePhoneId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "PurchasePhone",
+    required: true,
+  },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  shopid: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Shop",
+    required: true,
+  },
+  imei1: { type: String, required: true },
+  imei2: { type: String, required: false },
+  salePrice: { type: Number, required: true },
+  warranty: { type: String, required: true, default: '12 months' },
+  saleDate: { type: Date, default: Date.now },
+});
 // Sold Phone schema
 
 
@@ -87,6 +109,7 @@ const RamSimSchema = new mongoose.Schema({
 });
 
 const BulkPhonePurchaseSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   partyName: { type: String },
   date: { type: Date },
   companyName: { type: String },
@@ -109,8 +132,9 @@ const RamSim = mongoose.model("RamSim", RamSimSchema);
 const BulkPhonePurchase = mongoose.model("BulkPhonePurchase", BulkPhonePurchaseSchema);
 const PurchasePhone = mongoose.model('PurchasePhone', PurchasePhoneSchema);
 const SoldPhone = mongoose.model("SoldPhone", SoldPhoneSchema);
+const SingleSoldPhone = mongoose.model("SingleSoldPhoneSchema", SingleSoldPhoneSchema);
 
-module.exports = { Imei, RamSim, BulkPhonePurchase, PurchasePhone, SoldPhone };
+module.exports = { Imei, RamSim, BulkPhonePurchase, PurchasePhone, SoldPhone,SingleSoldPhone };
 
 
 

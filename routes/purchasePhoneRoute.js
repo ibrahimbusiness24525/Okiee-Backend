@@ -16,7 +16,9 @@ const {
     getAllBulkSales,
     getBulkPhoneById,
     getBulkPhoneSaleById,
-    getSoldBulkPhoneDetailById
+    getSoldBulkPhoneDetailById,
+    sellSinglePhone,
+    getAllSingleSoldPhones
 } = require('../controllers/purchasePhoneController');
 const { decoderMiddleware } = require('../services/authServices');
 
@@ -45,6 +47,12 @@ router.post(
 router.get(
     '/bulk-phone-purchase',decoderMiddleware,getBulkPhone//used to get all bulk only
 );
+router.post(
+    '/sell-single-phone',decoderMiddleware,sellSinglePhone//used to sell single phone only
+);
+router.get(
+    '/sold-single-phones',decoderMiddleware,getAllSingleSoldPhones//used to sell single phone only
+);
 
 // Route to get all purchase phone slips
 router.get('/purchase-phone',decoderMiddleware, getAllPurchasePhone);// used to get single phones only
@@ -54,9 +62,9 @@ router.get('/all-purchase-phone',decoderMiddleware,getAllPurchasePhones);//used
 // Route to get purchase phone slips with filtering
 router.get('/purchase-phone/filter', getPurchasePhoneByFilter);
 
-router.post('/sell-phone', sellPhonesFromBulk);
+router.post('/sell-phone',decoderMiddleware, sellPhonesFromBulk);//used to sale bulk phones
 
-router.get('/all-sales', getAllSales);
+router.get('/all-sales',decoderMiddleware, getAllSales);
 router.get('/bulk-phone/sale/:id', getSoldBulkPhoneDetailById);
 
 // Route to get a specific purchase phone slip by ID
