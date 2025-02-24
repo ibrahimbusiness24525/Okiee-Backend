@@ -1,5 +1,7 @@
 const multer = require('multer');
 const { Imei, RamSim, BulkPhonePurchase, PurchasePhone,SoldPhone, SingleSoldPhone } = require("../schema/purchasePhoneSchema");
+const { default: mongoose } = require('mongoose');
+const { invoiceGenerator } = require('../services/invoiceGenerator');
 
 
 exports.addPurchasePhone = async (req, res) => {
@@ -58,52 +60,95 @@ exports.addPurchasePhone = async (req, res) => {
 
 exports.sellSinglePhone = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { purchasePhoneId, salePrice, warranty,  } = req.body;
-    console.log("This is userId",purchasePhoneId,salePrice,warranty, userId)
+    const { purchasePhoneId, customerName, cnicFrontPic, cnicBackPic, finalPrice, warranty } = req.body;
 
-    if (!purchasePhoneId || !salePrice || !warranty || !userId) {
-      return res.status(400).json({ message: "All fields are required" });
+    console.log("Received Data:", req.body);
+    
+    // Fetch the purchased phone details
+    const purchasedPhone = await PurchasePhone.findById(purchasePhoneId);
+    if (!purchasedPhone) {
+      return res.status(404).json({ message: "Purchased phone not found" });
     }
 
-    // Find the phone in the PurchasePhone collection
-    const phone = await PurchasePhone.findById(purchasePhoneId);
-    if (!phone) {
-      return res.status(404).json({ message: "Phone not found" });
+    console.log("Purchased Phone Data:", purchasedPhone);
+
+    // Ensure the phone is not already sold
+    if (purchasedPhone.isSold) {
+      return res.status(400).json({ message: "This phone is already sold" });
     }
 
-    if (phone.isSold) {
-      return res.status(400).json({ message: "Phone is already sold" });
+    // Set warranty based on condition
+    const updatedWarranty = purchasedPhone.phoneCondition === "Used" ? warranty : "12 months";
+
+    // Ensure user ID exists
+    if (!req.user?.id) {
+      return res.status(401).json({ message: "Unauthorized: User ID missing" });
     }
 
-    // Create SoldPhone record
+    // Create a new sold phone entry
     const soldPhone = new SingleSoldPhone({
       purchasePhoneId,
-      userId,
-      shopid: phone.shopid,
-      imei1: phone.imei1,
-      imei2: phone.imei2,
-      salePrice,
-      warranty,
+      userId: req.user.id,
+      shopid: purchasedPhone.shopid,
+      customerName,
+      cnicFrontPic,
+      cnicBackPic,
+      mobileNumber: purchasedPhone.mobileNumber,
+      name: purchasedPhone.name,
+      fatherName: purchasedPhone.fatherName,
+      companyName: purchasedPhone.companyName,
+      modelName: purchasedPhone.modelName,
+      purchaseDate: purchasedPhone.date,
+      saleDate: new Date(),
+      phoneCondition: purchasedPhone.phoneCondition,
+      warranty: updatedWarranty,
+      specifications: purchasedPhone.specifications,
+      ramMemory: purchasedPhone.ramMemory,
+      color: purchasedPhone.color,
+      imei1: purchasedPhone.imei1,
+      imei2: purchasedPhone.imei2,
+      phonePicture: purchasedPhone.phonePicture,
+      personPicture: purchasedPhone.personPicture,
+      accessories: purchasedPhone.accessories,
+      purchasePrice: purchasedPhone.price.purchasePrice,
+      finalPrice: finalPrice || purchasedPhone.price.finalPrice,
+      demandPrice: purchasedPhone.price.demandPrice,
+      isApprovedFromEgadgets: purchasedPhone.isApprovedFromEgadgets,
+      eGadgetStatusPicture: purchasedPhone.eGadgetStatusPicture,
+      invoiceNumber: "INV-" + new Date().getTime(),
     });
 
+    // Validate the object before saving
+    const validationError = soldPhone.validateSync();
+    if (validationError) {
+      console.error("Validation Error:", validationError);
+      return res.status(400).json({ message: "Validation failed", error: validationError });
+    }
+
+    // Save the sold phone
     await soldPhone.save();
 
-    // Delete the phone from the PurchasePhone collection
-    await PurchasePhone.findByIdAndDelete(purchasePhoneId);
+    // Mark purchased phone as sold and remove it
+    purchasedPhone.isSold = true;
+    purchasedPhone.soldDetails = soldPhone._id;
+    await PurchasePhone.findByIdAndDelete(purchasePhoneId); // Fixes deletion issue
 
-    res.status(200).json({ message: "Phone sold and removed from inventory", soldPhone });
+    res.status(201).json({ message: "Phone sold successfully", soldPhone });
   } catch (error) {
-    console.error("Error selling and deleting phone:", error);
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    console.error("Error selling phone:", error);
+    res.status(500).json({ message: "Internal server error", error });
   }
 };
+
 exports.getAllSingleSoldPhones = async (req, res) => {
   try {
     const soldPhones = await SingleSoldPhone.find({userId: req.user.id})
       .populate("userId", "name email") // Populate user details (optional)
-      .populate("shopid", "shopName location") // Populate shop details (optional)
-      .populate("purchasePhoneId"); // If needed, get original phone details
+      .populate({
+        path: "purchasePhoneId",
+        model: "PurchasePhone",  // Explicitly specify the model
+        select: "companyName modelName imei1 imei2", // Select required fields
+      });// If needed, get original phone details
 
     if (!soldPhones || soldPhones.length === 0) {
       return res.status(404).json({ message: "No sold phones found" });
@@ -176,6 +221,7 @@ exports.getAllPurchasePhone = async (req, res) => {
           finalPrice: phone.price?.finalPrice || 0,
           shopId: phone.shopid, // Ensure correct mapping
           color: phone.color,
+          isSold:phone.isSold,
           warranty: phone.warranty,
           __v: phone.__v,
       }));
@@ -496,7 +542,7 @@ exports.deleteBulkPhone = async (req, res) => {
 
 exports.sellPhonesFromBulk = async (req, res) => {
   try {
-    const { bulkPhonePurchaseId, imeiNumbers, salePrice, warranty } = req.body;
+    const { bulkPhonePurchaseId, imeiNumbers, salePrice, warranty,customerName,cnicBackPic,cnicFrontPic } = req.body;
 
     // if (!bulkPhonePurchaseId || !imeiNumbers || !Array.isArray(imeiNumbers) || imeiNumbers.length === 0) {
     //   return res.status(400).json({ message: "Invalid data: imeiNumbers must be a non-empty array" });
@@ -539,8 +585,12 @@ exports.sellPhonesFromBulk = async (req, res) => {
         imei1: imeiRecord.imei1,
         imei2: imeiRecord.imei2 || null, // Handle missing imei2
         salePrice,
+        customerName,
+        cnicBackPic,
+        cnicFrontPic,
         warranty,
         userId: req.user.id,
+          invoiceNumber: invoiceGenerator(),
       });
 
       // Save the sold phone record

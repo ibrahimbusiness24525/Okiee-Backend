@@ -50,27 +50,53 @@ const PurchasePhoneSchema = new mongoose.Schema({
 });
 
 const SingleSoldPhoneSchema = new mongoose.Schema({
-  purchasePhoneId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "PurchasePhone",
-    required: true,
-  },
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-  },
-  shopid: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Shop",
-    required: true,
-  },
+  purchasePhoneId: { type: mongoose.Schema.Types.ObjectId, ref: "PurchasePhone", required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  shopid: { type: mongoose.Schema.Types.ObjectId, ref: "Shop", required: true },
+  customerName: { type: String, required: true },
+  cnic: { type: String, required: false },
+  cnicFrontPic: { type: String, required: false }, // File URL
+  cnicBackPic: { type: String, required: false },  // File URL
+  mobileNumber: { type: String, required: true },
+
+  // Phone Details
+  name: { type: String, required: true },
+  fatherName: { type: String, required: false },
+  companyName: { type: String, required: true },
+  modelName: { type: String, required: true },
+  purchaseDate: { type: Date, required: true },
+  saleDate: { type: Date, default: Date.now },
+  phoneCondition: { type: String, enum: ["New", "Used"], required: true },
+
+  // Warranty should be updated based on condition
+  warranty: { type: String, required: true },
+
+  specifications: { type: String, required: true },
+  ramMemory: { type: String, required: true },
+  color: { type: String, required: false },
   imei1: { type: String, required: true },
   imei2: { type: String, required: false },
-  salePrice: { type: Number, required: true },
-  warranty: { type: String, required: true, default: '12 months' },
-  saleDate: { type: Date, default: Date.now },
+  phonePicture: { type: String, required: false }, // File URL
+  personPicture: { type: String, required: false }, // File URL
+
+  // Accessories
+  accessories: {
+    box: { type: Boolean, default: false },
+    charger: { type: Boolean, default: false },
+    handFree: { type: Boolean, default: false },
+  },
+
+  // Pricing Details
+  purchasePrice: { type: Number, required: true },
+  finalPrice: { type: Number, required: false },
+  demandPrice: { type: Number, required: false },
+
+  // Approval & Invoice
+  isApprovedFromEgadgets: { type: Boolean, default: false },
+  eGadgetStatusPicture: { type: String, required: false }, // File URL
+  invoiceNumber: { type: String, required: true, unique: true },
 });
+
 // Sold Phone schema
 
 
@@ -85,9 +111,13 @@ const SoldPhoneSchema = new mongoose.Schema({
     ref: 'BulkPhonePurchase',
     default: null  // Set default to null for single phone sales
   },
+  customerName: { type: String, required: true },
+  cnicFrontPic: { type: String, required: false }, // File URL
+  cnicBackPic: { type: String, required: false },  // File
   imei1: { type: String, required: true },
   imei2: { type: String, default: null },
   salePrice: { type: Number, required: true },
+  invoiceNumber: { type: String, required: true, unique: true },
   warranty: { type: String, required: true },  
   dateSold: { type: Date, default: Date.now }
 });
@@ -132,7 +162,7 @@ const RamSim = mongoose.model("RamSim", RamSimSchema);
 const BulkPhonePurchase = mongoose.model("BulkPhonePurchase", BulkPhonePurchaseSchema);
 const PurchasePhone = mongoose.model('PurchasePhone', PurchasePhoneSchema);
 const SoldPhone = mongoose.model("SoldPhone", SoldPhoneSchema);
-const SingleSoldPhone = mongoose.model("SingleSoldPhoneSchema", SingleSoldPhoneSchema);
+const SingleSoldPhone = mongoose.model("SingleSoldPhone", SingleSoldPhoneSchema);
 
 module.exports = { Imei, RamSim, BulkPhonePurchase, PurchasePhone, SoldPhone,SingleSoldPhone };
 

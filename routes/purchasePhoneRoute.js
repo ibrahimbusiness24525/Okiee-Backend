@@ -56,6 +56,7 @@ router.get(
 
 // Route to get all purchase phone slips
 router.get('/purchase-phone',decoderMiddleware, getAllPurchasePhone);// used to get single phones only
+
 // get all bulk and single phones
 router.get('/all-purchase-phone',decoderMiddleware,getAllPurchasePhones);//used
 

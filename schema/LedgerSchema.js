@@ -12,7 +12,9 @@ const ledgerSchema = new mongoose.Schema(
     cashReceived: { type: Number, required: true, default: 0 },
     expense: { type: Number, required: true, default: 0 },
     closingCash: { type: Number, required: true, default: 0 },
-    date: { type: String, required: true ,}, 
+    date: { type: String, required: true, default: () => new Date().toISOString().split('T')[0] },
+
+
     cashReceivedDetails: [
       { amount: { type: Number }, source: { type: String }, date: { type: Date } },
     ], 
