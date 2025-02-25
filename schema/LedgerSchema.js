@@ -12,7 +12,7 @@ const ledgerSchema = new mongoose.Schema(
     cashReceived: { type: Number, required: true, default: 0 },
     expense: { type: Number, required: true, default: 0 },
     closingCash: { type: Number, required: true, default: 0 },
-    date: { type: String, required: true, default: () => new Date().toISOString().split('T')[0] },
+    date: { type: String, required: true},
 
 
     cashReceivedDetails: [
@@ -28,7 +28,7 @@ const ledgerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ledgerSchema.index({ userId: 1, date: 1 }, { unique: true });
+ledgerSchema.index({ userId: 1, date: 1 }, { unique: true });
 ledgerSchema.pre('save', function(next) {
 
   this.closingCash = this.openingCash + this.cashReceived - this.cashPaid - this.expense;

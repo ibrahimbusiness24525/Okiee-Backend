@@ -180,10 +180,13 @@ exports.updateExpense = async (req, res) => {
 
 
 exports.getTodaysLedger = async (req, res) => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split("T")[0];
 
   try {
     let ledger = await Ledger.findOne({ date: today, userId: req.user.id });
+    
+    console.log("today:", today);
+    console.log("ledger data:", ledger ? ledger.date : "No ledger found");
 
     if (!ledger) {
       ledger = new Ledger({
@@ -196,16 +199,19 @@ exports.getTodaysLedger = async (req, res) => {
         cashReceivedDetails: [],
         cashPaidDetails: [],
         expenseDetails: [],
-        date: today
+        date: today,
       });
+
       await ledger.save();
     }
 
-    return res.status(200).json({ message: 'Today’s ledger record fetched successfully!', ledger });
+    return res.status(200).json({ message: "Today's ledger record fetched successfully!", ledger });
   } catch (error) {
-    return res.status(500).json({ message: 'Error fetching today’s ledger record', error });
+    console.error("Error fetching today's ledger:", error); // 🔴 Log the full error
+    return res.status(500).json({ message: "Error fetching today's ledger record", error: error.message });
   }
 };
+
 
 // Archive and Create New Ledger
 exports.archiveAndCreateNewLedger = async (req,res) => {
