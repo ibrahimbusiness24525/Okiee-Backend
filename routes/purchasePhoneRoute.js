@@ -18,7 +18,8 @@ const {
     getBulkPhoneSaleById,
     getSoldBulkPhoneDetailById,
     sellSinglePhone,
-    getAllSingleSoldPhones
+    getAllSingleSoldPhones,
+    deleteBulkPhone
 } = require('../controllers/purchasePhoneController');
 const { decoderMiddleware } = require('../services/authServices');
 
@@ -84,6 +85,7 @@ router.put(
 );
 
 // Route to delete a purchase phone slip by ID
-router.delete('/purchase-phone/:id', deletePurchasePhone);
+router.delete('/purchase-bulk/delete/:id',decoderMiddleware, deleteBulkPhone);
+router.delete('/purchase-phone/delete/:id',decoderMiddleware, deletePurchasePhone);
 
 module.exports = router;

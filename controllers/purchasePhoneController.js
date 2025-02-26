@@ -359,22 +359,32 @@ exports.editPurchasePhone = async (req, res) => {
 
 // Delete Purchase Phone Slip
 exports.deletePurchasePhone = async (req, res) => {
-    try {
-        const { id } = req.params;
+  try {
+      const userId = req.user.id; // Extract from token (assuming middleware is used)
+      const { id } = req.params;
 
-        // Find and delete the document by ID
-        const deletedPhone = await PurchasePhone.findByIdAndDelete(id);
+      // Find the phone slip
+      const deletedPhone = await PurchasePhone.findById(id);
 
-        if (!deletedPhone) {
-            return res.status(404).json({ message: 'Purchase phone slip not found' });
-        }
+      if (!deletedPhone) {
+          return res.status(404).json({ message: 'Purchase phone slip not found' });
+      }
 
-        res.status(200).json({ message: 'Purchase phone slip deleted successfully!', data: deletedPhone });
-    } catch (error) {
-        console.error('Error deleting purchase phone slip:', error);
-        res.status(500).json({ message: 'Internal server error', error: error.message });
-    }
+      // Check if the user is authorized (e.g., only the user who added it or an admin)
+      if (deletedPhone.userId.toString() !== userId) {
+          return res.status(403).json({ message: 'Unauthorized to delete this purchase phone slip' });
+      }
+
+      // Delete the document
+      await PurchasePhone.findByIdAndDelete(id);
+
+      res.status(200).json({ message: 'Purchase phone slip deleted successfully!', data: deletedPhone });
+  } catch (error) {
+      console.error('Error deleting purchase phone slip:', error);
+      res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
 };
+
 
 exports.addBulkPhones = async (req, res) => {
   try {
@@ -516,28 +526,36 @@ exports.updateBulkPhone = async (req, res) => {
 exports.deleteBulkPhone = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user?.id; // Ensure userId exists
 
-    // Delete related RamSim and Imei entries
+    // Find the BulkPhonePurchase document
     const bulkPhonePurchase = await BulkPhonePurchase.findById(id);
     if (!bulkPhonePurchase) {
       return res.status(404).json({ message: "Bulk Phone Purchase not found" });
     }
 
-    for (const ramSimId of bulkPhonePurchase.ramSimDetails) {
-      const ramSim = await RamSim.findById(ramSimId);
-      if (ramSim) {
-        await Imei.deleteMany({ ramSimId: ramSim._id });
-        await ramSim.remove();
-      }
+    // Check if the user is authorized to delete
+    if (!bulkPhonePurchase.userId.equals(userId)) {
+      return res.status(403).json({ message: "Unauthorized to delete this bulk phone purchase" });
     }
 
-    await bulkPhonePurchase.remove();
+    // Delete related RamSim and Imei records
+    const ramSimIds = bulkPhonePurchase.ramSimDetails; // Array of RamSim IDs
+    if (ramSimIds.length > 0) {
+      await Imei.deleteMany({ ramSimId: { $in: ramSimIds } }); // Delete IMEIs linked to RamSims
+      await RamSim.deleteMany({ _id: { $in: ramSimIds } }); // Delete RamSim records
+    }
+
+    // Delete the bulkPhonePurchase document
+    await BulkPhonePurchase.findByIdAndDelete(id);
 
     res.status(200).json({ message: "Bulk Phone Purchase deleted successfully" });
   } catch (error) {
+    console.error("Error deleting Bulk Phone Purchase:", error);
     res.status(500).json({ message: "Error deleting Bulk Phone Purchase", error: error.message });
   }
 };
+
 
 
 exports.sellPhonesFromBulk = async (req, res) => {
