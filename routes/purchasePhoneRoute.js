@@ -40,7 +40,7 @@ router.post(
     },
     decoderMiddleware,
     addPurchasePhone
-);
+);//used to purchasesingle phone
 
 router.post(
     '/bulk-phone-purchase',decoderMiddleware,addBulkPhones//used
