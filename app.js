@@ -9,6 +9,8 @@ const addPhoneRoutes = require("./routes/AddMobilePhoneRoute.js");
 const invoicesRoutes = require("./routes/InvoiceRoute.js");
 const shopRoutes = require("./routes/ShopRoute.js");
 const purchasePhone = require("./routes/purchasePhoneRoute.js");
+const committeeRoute = require("./routes/CommitteeLedger.js");
+const purchasePhone = require("./routes/purchasePhoneRoute.js");
 const connectDB = require("./config/db.js");
 const ledgerRouter = require("./routes/LedgerRoutes.js");
 
@@ -37,6 +39,7 @@ app.get("/", (req, res) => {
 app.use("/api/admin", adminRoutes);
 app.use("/api/phone", addPhoneRoutes);
 app.use("/api/invoice", invoicesRoutes);
+app.use("/api/committee", committeeRoute);
 app.use("/api/shop", shopRoutes);
 app.use("/api/Purchase", purchasePhone);
 app.use("/api/ledger", ledgerRouter);
