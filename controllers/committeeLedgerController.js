@@ -1,74 +1,127 @@
-const { Committee, Member } = require("../schema/CommitteeLedger");
+const { Committee, Member ,CommitteeRecord} = require("../schema/CommitteeLedgerSchema");
 
 // Create Committee
 exports.createCommittee = async (req, res) => {
     try {
         const userId = req.user.id;
-        const {  committeeName, totalAmount, numberOfMembers, headName } = req.body;
+        const { committeeName, totalAmount, numberOfMembers, myComitteeNameNumber, headName } = req.body;
 
+        // Create a new committee
         const newCommittee = new Committee({
             userId,
             committeeName,
             totalAmount,
+            myComitteeNameNumber,
             numberOfMembers,
-            headName 
+            headName
         });
 
         await newCommittee.save();
-        res.status(201).json({ message: "Committee created successfully", committee: newCommittee });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-};
 
-// Get Committees for a User
-exports.getUserCommittees = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const committees = await Committee.find({ userId });
-        res.json(committees);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-};
+        // Calculate monthly installment
+        const monthlyInstallment = totalAmount / numberOfMembers;
+        const totalMonths = totalAmount / monthlyInstallment;
 
-// Add Member to Committee
-exports.addMember = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const { committeeId } = req.body;
-
-        const newMember = new Member({
-            committeeId,
-            userId,
-            paymentHistory: []
-        });
-
-        await newMember.save();
-        res.status(201).json({ message: "Member added successfully", member: newMember });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-};
-
-// Mark Payment as Paid
-exports.markPayment = async (req, res) => {
-    try {
-        const { memberId } = req.params;
-        const month = new Date().toLocaleString("default", { month: "long", year: "numeric" });
-
-        const member = await Member.findById(memberId);
-        if (!member) return res.status(404).json({ message: "Member not found" });
-
-        const existingPayment = member.paymentHistory.find(p => p.month === month);
-        if (existingPayment) {
-            existingPayment.status = true;
-        } else {
-            member.paymentHistory.push({ month, status: true });
+        // Generate monthly records for payment tracking
+        const records = [];
+        for (let i = 1; i <= totalMonths; i++) {
+            records.push({
+                committeeId: newCommittee._id,
+                monthNumber: i,
+                status: "Not Paid",
+                amountPaid: 0
+            });
         }
 
-        await member.save();
-        res.json({ message: "Payment updated successfully", member });
+        // Insert records in bulk
+        await CommitteeRecord.insertMany(records);
+
+        res.status(201).json({
+            message: "Committee created successfully",
+            committee: newCommittee,
+            totalMonths,
+            monthlyRecords: records
+        });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+
+exports.getUserCommitteeRecord = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Find committees owned by the user
+        const committees = await Committee.find({ userId });
+
+        if (!committees.length) {
+            return res.status(404).json({ message: "No committees found" });
+        }
+
+        // Fetch payment records for each committee
+        const structuredCommittees = await Promise.all(committees.map(async (committee) => {
+            const monthlyRecords = await CommitteeRecord.find({ committeeId: committee._id });
+
+            return {
+                ...committee.toObject(),
+                totalMonths: monthlyRecords.length,
+                monthlyRecords
+            };
+        }));
+
+        return res.status(200).json({
+            message: "Get all user committees",
+            committees: structuredCommittees
+        });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+//patch
+exports.updateCommitteeStatus = async (req, res) => {
+    try {
+        const { committeeId, committeeRecordId } = req.params; // Fixed parameter naming
+
+        // Check if the committee exists
+        const committee = await Committee.findById(committeeId);
+        if (!committee) {
+            return res.status(404).json({ message: "Committee not found" });
+        }
+
+        // Check if the committee record exists
+        const committeeRecord = await CommitteeRecord.findById(committeeRecordId);
+        console.log(committeeRecord);
+        
+        if (!committeeRecord) {
+            return res.status(404).json({ message: "Committee Record not found" });
+        }
+
+        // Calculate amount per member
+        const amountPerMember = committee.totalAmount / committee.numberOfMembers;
+
+        // Update the existing committee record
+        committeeRecord.status = "Paid";
+        committeeRecord.amountPaid = amountPerMember;
+        await committeeRecord.save();
+
+        // Check if all months are paid
+        const totalMonths = committee.numberOfMembers; // Assuming payments are monthly
+        const paidRecordsCount = await CommitteeRecord.countDocuments({ committeeId, status: "Paid" });
+
+        // Update Committee's status
+        committee.status = paidRecordsCount === totalMonths ? "Paid" : "Partially Paid";
+        await committee.save();
+
+        return res.status(200).json({
+            message: `Updated month ${committeeRecord.monthNumber} successfully`,
+            committee,
+            committeeRecord
+        });
+
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

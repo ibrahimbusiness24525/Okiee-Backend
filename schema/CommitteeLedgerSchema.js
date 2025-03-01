@@ -15,38 +15,58 @@ const CommitteeSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    myComitteeNameNumber:{
+        type: Number,
+        required: true
+    },
     numberOfMembers: {
         type: Number,
         required: true
     },
     headName: {
         type: String,
-        required: true // Storing head by name
+        required: true 
+    },
+    status:{
+        type:String,
+        enum:["Not Paid","Paid","Partially Paid"],
+        default:"Not Paid",
     }
 });
 
-// Member Schema
 const MemberSchema = new mongoose.Schema({
     committeeId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Committee",
         required: true
     },
-    userId: {
+    member:{
+        type:String,
+        required:true
+    }
+});
+const CommitteeRecordSchema = new mongoose.Schema({
+    committeeId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        ref: "Committee",
         required: true
     },
-    paymentHistory: [
-        {
-            month: String, // Example: "February 2025"
-            status: { type: Boolean, default: false } // Paid or Unpaid
-        }
-    ]
-});
-
+    monthNumber:{
+        type:Number,
+        required:true,
+    },
+    status:{
+        type:String,
+        required: true,
+    },
+    amountPaid:{
+        type:Number,
+        required:true
+    }
+})
 // Export models
 const Committee = mongoose.model("Committee", CommitteeSchema);
+const CommitteeRecord = mongoose.model("ComitteeRecord",CommitteeRecordSchema)
 const Member = mongoose.model("Member", MemberSchema);
 
-module.exports = { Committee, Member };
+module.exports = { Committee, Member,CommitteeRecord };
