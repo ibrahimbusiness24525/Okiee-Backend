@@ -160,6 +160,50 @@ exports.getAllSingleSoldPhones = async (req, res) => {
     res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
+
+
+////////get sold phone by id////////////
+exports.getSingleSoldPhoneById = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const soldPhoneDetail = await SingleSoldPhone.findById(id);
+    if (!soldPhoneDetail) {
+      return res.status(404).json({ message: "Sold phone not found" });
+    }
+    if(!req.user.id || !req.user){
+      return res.status(404).json({ message: "Authenticate please" });
+
+    }
+    res.status(200).json({ success: true, soldPhoneDetail });
+  } catch (error) {
+    console.error("Error getting sold phone detail:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+}
+
+
+// get bulk sold phone by id
+exports.getBulkSoldPhoneById = async(req,res) =>{
+  const {id}= req.params;
+  try{
+    const soldPhoneDetail = await SoldPhone.findById(id);
+    if (!soldPhoneDetail) {
+      return res.status(404).json({ message: "Sold phone not found" });
+    }
+    if(!req.user.id || !req.user){
+      return res.status(404).json({ message: "Authenticate please" });
+
+    }
+    res.status(200).json({ success: true, soldPhoneDetail });
+  }catch(error){
+    console.error("Error getting detail:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+}
+
+
+
 // Get all purchase phone slips or filtered results
 exports.getPurchasePhoneByFilter =  async (req, res) => {
     try {
