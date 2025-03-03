@@ -60,7 +60,7 @@ exports.addPurchasePhone = async (req, res) => {
 
 exports.sellSinglePhone = async (req, res) => {
   try {
-    const { purchasePhoneId, customerName, cnicFrontPic, cnicBackPic, finalPrice, warranty } = req.body;
+    const { purchasePhoneId, customerName, cnicFrontPic, cnicBackPic, finalPrice, warranty,sellingPaymentType,accesssoryAmount,accesssoryName } = req.body;
 
     console.log("Received Data:", req.body);
     
@@ -115,6 +115,9 @@ exports.sellSinglePhone = async (req, res) => {
       demandPrice: purchasedPhone.price.demandPrice,
       isApprovedFromEgadgets: purchasedPhone.isApprovedFromEgadgets,
       eGadgetStatusPicture: purchasedPhone.eGadgetStatusPicture,
+      sellingPaymentType,
+      accesssoryAmount,
+      accesssoryName,
       invoiceNumber: "INV-" + new Date().getTime(),
     });
 
@@ -604,7 +607,7 @@ exports.deleteBulkPhone = async (req, res) => {
 
 exports.sellPhonesFromBulk = async (req, res) => {
   try {
-    const { bulkPhonePurchaseId, imeiNumbers, salePrice, warranty,customerName,cnicBackPic,cnicFrontPic } = req.body;
+    const { bulkPhonePurchaseId, imeiNumbers, salePrice, warranty,customerName,cnicBackPic,cnicFrontPic,sellingPaymentType,accesssoryAmount,accesssoryName } = req.body;
 
     // if (!bulkPhonePurchaseId || !imeiNumbers || !Array.isArray(imeiNumbers) || imeiNumbers.length === 0) {
     //   return res.status(400).json({ message: "Invalid data: imeiNumbers must be a non-empty array" });
@@ -650,6 +653,9 @@ exports.sellPhonesFromBulk = async (req, res) => {
         customerName,
         cnicBackPic,
         cnicFrontPic,
+        sellingPaymentType,
+        accesssoryAmount,
+        accesssoryName,
         warranty,
         userId: req.user.id,
           invoiceNumber: invoiceGenerator(),

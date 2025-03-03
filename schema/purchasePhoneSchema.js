@@ -58,7 +58,19 @@ const SingleSoldPhoneSchema = new mongoose.Schema({
   cnicFrontPic: { type: String, required: false }, // File URL
   cnicBackPic: { type: String, required: false },  // File URL
   mobileNumber: { type: String, required: true },
-
+  accesssoryName:{
+    type: String,
+    required:false
+  },
+  accesssoryAmount:{
+    type: Number,
+    required:false
+  },
+  sellingPaymentType: {
+    type: String,
+    enum: ["Bank", "Credit", "Cash", "Exchange"],
+    required: [true, "Path `sellingPaymentType` is required."],
+  },  
   // Phone Details
   name: { type: String, required: true },
   fatherName: { type: String, required: false },
@@ -110,6 +122,19 @@ const SoldPhoneSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'BulkPhonePurchase',
     default: null  // Set default to null for single phone sales
+  },
+  accesssoryName:{
+    type: String,
+    required:false
+  },
+  accesssoryAmount:{
+    type: Number,
+    required:false
+  },
+  sellingPaymentType :{
+    type : String,
+    enum:["Bank","Credit","Cash","Exchange"],
+    required:true,
   },
   customerName: { type: String, required: true },
   cnicFrontPic: { type: String, required: false }, // File URL
