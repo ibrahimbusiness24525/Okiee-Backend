@@ -70,7 +70,16 @@ const SingleSoldPhoneSchema = new mongoose.Schema({
     type: String,
     enum: ["Bank", "Credit", "Cash", "Exchange"],
     required: [true, "Path `sellingPaymentType` is required."],
-  },  
+  },
+
+  // Conditional Fields for Payment Types
+  bankName: { type: String, required: function() { return this.sellingPaymentType === "Bank"; } },
+
+  payableAmountNow: { type: Number, required: function() { return this.sellingPaymentType === "Credit"; } },
+  payableAmountLater: { type: Number, required: function() { return this.sellingPaymentType === "Credit"; } },
+  payableAmountLaterDate: { type: Date, required: function() { return this.sellingPaymentType === "Credit"; } },
+
+  exchangePhoneDetail: { type: String, required: function() { return this.sellingPaymentType === "Exchange"; } },
   // Phone Details
   name: { type: String, required: true },
   fatherName: { type: String, required: false },
@@ -131,11 +140,20 @@ const SoldPhoneSchema = new mongoose.Schema({
     type: Number,
     required:false
   },
-  sellingPaymentType :{
-    type : String,
-    enum:["Bank","Credit","Cash","Exchange"],
-    required:true,
+  sellingPaymentType: {
+    type: String,
+    enum: ["Bank", "Credit", "Cash", "Exchange"],
+    required: [true, "Path `sellingPaymentType` is required."],
   },
+
+  // Conditional Fields for Payment Types
+  bankName: { type: String, required: function() { return this.sellingPaymentType === "Bank"; } },
+
+  payableAmountNow: { type: Number, required: function() { return this.sellingPaymentType === "Credit"; } },
+  payableAmountLater: { type: Number, required: function() { return this.sellingPaymentType === "Credit"; } },
+  payableAmountLaterDate: { type: Date, required: function() { return this.sellingPaymentType === "Credit"; } },
+
+  exchangePhoneDetail: { type: String, required: function() { return this.sellingPaymentType === "Exchange"; } },
   customerName: { type: String, required: true },
   cnicFrontPic: { type: String, required: false }, // File URL
   cnicBackPic: { type: String, required: false },  // File

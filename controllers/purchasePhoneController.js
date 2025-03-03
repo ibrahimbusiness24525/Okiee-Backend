@@ -58,9 +58,108 @@ exports.addPurchasePhone = async (req, res) => {
     }
 };
 
+// exports.sellSinglePhone = async (req, res) => {
+//   try {
+//     const { purchasePhoneId, customerName, cnicFrontPic, cnicBackPic, finalPrice, warranty,sellingPaymentType,accesssoryAmount,accesssoryName } = req.body;
+
+//     console.log("Received Data:", req.body);
+    
+//     // Fetch the purchased phone details
+//     const purchasedPhone = await PurchasePhone.findById(purchasePhoneId);
+//     if (!purchasedPhone) {
+//       return res.status(404).json({ message: "Purchased phone not found" });
+//     }
+
+//     console.log("Purchased Phone Data:", purchasedPhone);
+
+//     // Ensure the phone is not already sold
+//     if (purchasedPhone.isSold) {
+//       return res.status(400).json({ message: "This phone is already sold" });
+//     }
+
+//     // Set warranty based on condition
+//     const updatedWarranty = purchasedPhone.phoneCondition === "Used" ? warranty : "12 months";
+
+//     // Ensure user ID exists
+//     if (!req.user?.id) {
+//       return res.status(401).json({ message: "Unauthorized: User ID missing" });
+//     }
+
+//     // Create a new sold phone entry
+//     const soldPhone = new SingleSoldPhone({
+//       purchasePhoneId,
+//       userId: req.user.id,
+//       shopid: purchasedPhone.shopid,
+//       customerName,
+//       cnicFrontPic,
+//       cnicBackPic,
+//       mobileNumber: purchasedPhone.mobileNumber,
+//       name: purchasedPhone.name,
+//       fatherName: purchasedPhone.fatherName,
+//       companyName: purchasedPhone.companyName,
+//       modelName: purchasedPhone.modelName,
+//       purchaseDate: purchasedPhone.date,
+//       saleDate: new Date(),
+//       phoneCondition: purchasedPhone.phoneCondition,
+//       warranty: updatedWarranty,
+//       specifications: purchasedPhone.specifications,
+//       ramMemory: purchasedPhone.ramMemory,
+//       color: purchasedPhone.color,
+//       imei1: purchasedPhone.imei1,
+//       imei2: purchasedPhone.imei2,
+//       phonePicture: purchasedPhone.phonePicture,
+//       personPicture: purchasedPhone.personPicture,
+//       accessories: purchasedPhone.accessories,
+//       purchasePrice: purchasedPhone.price.purchasePrice,
+//       finalPrice: finalPrice || purchasedPhone.price.finalPrice,
+//       demandPrice: purchasedPhone.price.demandPrice,
+//       isApprovedFromEgadgets: purchasedPhone.isApprovedFromEgadgets,
+//       eGadgetStatusPicture: purchasedPhone.eGadgetStatusPicture,
+//       sellingPaymentType,
+//       accesssoryAmount,
+//       accesssoryName,
+//       invoiceNumber: "INV-" + new Date().getTime(),
+//     });
+
+//     // Validate the object before saving
+//     const validationError = soldPhone.validateSync();
+//     if (validationError) {
+//       console.error("Validation Error:", validationError);
+//       return res.status(400).json({ message: "Validation failed", error: validationError });
+//     }
+
+//     // Save the sold phone
+//     await soldPhone.save();
+
+//     // Mark purchased phone as sold and remove it
+//     purchasedPhone.isSold = true;
+//     purchasedPhone.soldDetails = soldPhone._id;
+//     await PurchasePhone.findByIdAndDelete(purchasePhoneId); // Fixes deletion issue
+
+//     res.status(201).json({ message: "Phone sold successfully", soldPhone });
+//   } catch (error) {
+//     console.error("Error selling phone:", error);
+//     res.status(500).json({ message: "Internal server error", error });
+//   }
+// };
 exports.sellSinglePhone = async (req, res) => {
   try {
-    const { purchasePhoneId, customerName, cnicFrontPic, cnicBackPic, finalPrice, warranty,sellingPaymentType,accesssoryAmount,accesssoryName } = req.body;
+    const { 
+      purchasePhoneId, 
+      customerName, 
+      cnicFrontPic, 
+      cnicBackPic, 
+      finalPrice, 
+      warranty, 
+      sellingPaymentType, 
+      accesssoryAmount, 
+      accesssoryName, 
+      bankName, 
+      payableAmountNow, 
+      payableAmountLater, 
+      payableAmountLaterDate, 
+      exchangePhoneDetail 
+    } = req.body;
 
     console.log("Received Data:", req.body);
     
@@ -83,6 +182,17 @@ exports.sellSinglePhone = async (req, res) => {
     // Ensure user ID exists
     if (!req.user?.id) {
       return res.status(401).json({ message: "Unauthorized: User ID missing" });
+    }
+
+    // **Validate conditional fields based on sellingPaymentType**
+    if (sellingPaymentType === "Bank" && !bankName) {
+      return res.status(400).json({ message: "Bank Name is required for Bank payment type." });
+    }
+    if (sellingPaymentType === "Credit" && (!payableAmountNow || !payableAmountLater || !payableAmountLaterDate)) {
+      return res.status(400).json({ message: "All credit payment fields (Now, Later, Date) are required." });
+    }
+    if (sellingPaymentType === "Exchange" && !exchangePhoneDetail) {
+      return res.status(400).json({ message: "Exchange phone details are required for Exchange payment type." });
     }
 
     // Create a new sold phone entry
@@ -118,6 +228,11 @@ exports.sellSinglePhone = async (req, res) => {
       sellingPaymentType,
       accesssoryAmount,
       accesssoryName,
+      bankName: sellingPaymentType === "Bank" ? bankName : undefined,
+      payableAmountNow: sellingPaymentType === "Credit" ? payableAmountNow : undefined,
+      payableAmountLater: sellingPaymentType === "Credit" ? payableAmountLater : undefined,
+      payableAmountLaterDate: sellingPaymentType === "Credit" ? payableAmountLaterDate : undefined,
+      exchangePhoneDetail: sellingPaymentType === "Exchange" ? exchangePhoneDetail : undefined,
       invoiceNumber: "INV-" + new Date().getTime(),
     });
 
@@ -142,6 +257,7 @@ exports.sellSinglePhone = async (req, res) => {
     res.status(500).json({ message: "Internal server error", error });
   }
 };
+
 
 exports.getAllSingleSoldPhones = async (req, res) => {
   try {
@@ -607,11 +723,25 @@ exports.deleteBulkPhone = async (req, res) => {
 
 exports.sellPhonesFromBulk = async (req, res) => {
   try {
-    const { bulkPhonePurchaseId, imeiNumbers, salePrice, warranty,customerName,cnicBackPic,cnicFrontPic,sellingPaymentType,accesssoryAmount,accesssoryName } = req.body;
+    const { 
+      bulkPhonePurchaseId, 
+      imeiNumbers,
+      salePrice,
+       warranty,
+       customerName,
+       cnicBackPic,
+       cnicFrontPic,
+       sellingPaymentType,
+       accesssoryAmount,
+       accesssoryName,
+       bankName, 
+       payableAmountNow, 
+       payableAmountLater, 
+       payableAmountLaterDate, 
+       exchangePhoneDetail  
+      } = req.body;
 
-    // if (!bulkPhonePurchaseId || !imeiNumbers || !Array.isArray(imeiNumbers) || imeiNumbers.length === 0) {
-    //   return res.status(400).json({ message: "Invalid data: imeiNumbers must be a non-empty array" });
-    // }
+    
 
     if (!salePrice || !warranty) {
       return res.status(400).json({ message: "Sale price and warranty are required" });
@@ -643,7 +773,15 @@ exports.sellPhonesFromBulk = async (req, res) => {
 
       // Find the IMEI record that matches the provided IMEI number
       const imeiRecord = ramSim.imeiNumbers.find(imeiRecord => imeiRecord.imei1 === imei || imeiRecord.imei2 === imei);
-
+      if (sellingPaymentType === "Bank" && !bankName) {
+        return res.status(400).json({ message: "Bank Name is required for Bank payment type." });
+      }
+      if (sellingPaymentType === "Credit" && (!payableAmountNow || !payableAmountLater || !payableAmountLaterDate)) {
+        return res.status(400).json({ message: "All credit payment fields (Now, Later, Date) are required." });
+      }
+      if (sellingPaymentType === "Exchange" && !exchangePhoneDetail) {
+        return res.status(400).json({ message: "Exchange phone details are required for Exchange payment type." });
+      }
       // Create a new SoldPhone record
       const soldPhone = new SoldPhone({
         bulkPhonePurchaseId,
@@ -658,7 +796,12 @@ exports.sellPhonesFromBulk = async (req, res) => {
         accesssoryName,
         warranty,
         userId: req.user.id,
-          invoiceNumber: invoiceGenerator(),
+        invoiceNumber: invoiceGenerator(),
+        bankName: sellingPaymentType === "Bank" ? bankName : undefined,
+        payableAmountNow: sellingPaymentType === "Credit" ? payableAmountNow : undefined,
+        payableAmountLater: sellingPaymentType === "Credit" ? payableAmountLater : undefined,
+        payableAmountLaterDate: sellingPaymentType === "Credit" ? payableAmountLaterDate : undefined,
+        exchangePhoneDetail: sellingPaymentType === "Exchange" ? exchangePhoneDetail : undefined,
       });
 
       // Save the sold phone record
