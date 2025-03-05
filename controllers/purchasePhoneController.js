@@ -893,3 +893,34 @@ exports.getSoldBulkPhoneDetailById = async (req, res) => {
     }
 };
 
+exports.getDeviceByImei = async(req,res) =>{
+  try {
+    const userId = req.user.id; // Extract user ID from request
+    const { imei } = req.query;
+
+    if (!imei) {
+      return res.status(400).json({ error: "IMEI number is required." });
+    }
+
+    // Search in BulkPhonePurchase (filtered by user ID)
+    const bulkPhone = await BulkPhonePurchase.findOne({
+      userId, // Ensure it belongs to the logged-in user
+      $or: [{ "imeiNumbers.imei1": imei }, { "imeiNumbers.imei2": imei }],
+    }).populate("ramSimDetails");
+
+    // Search in PurchasePhone (filtered by user ID)
+    const purchasePhone = await PurchasePhone.findOne({
+      userId, // Ensure it belongs to the logged-in user
+      $or: [{ imei1: imei }, { imei2: imei }],
+    }).populate("shopid userId soldDetails");
+
+    if (!bulkPhone && !purchasePhone) {
+      return res.status(404).json({ error: "No phone details found for this user." });
+    }
+
+    res.status(200).json({ bulkPhone, purchasePhone });
+  } catch (error) {
+    console.error("Error fetching phone details:", error);
+    res.status(500).json({ error: "Internal server error." });
+  }
+}
