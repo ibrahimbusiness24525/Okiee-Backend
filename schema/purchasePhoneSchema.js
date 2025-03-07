@@ -16,6 +16,7 @@ const PurchasePhoneSchema = new mongoose.Schema({
   companyName: { type: String, required: true },
   modelName: { type: String, required: true },
   date: { type: Date, required: true },
+  batteryHealth: { type: String, required: false },
   cnic: { type: String, required: true },
   accessories: {
     box: { type: Boolean, default: false },
@@ -186,6 +187,7 @@ const BulkPhonePurchaseSchema = new mongoose.Schema({
   partyName: { type: String },
   date: { type: Date },
   companyName: { type: String },
+  batteryHealth: { type: String, required: false },
   modelName: { type: String },
   prices: {
     buyingPrice: { type: String },

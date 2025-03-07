@@ -7,7 +7,7 @@ const { invoiceGenerator } = require('../services/invoiceGenerator');
 exports.addPurchasePhone = async (req, res) => {
   const {
       name, fatherName, companyName, modelName, date, cnic,
-      accessories, phoneCondition, specifications, ramMemory,
+      accessories, phoneCondition, specifications, ramMemory,batteryHealth,
       color, imei1, imei2, mobileNumber, isApprovedFromEgadgets,
       purchasePrice, finalPrice, demandPrice,warranty,shopid
   } = req.body;
@@ -30,6 +30,7 @@ exports.addPurchasePhone = async (req, res) => {
             modelName,
             date,
             cnic,
+            batteryHealth,
             accessories,
             phoneCondition,
             specifications,
