@@ -59,14 +59,13 @@ const SingleSoldPhoneSchema = new mongoose.Schema({
   cnicFrontPic: { type: String, required: false }, // File URL
   cnicBackPic: { type: String, required: false },  // File URL
   mobileNumber: { type: String, required: true },
-  accesssoryName:{
-    type: String,
-    required:false
-  },
-  accesssoryAmount:{
-    type: Number,
-    required:false
-  },
+  accessories: [
+    {
+      name: { type: String, required: true },  // Accessory name
+      quantity: { type: Number, required: true }, // Number of accessories
+      price: { type: Number, required: true } // Price of the accessory
+    }
+  ],
   sellingPaymentType: {
     type: String,
     enum: ["Bank", "Credit", "Cash", "Exchange"],
@@ -102,11 +101,11 @@ const SingleSoldPhoneSchema = new mongoose.Schema({
   personPicture: { type: String, required: false }, // File URL
 
   // Accessories
-  accessories: {
-    box: { type: Boolean, default: false },
-    charger: { type: Boolean, default: false },
-    handFree: { type: Boolean, default: false },
-  },
+  // accessories: {
+  //   box: { type: Boolean, default: false },
+  //   charger: { type: Boolean, default: false },
+  //   handFree: { type: Boolean, default: false },
+  // },
 
   // Pricing Details
   purchasePrice: { type: Number, required: true },
@@ -133,14 +132,21 @@ const SoldPhoneSchema = new mongoose.Schema({
     ref: 'BulkPhonePurchase',
     default: null  // Set default to null for single phone sales
   },
-  accesssoryName:{
-    type: String,
-    required:false
-  },
-  accesssoryAmount:{
-    type: Number,
-    required:false
-  },
+  accessories: [
+    {
+      name: { type: String, required: true },  // Accessory name
+      quantity: { type: Number, required: true }, // Number of accessories
+      price: { type: Number, required: true } // Price of the accessory
+    }
+  ],
+  // accesssoryName:{
+  //   type: String,
+  //   required:false
+  // },
+  // accesssoryAmount:{
+  //   type: Number,
+  //   required:false
+  // },
   sellingPaymentType: {
     type: String,
     enum: ["Bank", "Credit", "Cash", "Exchange"],
