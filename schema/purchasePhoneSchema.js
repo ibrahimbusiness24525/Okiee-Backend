@@ -61,9 +61,9 @@ const SingleSoldPhoneSchema = new mongoose.Schema({
   mobileNumber: { type: String, required: true },
   accessories: [
     {
-      name: { type: String, required: true },  // Accessory name
-      quantity: { type: Number, required: true }, // Number of accessories
-      price: { type: Number, required: true } // Price of the accessory
+      name: { type: String, required: false },  // Accessory name
+      quantity: { type: Number, required: false }, // Number of accessories
+      price: { type: Number, required: false } // Price of the accessory
     }
   ],
   sellingPaymentType: {
@@ -71,7 +71,8 @@ const SingleSoldPhoneSchema = new mongoose.Schema({
     enum: ["Bank", "Credit", "Cash", "Exchange"],
     required: [true, "Path `sellingPaymentType` is required."],
   },
-
+  salePrice: { type: Number, required: true },
+  totalInvoice: { type: Number, required: true },
   // Conditional Fields for Payment Types
   bankName: { type: String, required: function() { return this.sellingPaymentType === "Bank"; } },
 
@@ -134,9 +135,9 @@ const SoldPhoneSchema = new mongoose.Schema({
   },
   accessories: [
     {
-      name: { type: String, required: true },  // Accessory name
-      quantity: { type: Number, required: true }, // Number of accessories
-      price: { type: Number, required: true } // Price of the accessory
+      name: { type: String, required: false },  // Accessory name
+      quantity: { type: Number, required: false }, // Number of accessories
+      price: { type: Number, required: false } // Price of the accessory
     }
   ],
   // accesssoryName:{
@@ -167,6 +168,7 @@ const SoldPhoneSchema = new mongoose.Schema({
   imei1: { type: String, required: true },
   imei2: { type: String, default: null },
   salePrice: { type: Number, required: true },
+  totalInvoice: { type: Number, required: true },
   invoiceNumber: { type: String, required: true, unique: true },
   warranty: { type: String, required: true },  
   dateSold: { type: Date, default: Date.now }
