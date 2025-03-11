@@ -48,7 +48,8 @@ const PurchasePhoneSchema = new mongoose.Schema({
     ref: "SoldPhone", // Reference to SoldPhone model
     required: false,
   },
-});
+  
+},{ timestamps: true });
 
 const SingleSoldPhoneSchema = new mongoose.Schema({
   purchasePhoneId: { type: mongoose.Schema.Types.ObjectId, ref: "PurchasePhone", required: true },
@@ -117,7 +118,7 @@ const SingleSoldPhoneSchema = new mongoose.Schema({
   isApprovedFromEgadgets: { type: Boolean, default: false },
   eGadgetStatusPicture: { type: String, required: false }, // File URL
   invoiceNumber: { type: String, required: true, unique: true },
-});
+},{ timestamps: true });
 
 // Sold Phone schema
 
@@ -172,7 +173,7 @@ const SoldPhoneSchema = new mongoose.Schema({
   invoiceNumber: { type: String, required: true, unique: true },
   warranty: { type: String, required: true },  
   dateSold: { type: Date, default: Date.now }
-});
+},{ timestamps: true });
 
 
 
@@ -207,7 +208,7 @@ const BulkPhonePurchaseSchema = new mongoose.Schema({
   },
   ramSimDetails: [{ type: mongoose.Schema.Types.ObjectId, ref: "RamSim" }],
   status: { type: String, enum: ["Available", "Partially Sold", "Sold"], default: "Available" }
-});
+},{ timestamps: true });
 
 // Models
 const Imei = mongoose.model("Imei", ImeiSchema);

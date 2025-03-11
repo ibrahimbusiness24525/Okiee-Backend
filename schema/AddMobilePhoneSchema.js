@@ -48,7 +48,7 @@ const AddPhoneSchema = new mongoose.Schema({
     type:String,
     required:true
   }
-});
+},{ timestamps: true });
 
 function arrayLimit(val) {
   return val.length <= 5;

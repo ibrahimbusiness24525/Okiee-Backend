@@ -32,7 +32,7 @@ const CommitteeSchema = new mongoose.Schema({
         enum:["Not Paid","Paid","Partially Paid"],
         default:"Not Paid",
     }
-});
+},{ timestamps: true });
 
 const MemberSchema = new mongoose.Schema({
     committeeId: {
