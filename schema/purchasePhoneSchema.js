@@ -185,6 +185,7 @@ const ImeiSchema = new mongoose.Schema({
 });
 
 const RamSimSchema = new mongoose.Schema({
+  priceOfOne: { type: Number, required: false },
   ramMemory: { type: String, required: true },
   simOption: { type: String, required: true },
   bulkPhonePurchaseId: { type: mongoose.Schema.Types.ObjectId, ref: "BulkPhonePurchase", required: true },
