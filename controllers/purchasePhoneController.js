@@ -380,8 +380,31 @@ exports.getAllPurchasePhone = async (req, res) => {
       const formattedPhones = purchasePhones.map(phone => ({
           name: phone.name,
           _id: phone._id,
-          images: phone.images || [], // Ensure images field exists
+          images: phone.images || [],
+          cnic: phone.cnic,
+          modelName: phone.modelName,
+          batteryHealth: phone.batteryHealth || "",
+          ramMemory: phone.ramMemory,
+          mobileNumber: phone.mobileNumber,
+          date: phone.date,
+          price:{
+          purchasePrice: phone.price.purchasePrice,
+          finalPrice: phone.price.finalPrice,
+          demandPrice: phone.price.demandPrice,
+          },
+          // accessories: [
+          //   phone.accessories?.box ? "box" : null,
+          //   phone.accessories?.charger ? "charger" : null,
+          //   phone.accessories?.handFree ? "handFree" : null,
+          // ].filter(Boolean),
+          accessories:{
+          box: phone.accessories.box,
+          charger: phone.accessories.charger,
+          handfree: phone.accessories.handFree,
+          },
+           // Ensure images field exists
           companyName: phone.companyName,
+          specifications:phone.specifications,
           modelSpecifications: phone.modelName, // Assuming modelName is equivalent
           specs: `${phone.ramMemory} GB, ${phone.specifications}`, // Adjust as per actual field names
           phoneCondition: phone.phoneCondition,
