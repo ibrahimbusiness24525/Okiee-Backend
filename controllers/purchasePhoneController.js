@@ -17,7 +17,7 @@ exports.addPurchasePhone = async (req, res) => {
   // console.log("This is phone picture", phonePicture)
     try {
 
-        console.log("This is userId add phone", req.user.id)
+        console.log("This is name",name)
         // Create a new entry
 
         const purchasePhone = new PurchasePhone({
@@ -378,13 +378,14 @@ exports.getAllPurchasePhone = async (req, res) => {
 
       // Format the response to match the required structure
       const formattedPhones = purchasePhones.map(phone => ({
+          name: phone.name,
           _id: phone._id,
           images: phone.images || [], // Ensure images field exists
           companyName: phone.companyName,
           modelSpecifications: phone.modelName, // Assuming modelName is equivalent
           specs: `${phone.ramMemory} GB, ${phone.specifications}`, // Adjust as per actual field names
           phoneCondition: phone.phoneCondition,
-          imei: phone.imei1,
+          imei1: phone.imei1,
           imei2: phone.imei2 || "",
           demandPrice: phone.price?.demandPrice || 0,
           purchasePrice: phone.price?.purchasePrice || 0,
@@ -467,63 +468,22 @@ exports.getPurchasePhoneById =  async (req, res) => {
 };
 
 // Edit Purchase Phone Slip
-exports.editPurchasePhone = async (req, res) => {
-    try {
-        const { id } = req.params; // ID of the phone slip to edit
-        const {
-            name, fatherName, companyName, modelName, date, cnic,
-            accessories, phoneCondition, specifications, ramMemory,
-            color, imei1, imei2, mobileNumber, isApprovedFromEgadgets,
-            purchasePrice, finalPrice, demandPrice,warranty,shopid
-        } = req.body;
+exports.updateSinglePurchasePhone = async (req, res) => {
+  console.log("Received data:", req.body)
+    try{
+      const {id} =  req.params;
+      const updateData = req.body;
 
-        // Handle file uploads (if any)
-        const phonePicture = req.files?.['phonePicture']?.[0]?.path;
-        const personPicture = req.files?.['personPicture']?.[0]?.path;
-        const eGadgetStatusPicture = req.files?.['eGadgetStatusPicture']?.[0]?.path;
-
-        // Build the update object dynamically
-        const updateData = {
-            warranty,
-            shopid,
-            name,
-            fatherName,
-            companyName,
-            modelName,
-            date,
-            cnic,
-            accessories,
-            phoneCondition,
-            specifications,
-            ramMemory,
-            color,
-            imei1,
-            imei2,
-            mobileNumber,
-            isApprovedFromEgadgets,
-            price: {
-                purchasePrice,
-                finalPrice,
-                demandPrice,
-            },
-        };
-
-        // Conditionally include the file paths if files are provided
-        if (phonePicture) updateData.phonePicture = phonePicture;
-        if (personPicture) updateData.personPicture = personPicture;
-        if (eGadgetStatusPicture) updateData.eGadgetStatusPicture = eGadgetStatusPicture;
-
-        // Find and update the document by ID
-        const updatedPhone = await PurchasePhone.findByIdAndUpdate(id, updateData, { new: true });
-
+      const existingPhone = await PurchasePhone.findById(id);
+      if(!existingPhone) return res.status(404).json({message: "Phone not found"})
+        const updatedPhone = await PurchasePhone.findByIdAndUpdate(id, { $set: updateData }, { new: true, runValidators: true });
         if (!updatedPhone) {
-            return res.status(404).json({ message: 'Purchase phone slip not found' });
+          return res.status(404).json({ message: "Purchase phone slip not found" });
         }
-
-        res.status(200).json({ message: 'Purchase phone slip updated successfully!', data: updatedPhone });
-    } catch (error) {
-        console.error('Error updating purchase phone slip:', error);
-        res.status(500).json({ message: 'Internal server error', error: error.message });
+      res.status(200).json({message: "Purchase Phone updated successfully", data: updatedPhone})
+    }catch(error){
+      console.error("Error updating purchase phone:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
 };
 

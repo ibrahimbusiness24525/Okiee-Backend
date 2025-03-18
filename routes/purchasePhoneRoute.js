@@ -7,7 +7,6 @@ const {
     getPurchasePhoneByFilter,
     getPurchasePhoneById,
     deletePurchasePhone,
-    editPurchasePhone,
     addBulkPhones,
     getBulkPhone,
     getAllPurchasePhones,
@@ -22,7 +21,8 @@ const {
     deleteBulkPhone,
     getSingleSoldPhoneById,
     getBulkSoldPhoneById,
-    getDeviceByImei
+    getDeviceByImei,
+    updateSinglePurchasePhone
 } = require('../controllers/purchasePhoneController');
 const { decoderMiddleware } = require('../services/authServices');
 
@@ -32,15 +32,15 @@ const upload = multer({ dest: 'uploads/' }); // You can modify the destination a
 // Route to add a new purchase phone slip (with file upload support)
 router.post(
     '/purchase-phone',
-    upload.fields([
-        { name: 'phonePicture', maxCount: 1 },
-        { name: 'personPicture', maxCount: 1 },
-        { name: 'eGadgetStatusPicture', maxCount: 1 }
-    ]),
-     (req, res, next) => { 
-        console.log("After Multer:", req.files); 
-        next(); 
-    },
+    // upload.fields([
+    //     { name: 'phonePicture', maxCount: 1 },
+    //     { name: 'personPicture', maxCount: 1 },
+    //     { name: 'eGadgetStatusPicture', maxCount: 1 }
+    // ]),
+    //  (req, res, next) => { 
+    //     console.log("After Multer:", req.files); 
+    //     next(); 
+    // },
     decoderMiddleware,
     addPurchasePhone
 );//used to purchasesingle phone
@@ -82,13 +82,8 @@ router.get("/single-sold-phone/:id",decoderMiddleware,getSingleSoldPhoneById)
 router.get("/bulk-sold-phone/:id",decoderMiddleware,getBulkSoldPhoneById)
 // Route to edit a purchase phone slip by ID
 router.put(
-    '/purchase-phone/:id',
-    upload.fields([
-        { name: 'phonePicture', maxCount: 1 },
-        { name: 'personPicture', maxCount: 1 },
-        { name: 'eGadgetStatusPicture', maxCount: 1 }
-    ]),
-    editPurchasePhone
+    '/single-purchase-phone/:id',
+    updateSinglePurchasePhone
 );
 
 // Route to delete a purchase phone slip by ID
