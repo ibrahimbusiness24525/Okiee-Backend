@@ -11,8 +11,10 @@ const shopRoutes = require("./routes/ShopRoute.js");
 const dayBookRoutes = require("./routes/DayBookRoute.js");
 const committeeRoute = require("./routes/CommitteeLedger.js");
 const purchasePhone = require("./routes/purchasePhoneRoute.js");
-const connectDB = require("./config/db.js");
 const ledgerRouter = require("./routes/LedgerRoutes.js");
+const partyLedgerRouter = require("./routes/PartyLedgerRoute.js")
+
+const connectDB = require("./config/db.js");
 
 const PORT = process.env.PORT || 8080;
 const app = express();
@@ -44,5 +46,6 @@ app.use("/api/shop", shopRoutes);
 app.use("/api/dayBook", dayBookRoutes);
 app.use("/api/Purchase", purchasePhone);
 app.use("/api/ledger", ledgerRouter);
+app.use("/api/partyLedger", partyLedgerRouter);
 app.use("/api/committee", committeeRoute);
 app.listen(PORT, () => console.log(`Server listening to port ${PORT}`));

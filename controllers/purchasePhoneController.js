@@ -2,6 +2,7 @@ const multer = require('multer');
 const { Imei, RamSim, BulkPhonePurchase, PurchasePhone,SoldPhone, SingleSoldPhone } = require("../schema/purchasePhoneSchema");
 const { default: mongoose } = require('mongoose');
 const { invoiceGenerator } = require('../services/invoiceGenerator');
+const PartyLedger = require('../schema/PartyLedgerSchema');
 
 
 exports.addPurchasePhone = async (req, res) => {
@@ -551,7 +552,11 @@ exports.addBulkPhones = async (req, res) => {
       });
     }
 
+    const party = await PartyLedger.findOne({ partyName }).select("_id").exec(); // Only fetch _id
+    if (!party) return { success: false, message: "Party not found" };
+
     const bulkPhonePurchase = new BulkPhonePurchase({
+      partyLedgerId: party,
       userId: req.user.id,
       partyName,
       date,

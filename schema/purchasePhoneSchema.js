@@ -195,6 +195,10 @@ const RamSimSchema = new mongoose.Schema({
 const BulkPhonePurchaseSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   partyName: { type: String },
+  partyLedgerId: {
+     type: mongoose.Schema.Types.ObjectId,
+     ref: "PartyLedger"
+  },
   date: { type: Date },
   companyName: { type: String },
   batteryHealth: { type: String, required: false },
