@@ -24,8 +24,7 @@ router.get(
     getAllPartiesRecords
 )
 router.get(
-    "/getBulkPurchaseById/:id",
-    decoderMiddleware,
+    "/bulkPurchase/:id",
     getBulkPurchasesByPartyId
 )
 

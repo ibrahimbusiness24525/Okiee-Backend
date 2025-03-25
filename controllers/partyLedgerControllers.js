@@ -80,43 +80,80 @@ exports.getAllPartiesRecords = async (req, res) => {
         const userId = req.user.id; // Get user ID from request
 
         // Aggregate purchases grouped by partyName for a specific user
-        const bulkPurchases = await BulkPhonePurchase.aggregate([
-            {
-                $lookup: {
-                    from: "partyledgers", // Make sure this matches your MongoDB collection name
-                    localField: "partyName",
-                    foreignField: "partyName",
-                    as: "partyDetails"
-                }
-            },
-            {
-                $unwind: "$partyDetails" // Flatten the array returned by $lookup
-            },
-            {
-                $match: { "partyDetails.userId": new mongoose.Types.ObjectId(userId) } // Filter by userId
-            },
-            {
-                $group: {
-                    _id: "$partyName",
-                    purchases: { $push: "$$ROOT" } // Push all purchases into an array
-                }
-            },
-            { $sort: { _id: 1 } } // Sort by partyName alphabetically
-        ]);
+        // const bulkPurchases = await BulkPhonePurchase.aggregate([
+        //     {
+        //         $lookup: {
+        //             from: "partyledgers", // Make sure this matches your MongoDB collection name
+        //             localField: "partyName",
+        //             foreignField: "partyName",
+        //             as: "partyDetails"
+        //         }
+        //     },
+        //     {
+        //         $unwind: "$partyDetails" // Flatten the array returned by $lookup
+        //     },
+        //     {
+        //         $match: { "partyDetails.userId": new mongoose.Types.ObjectId(userId) } // Filter by userId
+        //     },
+        //     {
+        //         $group: {
+        //             _id: "$partyName",
+        //             purchases: { $push: "$$ROOT" } // Push all purchases into an array
+        //         }
+        //     },
+        //     { $sort: { _id: 1 } } // Sort by partyName alphabetically
+        // ]);
 
-        if (!bulkPurchases.length) {
-            return res.status(404).json({
-                success: false,
-                message: "No purchases found for this user",
-                data: []
-            });
+        // if (!bulkPurchases.length) {
+        //     return res.status(404).json({
+        //         success: false,
+        //         message: "No purchases found for this user",
+        //         data: []
+        //     });
+        // }
+
+        // res.status(200).json({
+        //     success: true,
+        //     message: "Bulk purchases retrieved successfully",
+        //     data: bulkPurchases
+        // });
+
+        const partyLedger =  await PartyLedger.find({userId}).select("_id");
+
+        if(!partyLedger){
+            return res.status(400).json({
+                success:false,
+                message:"No parties found"
+            })
         }
 
-        res.status(200).json({
-            success: true,
-            message: "Bulk purchases retrieved successfully",
-            data: bulkPurchases
-        });
+        const partyLedgerIds = partyLedger.map(party=> party._id)
+
+        const bulkPurchases = await BulkPhonePurchase.find({ partyLedgerId: { $in: partyLedgerIds } })
+        .populate("partyLedgerId", "partyName") // Get Party Name
+        .populate("ramSimDetails"); // Get RAM/SIM details
+        
+        const formattedBulkPurchases = bulkPurchases.map((item)=>{
+            return {
+                buyingPrice: item.prices.buyingPrice,
+                dealerPrice: item.prices.dealerPrice,
+                _id:item._id,
+                userId: item.userId,
+                partyName:item.partyName,
+                totalPurchasedMobiles: item.ramSimDetails.reduce((total, item) => total + item.imeiNumbers.length, 0),
+                createdDate: item.createdAt,
+                companyName: item.companyName,
+                modelName: item.modelName,
+                partyName: item.partyName,
+                
+
+            }
+        })
+        return res.status(200).json({
+            success:true,
+            message:"parties found successfully",
+            data: formattedBulkPurchases
+        })
     } catch (error) {
         res.status(500).json({
             success: false,
@@ -127,32 +164,19 @@ exports.getAllPartiesRecords = async (req, res) => {
 
 exports.getBulkPurchasesByPartyId = async (req, res) => {
     try {
-        const { partyId } = req.params; 
-        const userId = req.user.id; 
+        const { id } = req.params; // ✅ Correctly extract ID
 
-        const objectIdPartyId = new mongoose.Types.ObjectId(partyId);
-        const purchases = await BulkPhonePurchase.find({
-            partyLedgerId: objectIdPartyId,
-            userId: userId,
-        }).populate("partyLedgerId", "partyName"); 
-
-        if (!purchases.length) {
-            return res.status(404).json({
-                success: false,
-                message: "No purchases found for this party",
-                data: [],
-            });
+        const bulkPurchase = await BulkPhonePurchase.findById(id)
+          .populate("partyLedgerId", "partyName") // ✅ Get party name
+          .populate("ramSimDetails"); // ✅ Get RAM/SIM details
+    
+        if (!bulkPurchase) {
+          return res.status(404).json({ success: false, message: "Bulk purchase not found" }); // ✅ Proper response
         }
-
-        res.status(200).json({
-            success: true,
-            message: "Bulk purchases retrieved successfully",
-            data: purchases,
-        });
+    
+        res.status(200).json({ success: true, data: bulkPurchase }); // ✅ Send response properly
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: error.message || "Failed to retrieve purchases",
-        });
+        console.error("Error fetching bulk purchase:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch bulk purchase details" }); // ✅ Handle error correctly
     }
 };

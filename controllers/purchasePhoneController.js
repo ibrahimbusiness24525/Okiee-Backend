@@ -576,6 +576,7 @@ exports.addBulkPhones = async (req, res) => {
           const newRamSim = new RamSim({
             ramMemory: ramSim.ramMemory,
             simOption: ramSim.simOption,  
+            priceOfOne: ramSim.priceOfOne,
             bulkPhonePurchaseId: savedBulkPhonePurchase._id,
           });
 
