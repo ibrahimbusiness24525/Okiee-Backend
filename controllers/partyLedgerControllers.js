@@ -79,45 +79,6 @@ exports.getAllPartiesRecords = async (req, res) => {
     try {
         const userId = req.user.id; // Get user ID from request
 
-        // Aggregate purchases grouped by partyName for a specific user
-        // const bulkPurchases = await BulkPhonePurchase.aggregate([
-        //     {
-        //         $lookup: {
-        //             from: "partyledgers", // Make sure this matches your MongoDB collection name
-        //             localField: "partyName",
-        //             foreignField: "partyName",
-        //             as: "partyDetails"
-        //         }
-        //     },
-        //     {
-        //         $unwind: "$partyDetails" // Flatten the array returned by $lookup
-        //     },
-        //     {
-        //         $match: { "partyDetails.userId": new mongoose.Types.ObjectId(userId) } // Filter by userId
-        //     },
-        //     {
-        //         $group: {
-        //             _id: "$partyName",
-        //             purchases: { $push: "$$ROOT" } // Push all purchases into an array
-        //         }
-        //     },
-        //     { $sort: { _id: 1 } } // Sort by partyName alphabetically
-        // ]);
-
-        // if (!bulkPurchases.length) {
-        //     return res.status(404).json({
-        //         success: false,
-        //         message: "No purchases found for this user",
-        //         data: []
-        //     });
-        // }
-
-        // res.status(200).json({
-        //     success: true,
-        //     message: "Bulk purchases retrieved successfully",
-        //     data: bulkPurchases
-        // });
-
         const partyLedger =  await PartyLedger.find({userId}).select("_id");
 
         if(!partyLedger){
@@ -145,8 +106,13 @@ exports.getAllPartiesRecords = async (req, res) => {
                 companyName: item.companyName,
                 modelName: item.modelName,
                 partyName: item.partyName,
-                
-
+                purchasePaymentStatus:item.purchasePaymentStatus,
+                purchasePaymentType:item.purchasePaymentType,
+                ...(item.purchasePaymentType === "credit" && {
+                    payableAmountNow: item.creditPaymentData?.payableAmountNow || null,
+                    payableAmountLater: item.creditPaymentData?.payableAmountLater || null,
+                    dateOfPayment: item.creditPaymentData?.dateOfPayment || null,
+                }),
             }
         })
         return res.status(200).json({
@@ -180,3 +146,4 @@ exports.getBulkPurchasesByPartyId = async (req, res) => {
         res.status(500).json({ success: false, message: "Failed to fetch bulk purchase details" }); // ✅ Handle error correctly
     }
 };
+

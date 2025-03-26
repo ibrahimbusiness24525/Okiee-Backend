@@ -544,8 +544,10 @@ exports.addBulkPhones = async (req, res) => {
   try {
     console.log("Incoming Request Body:", req.body); // Debugging
 
-    const { partyName, date, companyName, modelName, ramSimDetails, prices } = req.body;
-
+    const { partyName, date, companyName, modelName, ramSimDetails, prices,purchasePaymentStatus,purchasePaymentType,creditPaymentData={} } = req.body;
+    if(Number(creditPaymentData.payableAmountNow) + Number(creditPaymentData.payableAmountLater) !== Number(prices.buyingPrice)){
+      return res.status(400).json({ message: "Invalid data: payable amount should be equal to buying price" });
+    }
     if (!ramSimDetails || !Array.isArray(ramSimDetails)) {
       return res.status(400).json({
         message: "Invalid data: ramSimDetails must be an array and cannot be empty",
@@ -564,6 +566,9 @@ exports.addBulkPhones = async (req, res) => {
       modelName,
       prices,
       ramSimDetails: [], 
+      purchasePaymentType,
+      purchasePaymentStatus,
+      ...(purchasePaymentType === "credit" && { creditPaymentData }),
     });
 
     const savedBulkPhonePurchase = await bulkPhonePurchase.save();
@@ -922,5 +927,42 @@ exports.getDeviceByImei = async(req,res) =>{
   } catch (error) {
     console.error("Error fetching phone details:", error);
     res.status(500).json({ error: "Internal server error." });
+  }
+}
+
+exports.payBulkPurchaseCreditAmount = async (req, res) => {
+  try {
+    const userId = req.user.id; // Extract user ID from request
+    const bulkPhonePurchaseId = req.params.id;
+    const{amountToPay} = req.body;
+    const bulkPhonePurchase = await BulkPhonePurchase.findById(bulkPhonePurchaseId);
+    if(!userId){
+      return res.status(404).json({ message: "Authenticate please" });
+    }
+    if (!bulkPhonePurchase) {
+      return res.status(404).json({ message: "Bulk phone purchase not found" });
+    }
+    if(bulkPhonePurchase.purchasePaymentStatus === "Paid"){
+      return res.status(400).json({ message: "Payment already made" });
+    }
+    if (bulkPhonePurchase.creditPaymentData.payableAmountLater === 0 || 
+      bulkPhonePurchase.creditPaymentData.payableAmountLater === "0") {
+    return res.status(400).json({ message: "No amount to pay" });
+  }
+  
+    const response = Number(bulkPhonePurchase.creditPaymentData.payableAmountLater) - Number(amountToPay);
+    if(response < 0){
+      return res.status(400).json({ message: "Amount to pay is greater than payable amount" });
+    }
+    bulkPhonePurchase.creditPaymentData.payableAmountLater = response;
+    if(response === 0){
+      bulkPhonePurchase.purchasePaymentStatus = "Paid";
+    }
+    bulkPhonePurchase.save();
+    res.status(200).json({ message: "Payment made successfully", bulkPhonePurchase });
+  }catch(error){
+    console.error("Error paying credit amount:", error);
+    res.status(500).json({ message: "Internal server error", error });
+
   }
 }

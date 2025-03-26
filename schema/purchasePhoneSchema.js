@@ -211,6 +211,13 @@ const BulkPhonePurchaseSchema = new mongoose.Schema({
     promo: { type: String, required: false },
     activation: { type: String, required: false },
   },
+  purchasePaymentStatus: { type: String, enum: ["paid", "pending"], default: "paid"},
+  purchasePaymentType: { type: String, enum: ["full-payment", "credit", ], required: true },
+  creditPaymentData: {
+    payableAmountNow: { type: String, required: false },
+    payableAmountLater: { type: String, required: false },
+    dateOfPayment: { type: Date, required: false },
+  },
   ramSimDetails: [{ type: mongoose.Schema.Types.ObjectId, ref: "RamSim" }],
   status: { type: String, enum: ["Available", "Partially Sold", "Sold"], default: "Available" }
 },{ timestamps: true });

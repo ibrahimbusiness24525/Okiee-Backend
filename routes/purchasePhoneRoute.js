@@ -22,7 +22,8 @@ const {
     getSingleSoldPhoneById,
     getBulkSoldPhoneById,
     getDeviceByImei,
-    updateSinglePurchasePhone
+    updateSinglePurchasePhone,
+    payBulkPurchaseCreditAmount
 } = require('../controllers/purchasePhoneController');
 const { decoderMiddleware } = require('../services/authServices');
 
@@ -90,5 +91,6 @@ router.put(
 router.delete('/purchase-bulk/delete/:id',decoderMiddleware, deleteBulkPhone);
 router.delete('/purchase-phone/delete/:id',decoderMiddleware, deletePurchasePhone);
 router.get('/purchase-device/detail',decoderMiddleware, getDeviceByImei);
+router.patch("/bulk-purchase-credit-pay/:id",decoderMiddleware,payBulkPurchaseCreditAmount)
 
 module.exports = router;
