@@ -216,6 +216,7 @@ const BulkPhonePurchaseSchema = new mongoose.Schema({
   creditPaymentData: {
     payableAmountNow: { type: String, required: false },
     payableAmountLater: { type: String, required: false },
+    totalPaidAmount:{type:Number, required:false},
     dateOfPayment: { type: Date, required: false },
   },
   ramSimDetails: [{ type: mongoose.Schema.Types.ObjectId, ref: "RamSim" }],

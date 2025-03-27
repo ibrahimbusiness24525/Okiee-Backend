@@ -545,9 +545,11 @@ exports.addBulkPhones = async (req, res) => {
     console.log("Incoming Request Body:", req.body); // Debugging
 
     const { partyName, date, companyName, modelName, ramSimDetails, prices,purchasePaymentStatus,purchasePaymentType,creditPaymentData={} } = req.body;
+  if(purchasePaymentType === "credit"){
     if(Number(creditPaymentData.payableAmountNow) + Number(creditPaymentData.payableAmountLater) !== Number(prices.buyingPrice)){
       return res.status(400).json({ message: "Invalid data: payable amount should be equal to buying price" });
     }
+  }
     if (!ramSimDetails || !Array.isArray(ramSimDetails)) {
       return res.status(400).json({
         message: "Invalid data: ramSimDetails must be an array and cannot be empty",
@@ -570,7 +572,11 @@ exports.addBulkPhones = async (req, res) => {
       purchasePaymentStatus,
       ...(purchasePaymentType === "credit" && { creditPaymentData }),
     });
-
+    const totalAmountPaid = 
+    (Number(bulkPhonePurchase.creditPaymentData?.totalPaidAmount) || 0) + 
+    (Number(bulkPhonePurchase.creditPaymentData?.payableAmountNow) || 0);
+  
+  bulkPhonePurchase.creditPaymentData.totalPaidAmount = totalAmountPaid;
     const savedBulkPhonePurchase = await bulkPhonePurchase.save();
 
     if (ramSimDetails.length > 0 && typeof ramSimDetails[0] === "string") {
@@ -956,8 +962,18 @@ exports.payBulkPurchaseCreditAmount = async (req, res) => {
     }
     bulkPhonePurchase.creditPaymentData.payableAmountLater = response;
     if(response === 0){
-      bulkPhonePurchase.purchasePaymentStatus = "Paid";
+      bulkPhonePurchase.purchasePaymentStatus = "paid";
     }
+  
+  // Initialize totalPaidAmount with payableAmountNow if it's the first payment
+// if (!bulkPhonePurchase.creditPaymentData.totalPaidAmount) {
+//   bulkPhonePurchase.creditPaymentData.totalPaidAmount = Number(bulkPhonePurchase.creditPaymentData.payableAmountNow) || 0;
+// }
+
+// Add amountToPay to totalPaidAmount
+bulkPhonePurchase.creditPaymentData.totalPaidAmount += Number(amountToPay);
+
+    
     bulkPhonePurchase.save();
     res.status(200).json({ message: "Payment made successfully", bulkPhonePurchase });
   }catch(error){

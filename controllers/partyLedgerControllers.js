@@ -112,6 +112,7 @@ exports.getAllPartiesRecords = async (req, res) => {
                     payableAmountNow: item.creditPaymentData?.payableAmountNow || null,
                     payableAmountLater: item.creditPaymentData?.payableAmountLater || null,
                     dateOfPayment: item.creditPaymentData?.dateOfPayment || null,
+                    totalPaidAmount: item.creditPaymentData?.totalPaidAmount || null,
                 }),
             }
         })
