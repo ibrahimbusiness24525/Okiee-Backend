@@ -205,7 +205,7 @@ const BulkPhonePurchaseSchema = new mongoose.Schema({
   modelName: { type: String },
   prices: {
     buyingPrice: { type: String },
-    dealerPrice: { type: String },
+    dealerPrice: { type: String,required: false },
     lp: { type: Number, required: false },
     lifting: { type: Number, required: false },
     promo: { type: String, required: false },
