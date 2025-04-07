@@ -963,7 +963,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
     res.status(500).json({ message: "Error selling phones", error: error.message });
   }
 };
-
+ 
 
 
 
@@ -971,11 +971,17 @@ exports.sellPhonesFromBulk = async (req, res) => {
 // Get all sales (both single and bulk)
 exports.getAllSales = async (req, res) => {
     try {
+      // const pageNumber = req.query.page || 1;
+      // const pageSize = 10;
+      // SoldPhone.paginate({},{page: pageNumber,limit: pageSize},(err,result)=>{
+      //   if(err){
+      //     return res.status(500).json({message: "Error while fetching the sold phones"})
+      //   }
+
+      //   const {docs, total, limit, page, pages} = result;
+      //   res.json({users: docs, total, limit, page, pages})
+      // })
         const allSales = await SoldPhone.find({userId: req.user.id})  
-            // .populate({
-            //     path: 'bulkPhonePurchaseId',
-            //     model: 'BulkPhonePurchase',
-            // });
       
         const responseData = allSales.map(sale => ({
             ...sale.toObject(),

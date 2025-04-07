@@ -28,7 +28,7 @@ const {
 const { decoderMiddleware } = require('../services/authServices');
 
 // Multer setup for file uploads (specific for adding purchase phones)
-const upload = multer({ dest: 'uploads/' }); // You can modify the destination as needed
+const upload = multer({ dest: 'uploads/' }); 
 
 // Route to add a new purchase phone slip (with file upload support)
 router.post(
@@ -71,6 +71,7 @@ router.get('/purchase-phone/filter', getPurchasePhoneByFilter);
 router.post('/sell-phone',decoderMiddleware, sellPhonesFromBulk);//used to sale bulk phones
 
 router.get('/all-sales',decoderMiddleware, getAllSales);
+
 router.get('/bulk-phone/sale/:id', getSoldBulkPhoneDetailById);
 
 // Route to get a specific purchase phone slip by ID

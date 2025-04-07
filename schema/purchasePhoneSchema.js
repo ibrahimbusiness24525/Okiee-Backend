@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-
+const mongoosePaginate = require('mongoose-paginate');
 // Existing schemas
 const PurchasePhoneSchema = new mongoose.Schema({
    userId:{
@@ -226,9 +226,15 @@ const BulkPhonePurchaseSchema = new mongoose.Schema({
 // Models
 const Imei = mongoose.model("Imei", ImeiSchema);
 const RamSim = mongoose.model("RamSim", RamSimSchema);
+
 const BulkPhonePurchase = mongoose.model("BulkPhonePurchase", BulkPhonePurchaseSchema);
+BulkPhonePurchaseSchema.plugin(mongoosePaginate);
+
 const PurchasePhone = mongoose.model('PurchasePhone', PurchasePhoneSchema);
+
 const SoldPhone = mongoose.model("SoldPhone", SoldPhoneSchema);
+SoldPhoneSchema.plugin(mongoosePaginate);
+
 const SingleSoldPhone = mongoose.model("SingleSoldPhone", SingleSoldPhoneSchema);
 
 module.exports = { Imei, RamSim, BulkPhonePurchase, PurchasePhone, SoldPhone,SingleSoldPhone };
