@@ -185,6 +185,10 @@ const ImeiSchema = new mongoose.Schema({
 });
 
 const RamSimSchema = new mongoose.Schema({
+  companyName: { type: String },
+  batteryHealth: { type: String, required: false },
+  modelName: { type: String },
+  
   priceOfOne: { type: Number, required: false },
   ramMemory: { type: String, required: true },
   simOption: { type: String, required: true },
@@ -200,9 +204,7 @@ const BulkPhonePurchaseSchema = new mongoose.Schema({
      ref: "PartyLedger"
   },
   date: { type: Date },
-  companyName: { type: String },
-  batteryHealth: { type: String, required: false },
-  modelName: { type: String },
+  
   prices: {
     buyingPrice: { type: String },
     dealerPrice: { type: String,required: false },

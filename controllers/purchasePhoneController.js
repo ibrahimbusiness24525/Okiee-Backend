@@ -540,80 +540,175 @@ exports.deletePurchasePhone = async (req, res) => {
 };
 
 
+// exports.addBulkPhones = async (req, res) => {
+//   try {
+//     console.log("Incoming Request Body:", req.body); // Debugging
+
+//     const { partyName, date, companyName, modelName, ramSimDetails, prices,purchasePaymentStatus,purchasePaymentType,creditPaymentData={} } = req.body;
+//   if(purchasePaymentType === "credit"){
+//     if(Number(creditPaymentData.payableAmountNow) + Number(creditPaymentData.payableAmountLater) !== Number(prices.buyingPrice)){
+//       return res.status(400).json({ message: "Invalid data: payable amount should be equal to buying price" });
+//     }
+//   }
+//     if (!ramSimDetails || !Array.isArray(ramSimDetails)) {
+//       return res.status(400).json({
+//         message: "Invalid data: ramSimDetails must be an array and cannot be empty",
+//       });
+//     }
+
+//     const party = await PartyLedger.findOne({ partyName }).select("_id").exec(); // Only fetch _id
+//     if (!party) return { success: false, message: "Party not found" };
+
+//     const bulkPhonePurchase = new BulkPhonePurchase({
+//       partyLedgerId: party,
+//       userId: req.user.id,
+//       partyName,
+//       date,
+//       companyName,
+//       modelName,
+//       prices,
+//       ramSimDetails: [], 
+//       purchasePaymentType,
+//       purchasePaymentStatus,
+//       ...(purchasePaymentType === "credit" && { creditPaymentData }),
+//     });
+//     const totalAmountPaid = 
+//     (Number(bulkPhonePurchase.creditPaymentData?.totalPaidAmount) || 0) + 
+//     (Number(bulkPhonePurchase.creditPaymentData?.payableAmountNow) || 0);
+  
+//   bulkPhonePurchase.creditPaymentData.totalPaidAmount = totalAmountPaid;
+//     const savedBulkPhonePurchase = await bulkPhonePurchase.save();
+
+//     if (ramSimDetails.length > 0 && typeof ramSimDetails[0] === "string") {
+//       savedBulkPhonePurchase.ramSimDetails = ramSimDetails;
+//     } else {
+//       const ramSimData = await Promise.all(
+//         ramSimDetails.map(async (ramSim) => {
+//           const newRamSim = new RamSim({
+//             ramMemory: ramSim.ramMemory,
+//             simOption: ramSim.simOption,  
+//             priceOfOne: ramSim.priceOfOne,
+//             bulkPhonePurchaseId: savedBulkPhonePurchase._id,
+//           });
+
+//           const savedRamSim = await newRamSim.save();
+
+//           const imeiNumbers = await Promise.all(
+//             (ramSim.imeiNumbers || []).map(async (imei) => {
+//               const newImei = new Imei({
+//                 imei1: imei.imei1,
+//                 imei2: imei.imei2,
+//                 ramSimId: savedRamSim._id,
+//               });
+//               return await newImei.save();
+//             })
+//           );
+
+//           savedRamSim.imeiNumbers = imeiNumbers;
+//           await savedRamSim.save();
+
+//           return savedRamSim;
+//         })
+//       );
+
+//       savedBulkPhonePurchase.ramSimDetails = ramSimData;
+//     }
+
+//     await savedBulkPhonePurchase.save();
+
+//     res.status(201).json({
+//       message: "Bulk Phone Purchase created successfully",
+//       data: savedBulkPhonePurchase,
+//     });
+//   } catch (error) {
+//     console.error("Error:", error); // Log error details
+//     res.status(500).json({ message: "Error creating Bulk Phone Purchase", error: error.message });
+//   }
+// };
+
 exports.addBulkPhones = async (req, res) => {
   try {
-    console.log("Incoming Request Body:", req.body); // Debugging
+    console.log("Incoming Request Body:", req.body);
 
-    const { partyName, date, companyName, modelName, ramSimDetails, prices,purchasePaymentStatus,purchasePaymentType,creditPaymentData={} } = req.body;
-  if(purchasePaymentType === "credit"){
-    if(Number(creditPaymentData.payableAmountNow) + Number(creditPaymentData.payableAmountLater) !== Number(prices.buyingPrice)){
-      return res.status(400).json({ message: "Invalid data: payable amount should be equal to buying price" });
+    const {
+      partyName,
+      date,
+      companyName,
+      modelName,
+      ramSimDetails,
+      prices,
+      purchasePaymentStatus,
+      purchasePaymentType,
+      creditPaymentData = {},
+    } = req.body;
+
+    if (purchasePaymentType === "credit") {
+      const total = Number(creditPaymentData.payableAmountNow) + Number(creditPaymentData.payableAmountLater);
+      if (total !== Number(prices.buyingPrice)) {
+        return res.status(400).json({ message: "Invalid data: payable amount should equal buying price" });
+      }
     }
-  }
+
     if (!ramSimDetails || !Array.isArray(ramSimDetails)) {
-      return res.status(400).json({
-        message: "Invalid data: ramSimDetails must be an array and cannot be empty",
-      });
+      return res.status(400).json({ message: "Invalid data: ramSimDetails must be an array" });
     }
 
-    const party = await PartyLedger.findOne({ partyName }).select("_id").exec(); // Only fetch _id
-    if (!party) return { success: false, message: "Party not found" };
+    const party = await PartyLedger.findOne({ partyName }).select("_id").exec();
+    if (!party) return res.status(404).json({ success: false, message: "Party not found" });
 
     const bulkPhonePurchase = new BulkPhonePurchase({
-      partyLedgerId: party,
+      partyLedgerId: party._id,
       userId: req.user.id,
       partyName,
       date,
       companyName,
       modelName,
       prices,
-      ramSimDetails: [], 
       purchasePaymentType,
       purchasePaymentStatus,
       ...(purchasePaymentType === "credit" && { creditPaymentData }),
     });
-    const totalAmountPaid = 
-    (Number(bulkPhonePurchase.creditPaymentData?.totalPaidAmount) || 0) + 
-    (Number(bulkPhonePurchase.creditPaymentData?.payableAmountNow) || 0);
-  
-  bulkPhonePurchase.creditPaymentData.totalPaidAmount = totalAmountPaid;
-    const savedBulkPhonePurchase = await bulkPhonePurchase.save();
 
-    if (ramSimDetails.length > 0 && typeof ramSimDetails[0] === "string") {
-      savedBulkPhonePurchase.ramSimDetails = ramSimDetails;
-    } else {
-      const ramSimData = await Promise.all(
-        ramSimDetails.map(async (ramSim) => {
-          const newRamSim = new RamSim({
-            ramMemory: ramSim.ramMemory,
-            simOption: ramSim.simOption,  
-            priceOfOne: ramSim.priceOfOne,
-            bulkPhonePurchaseId: savedBulkPhonePurchase._id,
-          });
-
-          const savedRamSim = await newRamSim.save();
-
-          const imeiNumbers = await Promise.all(
-            (ramSim.imeiNumbers || []).map(async (imei) => {
-              const newImei = new Imei({
-                imei1: imei.imei1,
-                imei2: imei.imei2,
-                ramSimId: savedRamSim._id,
-              });
-              return await newImei.save();
-            })
-          );
-
-          savedRamSim.imeiNumbers = imeiNumbers;
-          await savedRamSim.save();
-
-          return savedRamSim;
-        })
-      );
-
-      savedBulkPhonePurchase.ramSimDetails = ramSimData;
+    if (purchasePaymentType === "credit") {
+      const totalPaid = (Number(creditPaymentData.totalPaidAmount) || 0) + Number(creditPaymentData.payableAmountNow || 0);
+      bulkPhonePurchase.creditPaymentData.totalPaidAmount = totalPaid;
     }
 
+    const savedBulkPhonePurchase = await bulkPhonePurchase.save();
+
+    const ramSimData = await Promise.all(
+      ramSimDetails.map(async (ramSim) => {
+        const newRamSim = new RamSim({
+          companyName: ramSim.companyName,
+          modelName: ramSim.modelName,
+          batteryHealth: ramSim.batteryHealth,
+          ramMemory: ramSim.ramMemory,
+          simOption: ramSim.simOption,
+          priceOfOne: ramSim.priceOfOne,
+          bulkPhonePurchaseId: savedBulkPhonePurchase._id,
+        });
+
+        const savedRamSim = await newRamSim.save();
+
+        const imeiNumbers = await Promise.all(
+          (ramSim.imeiNumbers || []).map(async (imei) => {
+            const newImei = new Imei({
+              imei1: imei.imei1,
+              imei2: imei.imei2,
+              color: imei.color,
+              ramSimId: savedRamSim._id,
+            });
+            return await newImei.save();
+          })
+        );
+
+        savedRamSim.imeiNumbers = imeiNumbers;
+        await savedRamSim.save();
+        return savedRamSim;
+      })
+    );
+
+    savedBulkPhonePurchase.ramSimDetails = ramSimData;
     await savedBulkPhonePurchase.save();
 
     res.status(201).json({
@@ -621,10 +716,11 @@ exports.addBulkPhones = async (req, res) => {
       data: savedBulkPhonePurchase,
     });
   } catch (error) {
-    console.error("Error:", error); // Log error details
+    console.error("Error:", error);
     res.status(500).json({ message: "Error creating Bulk Phone Purchase", error: error.message });
   }
 };
+
 
 // Get all Bulk Phone Purchases
 // router.get("/bulk-phone-purchase", 
