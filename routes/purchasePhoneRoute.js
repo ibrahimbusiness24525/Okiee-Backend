@@ -23,7 +23,8 @@ const {
     getBulkSoldPhoneById,
     getDeviceByImei,
     updateSinglePurchasePhone,
-    payBulkPurchaseCreditAmount
+    payBulkPurchaseCreditAmount,
+    updateBulkPhonePurchase
 } = require('../controllers/purchasePhoneController');
 const { decoderMiddleware } = require('../services/authServices');
 
@@ -48,6 +49,9 @@ router.post(
 
 router.post(
     '/bulk-phone-purchase',decoderMiddleware,addBulkPhones//used
+);
+router.put(
+    '/bulk-phone-update/:id',updateBulkPhonePurchase//used to edit bulk
 );
 router.get(
     '/bulk-phone-purchase',decoderMiddleware,getBulkPhone//used to get all bulk only

@@ -721,6 +721,31 @@ exports.addBulkPhones = async (req, res) => {
   }
 };
 
+//updateBulkPhone
+exports.updateBulkPhonePurchase = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    const updatedPurchase = await BulkPhonePurchase.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedPurchase) {
+      return res.status(404).json({ message: 'BulkPhonePurchase not found' });
+    }
+
+    res.status(200).json({
+      message: 'BulkPhonePurchase updated successfully',
+      data: updatedPurchase,
+    });
+  } catch (error) {
+    console.error('Error updating BulkPhonePurchase:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
 
 // Get all Bulk Phone Purchases
 // router.get("/bulk-phone-purchase", 
@@ -737,7 +762,22 @@ exports.getBulkPhone = async (req, res) => {
       })
       .lean(); 
 
-    res.status(200).json(bulkPhonePurchases);
+  const updatedPurchases = bulkPhonePurchases.map(purchase => {
+  const creditAmount = Number(purchase?.creditPaymentData?.payableAmountLater || 0);
+  const buyingPrice = Number(purchase?.prices?.buyingPrice || 0);
+
+  const actualBuyingPrice = Math.round(
+    creditAmount > 0 ? buyingPrice + creditAmount : buyingPrice
+  );
+
+  return {
+    ...purchase,
+    actualBuyingPrice
+  };
+});
+
+res.status(200).json(updatedPurchases); // ✅ Don't wrap in `{}` — it’s already an array
+
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ message: "Error fetching Bulk Phone Purchases", error: error.message });
