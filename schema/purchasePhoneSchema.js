@@ -48,7 +48,11 @@ const PurchasePhoneSchema = new mongoose.Schema({
     ref: "SoldPhone", // Reference to SoldPhone model
     required: false,
   },
-  
+  dispatch: {
+    type: Boolean,
+    default: false,
+    required: false
+  },
 },{ timestamps: true });
 
 const SingleSoldPhoneSchema = new mongoose.Schema({
@@ -118,6 +122,11 @@ const SingleSoldPhoneSchema = new mongoose.Schema({
   isApprovedFromEgadgets: { type: Boolean, default: false },
   eGadgetStatusPicture: { type: String, required: false }, // File URL
   invoiceNumber: { type: String, required: true, unique: true },
+  dispatch: {
+    type: Boolean,
+    default: false,
+    required: false
+  },
 },{ timestamps: true });
 
 // Sold Phone schema
@@ -172,7 +181,12 @@ const SoldPhoneSchema = new mongoose.Schema({
   totalInvoice: { type: Number, required: true },
   invoiceNumber: { type: String, required: true, unique: true },
   warranty: { type: String, required: true },  
-  dateSold: { type: Date, default: Date.now }
+  dateSold: { type: Date, default: Date.now },
+  dispatch: {
+    type: Boolean,
+    default: false,
+    required: false
+  },
 },{ timestamps: true });
 
 
@@ -182,6 +196,7 @@ const ImeiSchema = new mongoose.Schema({
   imei1: { type: String, required: true },
   imei2: { type: String, required: false },
   ramSimId: { type: mongoose.Schema.Types.ObjectId, ref: "RamSim", required: true },
+  isDispatched: { type: Boolean, default: false },
 });
 
 const RamSimSchema = new mongoose.Schema({
@@ -222,11 +237,50 @@ const BulkPhonePurchaseSchema = new mongoose.Schema({
     dateOfPayment: { type: Date, required: false },
   },
   ramSimDetails: [{ type: mongoose.Schema.Types.ObjectId, ref: "RamSim" }],
-  status: { type: String, enum: ["Available", "Partially Sold", "Sold"], default: "Available" }
+  status: { type: String, enum: ["Available", "Partially Sold", "Sold"], default: "Available" },
+  dispatch: {
+    type: Boolean,
+    default: false,
+    required: false
+  },
 },{ timestamps: true });
+
+const dispatchSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  shopName: {
+    type: String,
+    required: true,
+  },
+  receiverName: {
+    type: String,
+    required: true,
+  },
+  purchasePhoneId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PurchasePhone',
+    default: null,
+  },
+  bulkPhonePurchaseId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'BulkPhonePurchase',
+    default: null,
+  },
+  dispatchedImeiIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Imei" }],
+  dispatchDate: {
+    type: Date,
+    default: Date.now,
+  },
+  status: {
+    type: String,
+    enum: ['Dispatched', 'Returned', 'Sold'],
+    default: 'Dispatched'
+  }
+});
+
 
 // Models
 const Imei = mongoose.model("Imei", ImeiSchema);
+
 const RamSim = mongoose.model("RamSim", RamSimSchema);
 
 const BulkPhonePurchase = mongoose.model("BulkPhonePurchase", BulkPhonePurchaseSchema);
@@ -239,7 +293,9 @@ SoldPhoneSchema.plugin(mongoosePaginate);
 
 const SingleSoldPhone = mongoose.model("SingleSoldPhone", SingleSoldPhoneSchema);
 
-module.exports = { Imei, RamSim, BulkPhonePurchase, PurchasePhone, SoldPhone,SingleSoldPhone };
+const Dispatch = mongoose.model("Dispatch", dispatchSchema)
+
+module.exports = { Imei, RamSim, BulkPhonePurchase, PurchasePhone, SoldPhone,SingleSoldPhone,Dispatch };
 
 
 

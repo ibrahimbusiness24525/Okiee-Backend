@@ -24,7 +24,11 @@ const {
     getDeviceByImei,
     updateSinglePurchasePhone,
     payBulkPurchaseCreditAmount,
-    updateBulkPhonePurchase
+    updateBulkPhonePurchase,
+    dispatchSinglePurchase,
+    dispatchBulkPurchase,
+    getSingleDispatches,
+    getBulkDispatches
 } = require('../controllers/purchasePhoneController');
 const { decoderMiddleware } = require('../services/authServices');
 
@@ -96,6 +100,9 @@ router.put(
 router.delete('/purchase-bulk/delete/:id',decoderMiddleware, deleteBulkPhone);
 router.delete('/purchase-phone/delete/:id',decoderMiddleware, deletePurchasePhone);
 router.get('/purchase-device/detail',decoderMiddleware, getDeviceByImei);
-router.patch("/bulk-purchase-credit-pay/:id",decoderMiddleware,payBulkPurchaseCreditAmount)
-
+router.patch("/bulk-purchase-credit-pay/:id",decoderMiddleware,payBulkPurchaseCreditAmount);
+router.patch("/bulk-purchase-dispatch/:id",decoderMiddleware,dispatchBulkPurchase);
+router.patch("/single-purchase-dispatch/:id",decoderMiddleware,dispatchSinglePurchase);
+router.get("/single-dispatch",decoderMiddleware,getSingleDispatches);
+router.get("/bulk-dispatch",decoderMiddleware,getBulkDispatches);
 module.exports = router;

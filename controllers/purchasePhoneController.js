@@ -1,5 +1,5 @@
 const multer = require('multer');
-const { Imei, RamSim, BulkPhonePurchase, PurchasePhone,SoldPhone, SingleSoldPhone } = require("../schema/purchasePhoneSchema");
+const { Imei, RamSim, BulkPhonePurchase, PurchasePhone,SoldPhone, SingleSoldPhone, Dispatch } = require("../schema/purchasePhoneSchema");
 const { default: mongoose } = require('mongoose');
 const { invoiceGenerator } = require('../services/invoiceGenerator');
 const PartyLedger = require('../schema/PartyLedgerSchema');
@@ -384,6 +384,7 @@ exports.getAllPurchasePhone = async (req, res) => {
           images: phone.images || [],
           cnic: phone.cnic,
           modelName: phone.modelName,
+          dispatch:phone.dispatch,
           batteryHealth: phone.batteryHealth || "",
           ramMemory: phone.ramMemory,
           mobileNumber: phone.mobileNumber,
@@ -772,6 +773,7 @@ exports.getBulkPhone = async (req, res) => {
 
   return {
     ...purchase,
+    dispatch: purchase.dispatch ?? false, 
     actualBuyingPrice
   };
 });
@@ -1235,3 +1237,187 @@ bulkPhonePurchase.creditPaymentData.totalPaidAmount += Number(amountToPay);
 
   }
 }
+
+
+// Dispatch a single purchase phone
+exports.dispatchSinglePurchase = async (req, res) => {
+  try {
+    const { shopName, receiverName } = req.body;
+    const purchasePhoneId = req.params.id;
+    const userId = req.user.id;
+
+    await PurchasePhone.findByIdAndUpdate(purchasePhoneId, { dispatch: true });
+
+    const dispatchEntry = await Dispatch.create({
+      userId,
+      shopName,
+      receiverName,
+      purchasePhoneId,
+    });
+
+    res.status(200).json({ message: "Phone dispatched", dispatch: dispatchEntry });
+  } catch (error) {
+    console.error("Error dispatching single phone:", error);
+    res.status(500).json({ message: "Internal server error", error });
+  }
+};
+
+
+// Dispatch a bulk purchase
+// exports.dispatchBulkPurchase = async (req, res) => {
+//   try {
+//     const { shopName, receiverName } = req.body;
+//     const bulkPhonePurchaseId = req.params.id;
+//     const userId = req.user.id;
+
+//     await BulkPhonePurchase.findByIdAndUpdate(bulkPhonePurchaseId, { dispatch: true });
+
+//     const dispatchEntry = await Dispatch.create({
+//       userId,
+//       shopName,
+//       receiverName,
+//       bulkPhonePurchaseId,
+//     });
+
+//     res.status(200).json({ message: "Bulk phones dispatched", dispatch: dispatchEntry });
+//   } catch (error) {
+//     console.error("Error dispatching bulk phones:", error);
+//     res.status(500).json({ message: "Internal server error", error });
+//   }
+// };
+
+exports.dispatchBulkPurchase = async (req, res) => {
+  try {
+    const { shopName, receiverName } = req.body;
+    const bulkPhonePurchaseId = req.params.id;
+    const userId = req.user.id;
+
+    // Check if already dispatched
+    const bulkPurchase = await BulkPhonePurchase.findById(bulkPhonePurchaseId);
+    if (!bulkPurchase) {
+      return res.status(404).json({ message: "Bulk purchase not found" });
+    }
+
+    if (bulkPurchase.dispatch) {
+      return res.status(400).json({ message: "Bulk phones already dispatched" });
+    }
+
+    // Get all RamSim entries for this bulk purchase
+    const ramSimEntries = await RamSim.find({ bulkPhonePurchaseId: bulkPhonePurchaseId });
+
+    const ramSimIds = ramSimEntries.map(r => r._id);
+
+    // Get all IMEIs from those RamSim entries
+    const imeis = await Imei.find({ ramSimId: { $in: ramSimIds } });
+    const imeiIds = imeis.map(i => i._id);
+
+    // Create Dispatch
+    const dispatchEntry = await Dispatch.create({
+      userId,
+      shopName,
+      receiverName,
+      bulkPhonePurchaseId,
+      dispatchedImeiIds: imeiIds,
+    });
+
+    // Optional: Mark all IMEIs as dispatched (requires `isDispatched` in Imei schema)
+    await Imei.updateMany(
+      { _id: { $in: imeiIds } },
+      { $set: { isDispatched: true } }
+    );
+
+    // Update bulk purchase dispatch flag
+    await BulkPhonePurchase.findByIdAndUpdate(bulkPhonePurchaseId, { dispatch: true });
+
+    res.status(200).json({ message: "Bulk phones dispatched", dispatch: dispatchEntry });
+  } catch (error) {
+    console.error("Error dispatching bulk phones:", error);
+    res.status(500).json({ message: "Internal server error", error });
+  }
+};
+
+exports.returnBulkDispatch = async (req, res) => {
+  try {
+    const dispatchId = req.params.id;
+
+    // Find the dispatch entry
+    const dispatchEntry = await Dispatch.findById(dispatchId);
+    if (!dispatchEntry) {
+      return res.status(404).json({ message: "Dispatch entry not found" });
+    }
+
+    const bulkPhonePurchaseId = dispatchEntry.bulkPhonePurchaseId;
+    const imeiIds = dispatchEntry.dispatchedImeiIds;
+
+    // Update BulkPhonePurchase - set dispatch: false
+    await BulkPhonePurchase.findByIdAndUpdate(bulkPhonePurchaseId, { dispatch: false });
+
+    // Optional: unmark IMEIs as dispatched
+    await Imei.updateMany(
+      { _id: { $in: imeiIds } },
+      { $set: { isDispatched: false } }
+    );
+
+    // Option 1: Delete the dispatch record
+    await Dispatch.findByIdAndDelete(dispatchId);
+
+    // Option 2 (alternative): Keep the record, mark it as returned
+    // await Dispatch.findByIdAndUpdate(dispatchId, { status: "returned" });
+
+    res.status(200).json({ message: "Bulk phones returned successfully" });
+  } catch (error) {
+    console.error("Error returning bulk dispatch:", error);
+    res.status(500).json({ message: "Internal server error", error });
+  }
+};
+
+
+exports.getSingleDispatches = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const dispatches = await Dispatch.find({
+      userId,
+      purchasePhoneId: { $ne: null },
+    })
+      .populate({
+        path: 'purchasePhoneId',
+        model: 'PurchasePhone',
+      })
+      .lean();
+
+    res.status(200).json({ dispatches });
+  } catch (error) {
+    console.error('Error fetching single phone dispatches:', error);
+    res.status(500).json({ message: 'Internal server error', error });
+  }
+};
+
+exports.getBulkDispatches = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const dispatches = await Dispatch.find({
+      userId,
+      bulkPhonePurchaseId: { $ne: null },
+    })
+      .populate({
+        path: 'bulkPhonePurchaseId',
+        model: 'BulkPhonePurchase',
+        populate: {
+          path: 'ramSimDetails',
+          model: 'RamSim',
+          populate: {
+            path: 'imeiNumbers',
+            model: 'Imei'
+          }
+        }
+      })
+      .lean();
+
+    res.status(200).json({ dispatches });
+  } catch (error) {
+    console.error('Error fetching bulk dispatches:', error);
+    res.status(500).json({ message: 'Internal server error', error });
+  }
+};
