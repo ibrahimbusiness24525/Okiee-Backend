@@ -1262,6 +1262,41 @@ exports.dispatchSinglePurchase = async (req, res) => {
   }
 };
 
+exports.dispatchSingleReturn = async (req, res) => {
+  try {
+    const purchasePhoneId = req.params.id;
+    const userId = req.user.id;
+
+    // 1. Update PurchasePhone dispatch status to false
+    const updatedPhone = await PurchasePhone.findByIdAndUpdate(
+      purchasePhoneId,
+      { dispatch: false },
+      { new: true }
+    );
+
+    if (!updatedPhone) {
+      return res.status(404).json({ message: "Purchase phone not found" });
+    }
+
+    // 2. Delete the corresponding Dispatch entry
+    const deletedDispatch = await Dispatch.findOneAndDelete({ purchasePhoneId, userId });
+
+    if (!deletedDispatch) {
+      return res.status(404).json({ message: "Dispatch record not found or unauthorized" });
+    }
+
+    return res.status(200).json({
+      message: "Phone return processed successfully",
+      phone: updatedPhone,
+      dispatch: deletedDispatch,
+    });
+  } catch (error) {
+    console.error("Error returning dispatched phone:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+
 
 // Dispatch a bulk purchase
 // exports.dispatchBulkPurchase = async (req, res) => {
