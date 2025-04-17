@@ -60,6 +60,7 @@ const SingleSoldPhoneSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   shopid: { type: mongoose.Schema.Types.ObjectId, ref: "Shop", required: true },
   customerName: { type: String, required: true },
+  customerNumber: { type: String, required: false },
   cnic: { type: String, required: false },
   cnicFrontPic: { type: String, required: false }, // File URL
   cnicBackPic: { type: String, required: false },  // File URL
@@ -173,6 +174,7 @@ const SoldPhoneSchema = new mongoose.Schema({
 
   exchangePhoneDetail: { type: String, required: function() { return this.sellingPaymentType === "Exchange"; } },
   customerName: { type: String, required: true },
+  customerNumber: { type: String, required: false },
   cnicFrontPic: { type: String, required: false }, // File URL
   cnicBackPic: { type: String, required: false },  // File
   imei1: { type: String, required: true },
