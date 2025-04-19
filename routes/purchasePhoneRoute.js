@@ -30,7 +30,8 @@ const {
     getSingleDispatches,
     getBulkDispatches,
     dispatchSingleReturn,
-    returnBulkDispatch
+    returnBulkDispatch,
+    getCustomerSalesRecordDetailsByNumber
 } = require('../controllers/purchasePhoneController');
 const { decoderMiddleware } = require('../services/authServices');
 
@@ -109,4 +110,5 @@ router.get("/single-dispatch",decoderMiddleware,getSingleDispatches);
 router.patch("/single-dispatch-return/:id",decoderMiddleware,dispatchSingleReturn);
 router.get("/bulk-dispatch",decoderMiddleware,getBulkDispatches);
 router.patch("/bulk-dispatch-return/:id",decoderMiddleware,returnBulkDispatch);
+router.get("/customer-sold-record/:customerNumber",decoderMiddleware,getCustomerSalesRecordDetailsByNumber);
 module.exports = router;

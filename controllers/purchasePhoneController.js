@@ -1553,3 +1553,32 @@ exports.getBulkDispatches = async (req, res) => {
     res.status(500).json({ message: 'Internal server error', error });
   }
 };
+
+
+exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
+  const { customerNumber } = req.params;
+  const userId = req.user.id; // Extract user ID from request
+
+  console.log("customerNumber:", customerNumber);
+  console.log("userId:", userId);
+
+  if (!customerNumber || !userId) {
+    return res.status(400).json({ message: 'Customer number and user ID are required' });
+  }
+
+  try {
+    const singleSoldPhone = await SingleSoldPhone.find({ customerNumber, userId });
+    const soldPhones = await SoldPhone.find({ customerNumber, userId });
+
+    const combinedResults = [...singleSoldPhone, ...soldPhones];
+
+    if (combinedResults.length === 0) {
+      return res.status(404).json({ message: 'No records found for this customer number' });
+    }
+
+    return res.status(200).json(combinedResults);
+  } catch (error) {
+    console.error('Error fetching customer details:', error);
+    return res.status(500).json({ message: 'Server error', error });
+  }
+};
