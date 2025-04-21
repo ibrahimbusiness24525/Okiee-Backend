@@ -157,6 +157,7 @@ exports.sellSinglePhone = async (req, res) => {
       salePrice,
       totalInvoice,
       sellingPaymentType, 
+      purchasePrice,
       accessories,
       // accesssoryAmount, 
       // accesssoryName, 
@@ -230,7 +231,7 @@ exports.sellSinglePhone = async (req, res) => {
       phonePicture: purchasedPhone.phonePicture,
       personPicture: purchasedPhone.personPicture,
       // accessories: purchasedPhone.accessories,
-      purchasePrice: purchasedPhone.price.purchasePrice,
+      purchasePrice: purchasedPhone.price.purchasePrice || purchasePrice,
       finalPrice: finalPrice || purchasedPhone.price.finalPrice,
       demandPrice: purchasedPhone.price.demandPrice,
       isApprovedFromEgadgets: purchasedPhone.isApprovedFromEgadgets,
@@ -1568,9 +1569,13 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
 
   try {
     const singleSoldPhone = await SingleSoldPhone.find({ customerNumber, userId });
-    const soldPhones = await SoldPhone.find({ customerNumber, userId });
+    const singlePurchasePhone =  await PurchasePhone.find({mobileNumber:customerNumber,userId})
+    // const soldPhones = await SoldPhone.find({ customerNumber, userId });
 
-    const combinedResults = [...singleSoldPhone, ...soldPhones];
+    const combinedResults = [
+      ...singleSoldPhone.map(item => ({...item,type: "sold"})),
+      ...singlePurchasePhone.map(item => ({...item,type:"purchase"}))
+    ];
 
     if (combinedResults.length === 0) {
       return res.status(404).json({ message: 'No records found for this customer number' });
