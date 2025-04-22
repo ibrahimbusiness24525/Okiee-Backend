@@ -157,7 +157,6 @@ exports.sellSinglePhone = async (req, res) => {
       salePrice,
       totalInvoice,
       sellingPaymentType, 
-      purchasePrice,
       accessories,
       // accesssoryAmount, 
       // accesssoryName, 
@@ -231,7 +230,7 @@ exports.sellSinglePhone = async (req, res) => {
       phonePicture: purchasedPhone.phonePicture,
       personPicture: purchasedPhone.personPicture,
       // accessories: purchasedPhone.accessories,
-      purchasePrice: purchasedPhone.price.purchasePrice || purchasePrice,
+      purchasePrice: purchasedPhone.price.purchasePrice,
       finalPrice: finalPrice || purchasedPhone.price.finalPrice,
       demandPrice: purchasedPhone.price.demandPrice,
       isApprovedFromEgadgets: purchasedPhone.isApprovedFromEgadgets,
@@ -1403,59 +1402,129 @@ exports.dispatchBulkPurchase = async (req, res) => {
 };
 
 
+// exports.returnBulkDispatch = async (req, res) => {
+//   try {
+//     const dispatchId = req.params.id;
+//     const { imeiArray = [] } = req.body;
+
+//     // Find the dispatch entry
+//     const dispatchEntry = await Dispatch.findById(dispatchId);
+//     if (!dispatchEntry) {
+//       return res.status(404).json({ message: "Dispatch entry not found" });
+//     }
+
+//     const bulkPhonePurchaseId = dispatchEntry.bulkPhonePurchaseId;
+//     const dispatchedImeiIds = dispatchEntry.dispatchedImeiIds;
+
+//     // Get full IMEI documents for the dispatch
+//     const allImeis = await Imei.find({ _id: { $in: dispatchedImeiIds } });
+
+//     let imeiIdsToReturn;
+
+//     if (imeiArray.length > 0) {
+//       // Return based on imei1 field
+//       const imei1List = imeiArray.map(item => item.imei1?.trim()).filter(Boolean);
+
+//       const filtered = allImeis.filter(i => imei1List.includes(i.imei1));
+//       imeiIdsToReturn = filtered.map(i => i._id);
+
+//       if (imeiIdsToReturn.length === 0) {
+//         return res.status(400).json({ message: "No matching IMEIs found to return." });
+//       }
+
+//       // Update IMEIs as not dispatched
+//       await Imei.updateMany(
+//         { _id: { $in: imeiIdsToReturn } },
+//         { $set: { isDispatched: false } }
+//       );
+
+//       // Check if any of the IMEI is returned, mark bulk purchase as undelivered
+//       await BulkPhonePurchase.findByIdAndUpdate(bulkPhonePurchaseId, { dispatch: false });
+
+//       // Get remaining IMEIs
+//       const remainingImeiIds = dispatchedImeiIds.filter(id => !imeiIdsToReturn.includes(id.toString()));
+
+//       if (remainingImeiIds.length === 0) {
+//         // All returned → delete dispatch
+//         await Dispatch.findByIdAndDelete(dispatchId);
+//       } else {
+//         // Partially returned → update dispatch entry
+//         await Dispatch.findByIdAndUpdate(dispatchId, {
+//           dispatchedImeiIds: remainingImeiIds
+//         });
+//       }
+//     } else {
+//       // FULL RETURN if no imeiArray provided
+//       await Imei.updateMany(
+//         { _id: { $in: dispatchedImeiIds } },
+//         { $set: { isDispatched: false } }
+//       );
+//       await Dispatch.findByIdAndDelete(dispatchId);
+//       await BulkPhonePurchase.findByIdAndUpdate(bulkPhonePurchaseId, { dispatch: false });
+//     }
+
+//     res.status(200).json({ message: "Bulk phone(s) returned successfully." });
+
+//   } catch (error) {
+//     console.error("Error returning bulk dispatch:", error);
+//     res.status(500).json({ message: "Internal server error", error });
+//   }
+// };
 exports.returnBulkDispatch = async (req, res) => {
   try {
     const dispatchId = req.params.id;
     const { imeiArray = [] } = req.body;
 
-    // Find the dispatch entry
+    console.log("this is the imeiArray",imeiArray);
+    
+
     const dispatchEntry = await Dispatch.findById(dispatchId);
     if (!dispatchEntry) {
       return res.status(404).json({ message: "Dispatch entry not found" });
     }
 
     const bulkPhonePurchaseId = dispatchEntry.bulkPhonePurchaseId;
-    const dispatchedImeiIds = dispatchEntry.dispatchedImeiIds;
+    const dispatchedImeiIds = dispatchEntry.dispatchedImeiIds.map(id => id.toString());
 
-    // Get full IMEI documents for the dispatch
     const allImeis = await Imei.find({ _id: { $in: dispatchedImeiIds } });
 
-    let imeiIdsToReturn;
+    let imeiIdsToReturn = [];
 
     if (imeiArray.length > 0) {
-      // Return based on imei1 field
       const imei1List = imeiArray.map(item => item.imei1?.trim()).filter(Boolean);
 
       const filtered = allImeis.filter(i => imei1List.includes(i.imei1));
-      imeiIdsToReturn = filtered.map(i => i._id);
+      imeiIdsToReturn = filtered.map(i => i._id.toString());
+
+      console.log("IMEIs to return:", imeiIdsToReturn);
+      console.log("Dispatched IMEIs:", dispatchedImeiIds);
 
       if (imeiIdsToReturn.length === 0) {
         return res.status(400).json({ message: "No matching IMEIs found to return." });
       }
 
-      // Update IMEIs as not dispatched
       await Imei.updateMany(
         { _id: { $in: imeiIdsToReturn } },
         { $set: { isDispatched: false } }
       );
 
-      // Check if any of the IMEI is returned, mark bulk purchase as undelivered
-      await BulkPhonePurchase.findByIdAndUpdate(bulkPhonePurchaseId, { dispatch: false });
-
-      // Get remaining IMEIs
-      const remainingImeiIds = dispatchedImeiIds.filter(id => !imeiIdsToReturn.includes(id.toString()));
+      const remainingImeiIds = dispatchedImeiIds.filter(id => !imeiIdsToReturn.includes(id));
+      console.log("Remaining IMEIs after return:", remainingImeiIds);
 
       if (remainingImeiIds.length === 0) {
-        // All returned → delete dispatch
+        // All returned
         await Dispatch.findByIdAndDelete(dispatchId);
+        await BulkPhonePurchase.findByIdAndUpdate(bulkPhonePurchaseId, { dispatch: false });
       } else {
-        // Partially returned → update dispatch entry
+        // Partial return
         await Dispatch.findByIdAndUpdate(dispatchId, {
-          dispatchedImeiIds: remainingImeiIds
+          dispatchedImeiIds: remainingImeiIds,
         });
+        await BulkPhonePurchase.findByIdAndUpdate(bulkPhonePurchaseId, { dispatch: true });
       }
+
     } else {
-      // FULL RETURN if no imeiArray provided
+      // FULL return
       await Imei.updateMany(
         { _id: { $in: dispatchedImeiIds } },
         { $set: { isDispatched: false } }
@@ -1517,18 +1586,21 @@ exports.getBulkDispatches = async (req, res) => {
       })
       .lean();
 
-    const formattedDispatches = dispatches.map(dispatch => {
-      const ramSimDetails = dispatch.bulkPhonePurchaseId.ramSimDetails
-        .filter(ramSim => ramSim.imeiNumbers.some(imei => imei.isDispatched))
-        .map(ramSim => ({
+    const formattedDispatches = dispatches.map((dispatch) => {
+      const ramSimDetails = (dispatch.bulkPhonePurchaseId?.ramSimDetails || [])
+        .filter((ramSim) =>
+          Array.isArray(ramSim.imeiNumbers) &&
+          ramSim.imeiNumbers.some((imei) => imei?.isDispatched)
+        )
+        .map((ramSim) => ({
           companyName: ramSim.companyName,
           modelName: ramSim.modelName,
           ramMemory: ramSim.ramMemory,
           simOption: ramSim.simOption,
           priceOfOne: ramSim.priceOfOne,
-          imeiNumbers: ramSim.imeiNumbers
-            .filter(imei => imei.isDispatched)
-            .map(imei => ({
+          imeiNumbers: (ramSim.imeiNumbers || [])
+            .filter((imei) => imei?.isDispatched)
+            .map((imei) => ({
               _id: imei._id,
               imei1: imei.imei1,
               imei2: imei.imei2,
@@ -1542,20 +1614,83 @@ exports.getBulkDispatches = async (req, res) => {
         shopName: dispatch.shopName,
         dispatchDate: dispatch.dispatchDate,
         dispatchStatus: dispatch.status,
-        bulkPhonePurchaseId: dispatch.bulkPhonePurchaseId._id,
-        dispatchedImeiIds: dispatch.dispatchedImeiIds,
+        bulkPhonePurchaseId: dispatch.bulkPhonePurchaseId?._id || null,
+        dispatchedImeiIds: dispatch.dispatchedImeiIds || [],
         ramSimDetails,
       };
     });
 
     res.status(200).json({ dispatches: formattedDispatches });
   } catch (error) {
-    console.error('Error fetching and formatting bulk dispatches:', error);
+    console.error(
+      'Error fetching and formatting bulk dispatches:',
+      error.message,
+      error.stack
+    );
     res.status(500).json({ message: 'Internal server error', error });
   }
 };
 
 
+// exports.getBulkDispatches = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+
+//     const dispatches = await Dispatch.find({
+//       userId,
+//       bulkPhonePurchaseId: { $ne: null },
+//     })
+//       .populate({
+//         path: 'bulkPhonePurchaseId',
+//         model: 'BulkPhonePurchase',
+//         populate: {
+//           path: 'ramSimDetails',
+//           model: 'RamSim',
+//           populate: {
+//             path: 'imeiNumbers',
+//             model: 'Imei',
+//           },
+//         },
+//       })
+//       .lean();
+
+//     const formattedDispatches = dispatches.map(dispatch => {
+//       const ramSimDetails = (dispatch.bulkPhonePurchaseId.ramSimDetails || [])
+//         .filter(ramSim => ramSim.imeiNumbers.some(imei => imei.isDispatched))
+//         .map(ramSim => ({
+//           companyName: ramSim.companyName,
+//           modelName: ramSim.modelName,
+//           ramMemory: ramSim.ramMemory,
+//           simOption: ramSim.simOption,
+//           priceOfOne: ramSim.priceOfOne,
+//           imeiNumbers: ramSim.imeiNumbers
+//             .filter(imei => imei.isDispatched)
+//             .map(imei => ({
+//               _id: imei._id,
+//               imei1: imei.imei1,
+//               imei2: imei.imei2,
+//               isDispatched: imei.isDispatched,
+//             })),
+//         }));
+
+//       return {
+//         dispatchId: dispatch._id,
+//         receiverName: dispatch.receiverName,
+//         shopName: dispatch.shopName,
+//         dispatchDate: dispatch.dispatchDate,
+//         dispatchStatus: dispatch.status,
+//         bulkPhonePurchaseId: dispatch.bulkPhonePurchaseId._id,
+//         dispatchedImeiIds: dispatch.dispatchedImeiIds,
+//         ramSimDetails,
+//       };
+//     });
+
+//     res.status(200).json({ dispatches: formattedDispatches });
+//   } catch (error) {
+//     console.error('Error fetching and formatting bulk dispatches:', error);
+//     res.status(500).json({ message: 'Internal server error', error });
+//   }
+// };
 exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
   const { customerNumber } = req.params;
   const userId = req.user.id; // Extract user ID from request
