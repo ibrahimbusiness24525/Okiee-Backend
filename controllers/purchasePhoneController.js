@@ -728,27 +728,94 @@ exports.addBulkPhones = async (req, res) => {
 exports.updateBulkPhonePurchase = async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const {
+      partyName,
+      date,
+      purchasePaymentType,
+      purchasePaymentStatus,
+      creditPaymentData,
+      prices,
+      ramSimDetails, // full objects
+    } = req.body;
 
-    const updatedPurchase = await BulkPhonePurchase.findByIdAndUpdate(
+    // 1. Update BulkPhonePurchase basic info
+    const updatedBulkPurchase = await BulkPhonePurchase.findByIdAndUpdate(
       id,
-      updateData,
+      {
+        partyName,
+        date,
+        purchasePaymentType,
+        purchasePaymentStatus,
+        creditPaymentData,
+        prices,
+      },
       { new: true, runValidators: true }
     );
 
-    if (!updatedPurchase) {
-      return res.status(404).json({ message: 'BulkPhonePurchase not found' });
+    // 2. Handle ramSimDetails update
+    const ramSimIds = [];
+
+    for (const ramSim of ramSimDetails) {
+      let ramSimDoc;
+      
+      if (ramSim._id) {
+        ramSimDoc = await RamSim.findByIdAndUpdate(
+          ramSim._id,
+          {
+            companyName: ramSim.companyName,
+            modelName: ramSim.modelName,
+            batteryHealth: ramSim.batteryHealth,
+            ramMemory: ramSim.ramMemory,
+            simOption: ramSim.simOption,
+            priceOfOne: ramSim.priceOfOne,
+          },
+          { new: true, runValidators: true }
+        );
+      } else {
+        ramSimDoc = new RamSim({
+          companyName: ramSim.companyName,
+          modelName: ramSim.modelName,
+          batteryHealth: ramSim.batteryHealth,
+          ramMemory: ramSim.ramMemory,
+          simOption: ramSim.simOption,
+          priceOfOne: ramSim.priceOfOne,
+          bulkPhonePurchaseId: id,
+        });
+        await ramSimDoc.save();
+      }
+
+      // 3. Handle Imei creation/update
+      const imeiIds = [];
+
+      for (const imei of ramSim.imeiNumbers) {
+        const imeiDoc = new Imei({
+          imei1: imei.imei1,
+          imei2: imei.imei2,
+          ramSimId: ramSimDoc._id,
+        });
+        await imeiDoc.save();
+        imeiIds.push(imeiDoc._id);
+      }
+
+      ramSimDoc.imeiNumbers = imeiIds;
+      await ramSimDoc.save();
+
+      ramSimIds.push(ramSimDoc._id);
     }
+
+    updatedBulkPurchase.ramSimDetails = ramSimIds;
+    await updatedBulkPurchase.save();
 
     res.status(200).json({
       message: 'BulkPhonePurchase updated successfully',
-      data: updatedPurchase,
+      data: updatedBulkPurchase,
     });
   } catch (error) {
     console.error('Error updating BulkPhonePurchase:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 // Get all Bulk Phone Purchases
 // router.get("/bulk-phone-purchase", 
