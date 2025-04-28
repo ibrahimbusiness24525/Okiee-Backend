@@ -151,14 +151,7 @@ const SoldPhoneSchema = new mongoose.Schema({
       price: { type: Number, required: false } // Price of the accessory
     }
   ],
-  // accesssoryName:{
-  //   type: String,
-  //   required:false
-  // },
-  // accesssoryAmount:{
-  //   type: Number,
-  //   required:false
-  // },
+  
   sellingPaymentType: {
     type: String,
     enum: ["Bank", "Credit", "Cash", "Exchange"],
@@ -173,6 +166,7 @@ const SoldPhoneSchema = new mongoose.Schema({
   payableAmountLaterDate: { type: Date, required: function() { return this.sellingPaymentType === "Credit"; } },
 
   exchangePhoneDetail: { type: String, required: function() { return this.sellingPaymentType === "Exchange"; } },
+  
   customerName: { type: String, required: true },
   customerNumber: { type: String, required: false },
   cnicFrontPic: { type: String, required: false }, // File URL
