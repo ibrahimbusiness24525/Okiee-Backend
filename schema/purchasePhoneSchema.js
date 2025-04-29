@@ -2,6 +2,11 @@ const mongoose = require('mongoose');
 const mongoosePaginate = require('mongoose-paginate');
 // Existing schemas
 const PurchasePhoneSchema = new mongoose.Schema({
+  bankAccountUsed: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "AddBankAccount",
+    required: false,
+  },
    userId:{
         type:mongoose.Schema.Types.ObjectId,
         ref: "User",
@@ -56,6 +61,12 @@ const PurchasePhoneSchema = new mongoose.Schema({
 },{ timestamps: true });
 
 const SingleSoldPhoneSchema = new mongoose.Schema({
+  bankAccountUsed: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "AddBankAccount",
+    required: false,
+  },
+  
   purchasePhoneId: { type: mongoose.Schema.Types.ObjectId, ref: "PurchasePhone", required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   shopid: { type: mongoose.Schema.Types.ObjectId, ref: "Shop", required: true },
@@ -134,6 +145,12 @@ const SingleSoldPhoneSchema = new mongoose.Schema({
 
 
 const SoldPhoneSchema = new mongoose.Schema({
+  bankAccountUsed: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "AddBankAccount",
+    required: false,
+  },
+  
   userId:{
     type:mongoose.Schema.Types.ObjectId,
     ref: "User",
@@ -207,6 +224,11 @@ const RamSimSchema = new mongoose.Schema({
 });
 
 const BulkPhonePurchaseSchema = new mongoose.Schema({
+  bankAccountUsed: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "AddBankAccount",
+    required: false,
+  },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   partyName: { type: String },
   partyLedgerId: {
