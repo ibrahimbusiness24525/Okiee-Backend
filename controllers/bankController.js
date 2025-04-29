@@ -15,23 +15,7 @@ exports.createBank = async (req, res) => {
 };
 
 
-// if (bankAccountUsed) {
-//     const bank = await AddBankAccount.findById(bankAccountUsed);
-//     if (!bank) return res.status(404).json({ message: "Bank not found" });
 
-//     // Deduct purchasePrice from accountCash
-//     bank.accountCash -= price.purchasePrice;
-//     await bank.save();
-
-//     // Log the transaction
-//     await BankTransaction.create({
-//       bankId: bank._id,
-//       userId: userId,
-//       reasonOfAmountDeduction: `Purchase of ${companyName} ${modelName}`,
-//       accountCash: price.purchasePrice,
-//       accountType: bank.accountType,
-//     });
-//   }
 // Add amount to bank account
 exports.addAmountToBank = async (req, res) => {
     try {
