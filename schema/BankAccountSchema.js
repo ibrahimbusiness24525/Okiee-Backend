@@ -40,7 +40,6 @@ const BankTransactionSchema = new mongoose.Schema({
         type: String,
         required: false
     },
-
     accountCash: {
         type: Number,
         required: true
@@ -51,7 +50,7 @@ const BankTransactionSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
+
 const AddBankAccount = mongoose.model("AddBankAccount", AddBankAccountSchema);
 const BankTransaction = mongoose.model("BankTransaction", BankTransactionSchema);
-
 module.exports = { AddBankAccount, BankTransaction };

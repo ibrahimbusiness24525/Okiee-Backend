@@ -7,6 +7,11 @@ const PurchasePhoneSchema = new mongoose.Schema({
     ref: "AddBankAccount",
     required: false,
   },
+  pocketCash:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref:"PocketCashTransaction",
+    required:false,
+  },
    userId:{
         type:mongoose.Schema.Types.ObjectId,
         ref: "User",
@@ -66,7 +71,11 @@ const SingleSoldPhoneSchema = new mongoose.Schema({
     ref: "AddBankAccount",
     required: false,
   },
-  
+  pocketCash:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref:"PocketCashTransaction",
+    required:false,
+  },
   purchasePhoneId: { type: mongoose.Schema.Types.ObjectId, ref: "PurchasePhone", required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   shopid: { type: mongoose.Schema.Types.ObjectId, ref: "Shop", required: true },
@@ -150,7 +159,11 @@ const SoldPhoneSchema = new mongoose.Schema({
     ref: "AddBankAccount",
     required: false,
   },
-  
+  pocketCash:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref:"PocketCashTransaction",
+    required:false,
+  },
   userId:{
     type:mongoose.Schema.Types.ObjectId,
     ref: "User",
@@ -228,6 +241,11 @@ const BulkPhonePurchaseSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "AddBankAccount",
     required: false,
+  },
+  pocketCash:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref:"PocketCashTransaction",
+    required:false,
   },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   partyName: { type: String },

@@ -39,7 +39,8 @@ exports.addAmountToBank = async (req, res) => {
 
         // Adjust accountCash based on the source of the transaction
         // if (sourceOfAmount === "deposit") {
-            newAccountCash += accountCash; // Add the amount if it's a deposit
+            newAccountCash += Number(accountCash);
+            // Add the amount if it's a deposit
         // } else if (sourceOfAmount === "withdrawal") {
         //     newAccountCash -= accountCash; 
         // }

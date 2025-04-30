@@ -14,6 +14,7 @@ const purchasePhone = require("./routes/purchasePhoneRoute.js");
 const ledgerRouter = require("./routes/LedgerRoutes.js");
 const partyLedgerRouter = require("./routes/PartyLedgerRoute.js")
 const bankRouter = require("./routes/bankRoute.js")
+const pocketCashRouter = require("./routes/PocketCashRoute.js")
 
 const connectDB = require("./config/db.js");
 
@@ -50,4 +51,5 @@ app.use("/api/ledger", ledgerRouter);
 app.use("/api/partyLedger", partyLedgerRouter);
 app.use("/api/committee", committeeRoute);
 app.use("/api/banks", bankRouter);
+app.use("/api/pocketCash", pocketCashRouter);
 app.listen(PORT, () => console.log(`Server listening to port ${PORT}`));

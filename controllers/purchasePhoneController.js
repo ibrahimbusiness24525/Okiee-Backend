@@ -4,6 +4,7 @@ const { default: mongoose } = require('mongoose');
 const { invoiceGenerator } = require('../services/invoiceGenerator');
 const PartyLedger = require('../schema/PartyLedgerSchema');
 const { AddBankAccount, BankTransaction } = require('../schema/BankAccountSchema');
+const { PocketCashTransaction } = require('../schema/PocketCashSchema');
 
 
 exports.addPurchasePhone = async (req, res) => {
@@ -11,13 +12,9 @@ exports.addPurchasePhone = async (req, res) => {
       name, fatherName, companyName, modelName, date, cnic,
       accessories, phoneCondition, specifications, ramMemory,batteryHealth,
       color, imei1, imei2, mobileNumber, isApprovedFromEgadgets,
-      purchasePrice, finalPrice, demandPrice,warranty,shopid,      bankAccountUsed,
+      purchasePrice, finalPrice, demandPrice,warranty,shopid,      bankAccountUsed,pocketCash,accountCash
 
   } = req.body;
-  // const phonePicture = req.files['phonePicture']?.[0]?.path;
-  // const personPicture = req.files['personPicture']?.[0]?.path;
-  // const eGadgetStatusPicture = req.files['eGadgetStatusPicture']?.[0]?.path;
-  // console.log("This is phone picture", phonePicture)
     try {
 
         console.log("This is name",name)
@@ -57,7 +54,7 @@ exports.addPurchasePhone = async (req, res) => {
           if (!bank) return res.status(404).json({ message: "Bank not found" });
     
           // Deduct purchasePrice from accountCash
-          bank.accountCash -= purchasePrice;
+          bank.accountCash -= accountCash;
           await bank.save();
     
           // Log the transaction
@@ -65,10 +62,35 @@ exports.addPurchasePhone = async (req, res) => {
             bankId: bank._id,
             userId: req.user.id,
             reasonOfAmountDeduction: `Purchase of mobile of company name: ${companyName} and model name: ${modelName}`,
-            accountCash:purchasePrice,
+            accountCash:accountCash,
             accountType: bank.accountType,
           });
         }
+        if (pocketCash) {
+          const pocketTransaction = await PocketCashTransaction.findOne({ userId: req.user.id });
+          if (!pocketTransaction) {
+            return res.status(404).json({ message: 'Pocket cash account not found.' });
+          }
+    console.log("pocket cash", pocketTransaction.accountCash)
+          // Check if the user has enough pocket cash
+          if (pocketTransaction.accountCash < pocketCash) {
+            return res.status(400).json({ message: 'Insufficient pocket cash' });
+          }
+    
+          // Deduct the pocket cash amount
+          pocketTransaction.accountCash -= pocketCash;
+          await pocketTransaction.save();
+    
+          // Log the pocket cash transaction
+          await PocketCashTransaction.create({
+            userId: req.user.id,
+            amountDeducted:pocketCash,
+            remainingAmount: pocketTransaction.accountCash - pocketCash,
+            reasonOfAmountDeduction: `Purchase of mobile from company: ${companyName} model: ${modelName}`,
+            sourceOfAmountAddition: 'Payment for purchase',
+          });
+        }
+    
         // Save to database
         const savedPhone = await purchasePhone.save();
         res.status(201).json({ message: 'Purchase phone slip created successfully!', data: savedPhone });
