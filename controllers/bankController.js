@@ -32,6 +32,7 @@ exports.addAmountToBank = async (req, res) => {
             userId,
             sourceOfAmountAddition,
             accountCash,
+            cashIn: accountCash, // Assuming cashIn is the amount added
         });
 
         // Update the bank account's accountCash
@@ -39,7 +40,8 @@ exports.addAmountToBank = async (req, res) => {
 
         // Adjust accountCash based on the source of the transaction
         // if (sourceOfAmount === "deposit") {
-            newAccountCash += accountCash; // Add the amount if it's a deposit
+            newAccountCash += Number(accountCash);
+            // Add the amount if it's a deposit
         // } else if (sourceOfAmount === "withdrawal") {
         //     newAccountCash -= accountCash; 
         // }
@@ -47,7 +49,9 @@ exports.addAmountToBank = async (req, res) => {
         // Update the AddBankAccount with the new accountCash value
         await AddBankAccount.findByIdAndUpdate(
             bankId,
-            { accountCash: newAccountCash },
+            { 
+            $inc: { cashIn: accountCash, accountCash: accountCash } // Increment both cashIn and accountCash
+            },
             { new: true } // Return the updated document
         );
 
@@ -55,7 +59,7 @@ exports.addAmountToBank = async (req, res) => {
         res.status(201).json({
             success: true,
             transaction,
-            updatedBankAccount: { bankId, accountCash: newAccountCash },
+            updatedBankAccount: { bankId, accountCash: newAccountCash, },
         });
 
     } catch (error) {
@@ -82,6 +86,7 @@ exports.deductCashFromBank = async (req, res) => {
         const transaction = await BankTransaction.create({
             bankId,
             userId,
+            cashOut: accountCash, // Assuming cashOut is the amount deducted
             sourceOfAmountDeduction,
             accountCash: negativeAccountCash, // Use negative value for withdrawal
         });
@@ -92,6 +97,12 @@ exports.deductCashFromBank = async (req, res) => {
         // Update the AddBankAccount with the new accountCash value
         await AddBankAccount.findByIdAndUpdate(
             bankId,
+            {
+                $inc: { cashOut: accountCash, accountCash: negativeAccountCash } // Increment cashOut and decrement accountCash
+            },
+            {
+                $inc:{cashIn: -accountCash, accountCash: negativeAccountCash} // Increment cashIn and decrement accountCash
+            },
             { accountCash: newAccountCash },
             { new: true } 
         );

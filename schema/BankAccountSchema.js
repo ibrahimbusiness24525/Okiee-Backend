@@ -10,6 +10,14 @@ const AddBankAccountSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    cashIn: {
+        type: Number,
+        required: false
+    },
+    cashOut: {
+        type: Number,
+        required: false
+    },
     accountCash: {
         type: Number,
         default: 0,
@@ -32,6 +40,14 @@ const BankTransactionSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
+    cashIn: {
+        type: Number,
+        required: false
+    },
+    cashOut: {
+        type: Number,
+        required: false
+    },
     sourceOfAmountAddition: {
         type: String,
         required: false
@@ -40,7 +56,6 @@ const BankTransactionSchema = new mongoose.Schema({
         type: String,
         required: false
     },
-
     accountCash: {
         type: Number,
         required: true
@@ -51,7 +66,7 @@ const BankTransactionSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
+
 const AddBankAccount = mongoose.model("AddBankAccount", AddBankAccountSchema);
 const BankTransaction = mongoose.model("BankTransaction", BankTransactionSchema);
-
 module.exports = { AddBankAccount, BankTransaction };
