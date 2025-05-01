@@ -32,10 +32,15 @@ const BankTransactionSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
-    sourceOfAmount: {
+    sourceOfAmountAddition: {
         type: String,
-        required: true
+        required: false
     },
+    reasonOfAmountDeduction: {
+        type: String,
+        required: false
+    },
+
     accountCash: {
         type: Number,
         required: true

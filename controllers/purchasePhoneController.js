@@ -3,6 +3,7 @@ const { Imei, RamSim, BulkPhonePurchase, PurchasePhone,SoldPhone, SingleSoldPhon
 const { default: mongoose } = require('mongoose');
 const { invoiceGenerator } = require('../services/invoiceGenerator');
 const PartyLedger = require('../schema/PartyLedgerSchema');
+const { AddBankAccount, BankTransaction } = require('../schema/BankAccountSchema');
 
 
 exports.addPurchasePhone = async (req, res) => {
@@ -10,7 +11,8 @@ exports.addPurchasePhone = async (req, res) => {
       name, fatherName, companyName, modelName, date, cnic,
       accessories, phoneCondition, specifications, ramMemory,batteryHealth,
       color, imei1, imei2, mobileNumber, isApprovedFromEgadgets,
-      purchasePrice, finalPrice, demandPrice,warranty,shopid
+      purchasePrice, finalPrice, demandPrice,warranty,shopid,      bankAccountUsed,
+
   } = req.body;
   // const phonePicture = req.files['phonePicture']?.[0]?.path;
   // const personPicture = req.files['personPicture']?.[0]?.path;
@@ -50,7 +52,23 @@ exports.addPurchasePhone = async (req, res) => {
             isApprovedFromEgadgets,
             // eGadgetStatusPicture,
         });
-
+        if (bankAccountUsed) {
+          const bank = await AddBankAccount.findById(bankAccountUsed);
+          if (!bank) return res.status(404).json({ message: "Bank not found" });
+    
+          // Deduct purchasePrice from accountCash
+          bank.accountCash -= purchasePrice;
+          await bank.save();
+    
+          // Log the transaction
+          await BankTransaction.create({
+            bankId: bank._id,
+            userId: req.user.id,
+            reasonOfAmountDeduction: `Purchase of mobile of company name: ${companyName} and model name: ${modelName}`,
+            accountCash:purchasePrice,
+            accountType: bank.accountType,
+          });
+        }
         // Save to database
         const savedPhone = await purchasePhone.save();
         res.status(201).json({ message: 'Purchase phone slip created successfully!', data: savedPhone });
@@ -150,6 +168,7 @@ exports.sellSinglePhone = async (req, res) => {
       purchasePhoneId, 
       customerName, 
       customerNumber,
+      saleDate,
       cnicFrontPic, 
       cnicBackPic, 
       finalPrice, 
@@ -208,6 +227,7 @@ exports.sellSinglePhone = async (req, res) => {
       shopid: purchasedPhone.shopid,
       customerName,
       customerNumber,
+      saleDate,
       accessories:accessories,
       cnicFrontPic,
       salePrice: salePrice,
@@ -219,7 +239,6 @@ exports.sellSinglePhone = async (req, res) => {
       companyName: purchasedPhone.companyName,
       modelName: purchasedPhone.modelName,
       purchaseDate: purchasedPhone.date,
-      saleDate: new Date(),
       phoneCondition: purchasedPhone.phoneCondition,
       warranty: updatedWarranty,
       specifications: purchasedPhone.specifications,
@@ -1069,6 +1088,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
       warranty,
       customerName,
       cnicBackPic,
+      dateSold,
       customerNumber,
       cnicFrontPic,
       accessories,
@@ -1128,6 +1148,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
         accessories,
         customerName,
         customerNumber,
+        dateSold,
         cnicBackPic,
         cnicFrontPic,
         sellingPaymentType,

@@ -14,11 +14,13 @@ exports.createBank = async (req, res) => {
     }
 };
 
+
+
 // Add amount to bank account
 exports.addAmountToBank = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { bankId, sourceOfAmount, accountCash } = req.body;
+        const { bankId, sourceOfAmountAddition, accountCash } = req.body;
 
         // Find the bank account
         const bank = await AddBankAccount.findById(bankId);
@@ -28,7 +30,7 @@ exports.addAmountToBank = async (req, res) => {
         const transaction = await BankTransaction.create({
             bankId,
             userId,
-            sourceOfAmount,
+            sourceOfAmountAddition,
             accountCash,
         });
 
@@ -67,7 +69,7 @@ exports.deductCashFromBank = async (req, res) => {
     
     try {
         const userId = req.user.id;
-        const { bankId, sourceOfAmount, accountCash } = req.body;
+        const { bankId, sourceOfAmountDeduction, accountCash } = req.body;
 
         // Find the bank account
         const bank = await AddBankAccount.findById(bankId);
@@ -80,7 +82,7 @@ exports.deductCashFromBank = async (req, res) => {
         const transaction = await BankTransaction.create({
             bankId,
             userId,
-            sourceOfAmount,
+            sourceOfAmountDeduction,
             accountCash: negativeAccountCash, // Use negative value for withdrawal
         });
 

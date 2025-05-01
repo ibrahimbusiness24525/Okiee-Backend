@@ -13,7 +13,7 @@ const committeeRoute = require("./routes/CommitteeLedger.js");
 const purchasePhone = require("./routes/purchasePhoneRoute.js");
 const ledgerRouter = require("./routes/LedgerRoutes.js");
 const partyLedgerRouter = require("./routes/PartyLedgerRoute.js")
-const bankRouter = require("./routes/BankRoutes.js")
+const bankRouter = require("./routes/bankRoute.js")
 
 const connectDB = require("./config/db.js");
 
