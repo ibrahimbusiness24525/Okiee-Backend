@@ -166,3 +166,16 @@ exports.getAllBanksController = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+exports.getBankTransaction = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { bankId } = req.params;
+
+        const transactions = await BankTransaction.find({ userId, bankId });
+
+        res.status(200).json({ success: true, transactions });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+}
