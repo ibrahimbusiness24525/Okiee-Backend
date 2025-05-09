@@ -73,7 +73,11 @@ exports.addPurchasePhone = async (req, res) => {
           }
     console.log("pocket cash", pocketTransaction.accountCash)
           // Check if the user has enough pocket cash
-          if (pocketTransaction.accountCash < pocketCash) {
+          if (  pocketCash > pocketTransaction.accountCash) {
+            console.log("account cashas", pocketTransaction.accountCash);
+            console.log("pocket cashas", pocketCash);
+
+            
             return res.status(400).json({ message: 'Insufficient pocket cash' });
           }
     
