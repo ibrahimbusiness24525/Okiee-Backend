@@ -40,6 +40,10 @@ app.get("/", (req, res) => {
         status: "success"
     });
 });
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server listening to port ${PORT}`);
+});
 app.use("/api/admin", adminRoutes);
 app.use("/api/phone", addPhoneRoutes);
 app.use("/api/invoice", invoicesRoutes);
