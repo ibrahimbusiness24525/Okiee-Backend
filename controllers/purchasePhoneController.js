@@ -15,8 +15,8 @@ exports.addPurchasePhone = async (req, res) => {
       purchasePrice, finalPrice, demandPrice,warranty,shopid,      bankAccountUsed,pocketCash,accountCash
 
   } = req.body;
+  
     try {
-
         console.log("This is name",name)
         // Create a new entry
 
