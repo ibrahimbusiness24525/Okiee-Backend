@@ -540,23 +540,72 @@ exports.getPurchasePhoneById =  async (req, res) => {
 };
 
 // Edit Purchase Phone Slip
-exports.updateSinglePurchasePhone = async (req, res) => {
-  console.log("Received data:", req.body)
-    try{
-      const {id} =  req.params;
-      const updateData = req.body;
+// exports.updateSinglePurchasePhone = async (req, res) => {
+//   console.log("Received data:", req.body)
+//     try{
+//       const {id} =  req.params;
+//       const updateData = req.body;
 
-      const existingPhone = await PurchasePhone.findById(id);
-      if(!existingPhone) return res.status(404).json({message: "Phone not found"})
-        const updatedPhone = await PurchasePhone.findByIdAndUpdate(id, { $set: updateData }, { new: true, runValidators: true });
-        if (!updatedPhone) {
-          return res.status(404).json({ message: "Purchase phone slip not found" });
-        }
-      res.status(200).json({message: "Purchase Phone updated successfully", data: updatedPhone})
-    }catch(error){
-      console.error("Error updating purchase phone:", error);
-      res.status(500).json({ message: "Internal server error" });
+//       const existingPhone = await PurchasePhone.findById(id);
+//       if(!existingPhone) return res.status(404).json({message: "Phone not found"})
+//         const updatedPhone = await PurchasePhone.findByIdAndUpdate(id, { $set: updateData }, { new: true, runValidators: true });
+//         if (!updatedPhone) {
+//           return res.status(404).json({ message: "Purchase phone slip not found" });
+//         }
+//       res.status(200).json({message: "Purchase Phone updated successfully", data: updatedPhone})
+//     }catch(error){
+//       console.error("Error updating purchase phone:", error);
+//       res.status(500).json({ message: "Internal server error" });
+//     }
+// };
+exports.updateSinglePurchasePhone = async (req, res) => {
+  console.log("Received data:", req.body);
+  try {
+    const { id } = req.params;
+    const {
+      purchasePrice,
+      finalPrice,
+      demandPrice,
+      ...restData
+    } = req.body;
+
+    // Convert string prices to numbers
+    const price = {
+      purchasePrice: Number(purchasePrice),
+      finalPrice: finalPrice ? Number(finalPrice) : undefined,
+      demandPrice: demandPrice ? Number(demandPrice) : undefined,
+    };
+
+    // Prepare update object with nested price
+    const updateData = {
+      ...restData,
+      price,
+    };
+
+    const existingPhone = await PurchasePhone.findById(id);
+    if (!existingPhone) {
+      return res.status(404).json({ message: "Phone not found" });
     }
+
+    const updatedPhone = await PurchasePhone.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedPhone) {
+      return res.status(404).json({ message: "Purchase phone slip not found" });
+    }
+
+    res.status(200).json({
+      message: "Purchase Phone updated successfully",
+      data: updatedPhone,
+    });
+
+  } catch (error) {
+    console.error("Error updating purchase phone:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
 };
 
 // Delete Purchase Phone Slip
