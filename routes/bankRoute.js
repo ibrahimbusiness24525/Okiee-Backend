@@ -4,6 +4,9 @@ const { createBank, getAllBanksController, addAmountToBank, deductCashFromBank, 
 
 const router = express.Router();
 
+
+
+//updated
 router.post('/create', decoderMiddleware,createBank);
 
 router.get('/getAllBanks', decoderMiddleware,getAllBanksController);
