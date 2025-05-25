@@ -4,7 +4,7 @@ const { default: mongoose } = require('mongoose');
 const { invoiceGenerator } = require('../services/invoiceGenerator');
 const PartyLedger = require('../schema/PartyLedgerSchema');
 const { AddBankAccount, BankTransaction } = require('../schema/BankAccountSchema');
-const { PocketCashTransaction } = require('../schema/PocketCashSchema');
+const { PocketCashSchema, PocketCashTransactionSchema } = require('../schema/PocketCashSchema');
 
 
 exports.addPurchasePhone = async (req, res) => {
@@ -67,32 +67,28 @@ exports.addPurchasePhone = async (req, res) => {
           });
         }
         if (pocketCash) {
-          const pocketTransaction = await PocketCashTransaction.findOne({ userId: req.user.id });
-          if (!pocketTransaction) {
-            return res.status(404).json({ message: 'Pocket cash account not found.' });
-          }
-    console.log("pocket cash", pocketTransaction.accountCash)
-          // Check if the user has enough pocket cash
-          if (  pocketCash > pocketTransaction.accountCash) {
-            console.log("account cashas", pocketTransaction.accountCash);
-            console.log("pocket cashas", pocketCash);
+        const pocketTransaction = await PocketCashSchema.findOne({ userId: req.user.id });
+if (!pocketTransaction) {
+  return res.status(404).json({ message: 'Pocket cash account not found.' });
+}
 
-            
-            return res.status(400).json({ message: 'Insufficient pocket cash' });
-          }
-    
-          // Deduct the pocket cash amount
-          pocketTransaction.accountCash -= pocketCash;
-          await pocketTransaction.save();
-    
-          // Log the pocket cash transaction
-          await PocketCashTransaction.create({
-            userId: req.user.id,
-            amountDeducted:pocketCash,
-            remainingAmount: pocketTransaction.accountCash - pocketCash,
-            reasonOfAmountDeduction: `Purchase of mobile from company: ${companyName} model: ${modelName}`,
-            sourceOfAmountAddition: 'Payment for purchase',
-          });
+if (pocketCash > pocketTransaction.accountCash) {
+  return res.status(400).json({ message: 'Insufficient pocket cash' });
+}
+
+pocketTransaction.accountCash -= pocketCash;
+await pocketTransaction.save();
+
+await PocketCashTransactionSchema.create({
+  userId: req.user.id,
+  pocketCashId: pocketTransaction._id, // if you want to associate it
+  amountDeducted: pocketCash,
+  accountCash: pocketTransaction.accountCash, // ✅ add this line
+  remainingAmount: pocketTransaction.accountCash,
+  reasonOfAmountDeduction: `Purchase of mobile from company: ${companyName}, model: ${modelName}`,
+  sourceOfAmountAddition: 'Payment for purchase',
+});
+
         }
     
         // Save to database
