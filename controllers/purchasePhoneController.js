@@ -49,52 +49,96 @@ exports.addPurchasePhone = async (req, res) => {
             isApprovedFromEgadgets,
             // eGadgetStatusPicture,
         });
-        if (bankAccountUsed) {
-          const bank = await AddBankAccount.findById(bankAccountUsed);
-          if (!bank) return res.status(404).json({ message: "Bank not found" });
+    //     if (bankAccountUsed) {
+    //       const bank = await AddBankAccount.findById(bankAccountUsed);
+    //       if (!bank) return res.status(404).json({ message: "Bank not found" });
     
-          // Deduct purchasePrice from accountCash
-          bank.accountCash -= accountCash;
-          await bank.save();
+    //       // Deduct purchasePrice from accountCash
+    //       bank.accountCash -= accountCash;
+    //       await bank.save();
     
-          // Log the transaction
-          await BankTransaction.create({
-            bankId: bank._id,
-            userId: req.user.id,
-            reasonOfAmountDeduction: `Purchase of mobile of company name: ${companyName} and model name: ${modelName}`,
-            accountCash:accountCash,
-            accountType: bank.accountType,
-          });
-        }
-        if (pocketCash) {
-          const pocketTransaction = await PocketCashTransaction.findOne({ userId: req.user.id });
-          if (!pocketTransaction) {
-            return res.status(404).json({ message: 'Pocket cash account not found.' });
-          }
-    console.log("pocket cash", pocketTransaction.accountCash)
-          // Check if the user has enough pocket cash
-          if (  pocketCash > pocketTransaction.accountCash) {
-            console.log("account cashas", pocketTransaction.accountCash);
-            console.log("pocket cashas", pocketCash);
+    //       // Log the transaction
+    //       await BankTransaction.create({
+    //         bankId: bank._id,
+    //         userId: req.user.id,
+    //         reasonOfAmountDeduction: `Purchase of mobile of company name: ${companyName} and model name: ${modelName}`,
+    //         accountCash:accountCash,
+    //         accountType: bank.accountType,
+    //       });
+    //     }
+    //     if (pocketCash) {
+    //       const pocketTransaction = await PocketCashTransaction.findOne({ userId: req.user.id });
+    //       if (!pocketTransaction) {
+    //         return res.status(404).json({ message: 'Pocket cash account not found.' });
+    //       }
+    // console.log("pocket cash", pocketTransaction.accountCash)
+    //       // Check if the user has enough pocket cash
+    //       if (  pocketCash > pocketTransaction.accountCash) {
+    //         console.log("account cashas", pocketTransaction.accountCash);
+    //         console.log("pocket cashas", pocketCash);
 
             
-            return res.status(400).json({ message: 'Insufficient pocket cash' });
-          }
+    //         return res.status(400).json({ message: 'Insufficient pocket cash' });
+    //       }
     
-          // Deduct the pocket cash amount
-          pocketTransaction.accountCash -= pocketCash;
-          await pocketTransaction.save();
+    //       // Deduct the pocket cash amount
+    //       pocketTransaction.accountCash -= pocketCash;
+    //       await pocketTransaction.save();
     
-          // Log the pocket cash transaction
-          await PocketCashTransaction.create({
-            userId: req.user.id,
-            amountDeducted:pocketCash,
-            remainingAmount: pocketTransaction.accountCash - pocketCash,
-            reasonOfAmountDeduction: `Purchase of mobile from company: ${companyName} model: ${modelName}`,
-            sourceOfAmountAddition: 'Payment for purchase',
-          });
-        }
-    
+    //       // Log the pocket cash transaction
+    //       await PocketCashTransaction.create({
+    //         userId: req.user.id,
+    //         amountDeducted:pocketCash,
+    //         remainingAmount: pocketTransaction.accountCash - pocketCash,
+    //         reasonOfAmountDeduction: `Purchase of mobile from company: ${companyName} model: ${modelName}`,
+    //         sourceOfAmountAddition: 'Payment for purchase',
+    //       });
+    //     }
+    if (bankAccountUsed) {
+  const bank = await AddBankAccount.findById(bankAccountUsed);
+  if (!bank) return res.status(404).json({ message: "Bank not found" });
+
+  const deductAmount = Number(accountCash || 0);
+  if (bank.accountCash < deductAmount) {
+    return res.status(400).json({ message: 'Insufficient bank balance' });
+  }
+
+  bank.accountCash -= deductAmount;
+  await bank.save();
+
+  await BankTransaction.create({
+    bankId: bank._id,
+    userId: req.user.id,
+    reasonOfAmountDeduction: `Purchase of mobile: ${companyName} ${modelName}`,
+    accountCash: deductAmount,
+    accountType: bank.accountType,
+  });
+}
+
+if (pocketCash) {
+  const pocketTransaction = await PocketCashTransaction.findOne({ userId: req.user.id });
+  if (!pocketTransaction) {
+    return res.status(404).json({ message: 'Pocket cash account not found.' });
+  }
+
+  console.log("Pocket cash requested to deduct:", pocketCash);
+  const deductAmount = Number(pocketCash || 0);
+  if (deductAmount > pocketTransaction.accountCash) {
+    console.log("Pocket cash available:", pocketTransaction.accountCash);
+    return res.status(400).json({ message: 'Insufficient pocket cash' });
+  }
+
+  pocketTransaction.accountCash -= deductAmount;
+  await pocketTransaction.save();
+
+  await PocketCashTransaction.create({
+    userId: req.user.id,
+    amountDeducted: deductAmount,
+    remainingAmount: pocketTransaction.accountCash,
+    reasonOfAmountDeduction: `Purchase of mobile: ${companyName} ${modelName}`,
+    sourceOfAmountAddition: 'Payment for purchase',
+  });
+}
         // Save to database
         const savedPhone = await purchasePhone.save();
         res.status(201).json({ message: 'Purchase phone slip created successfully!', data: savedPhone });

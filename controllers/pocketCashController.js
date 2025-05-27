@@ -13,21 +13,40 @@ exports.addCash = async (req, res) => {
         return res.status(400).json({ message: 'Amount must be greater than 0' });
     }
     
-    const transactionData = {
-        accountCash: amount,
-        userId,
-    };
-    console.log("transactionData",transactionData)
+    // const transactionData = {
+    //     accountCash: +amount,
+    //     userId,
+    // };
+    // console.log("transactionData",transactionData)
     
-    if (sourceOfAmountAddition) {
-        transactionData.sourceOfAmountAddition = sourceOfAmountAddition;
-    }
+    // if (sourceOfAmountAddition) {
+    //     transactionData.sourceOfAmountAddition = sourceOfAmountAddition;
+    // }
     
-    console.log("transactionData",transactionData)
-    const transaction = new PocketCashTransaction(transactionData);
-    await transaction.save();
+    // console.log("transactionData",transactionData)
+    // const transaction = new PocketCashTransaction(transactionData);
+    // await transaction.save();
 
-    return res.status(201).json({ message: 'Cash added successfully', transaction });
+    // return res.status(201).json({ message: 'Cash added successfully', transaction });
+    const lastTransaction = await PocketCashTransaction
+  .findOne({ userId })
+  .sort({ createdAt: -1 });
+
+const lastBalance = lastTransaction?.accountCash || 0;
+const newBalance = lastBalance + amount;
+
+const transactionData = {
+  userId,
+  accountCash: newBalance,
+  amountAdded: amount,
+  sourceOfAmountAddition,
+};
+
+const transaction = new PocketCashTransaction(transactionData);
+await transaction.save();
+
+return res.status(201).json({ message: 'Cash added successfully', transaction });
+
   } catch (error) {
     console.log(error);
     
