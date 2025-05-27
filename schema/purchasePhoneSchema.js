@@ -220,7 +220,7 @@ const SoldPhoneSchema = new mongoose.Schema({
 const ImeiSchema = new mongoose.Schema({
   imei1: { type: String, required: true },
   imei2: { type: String, required: false },
-  batteryHealt: { type: String, required: false },
+  batteryHealth: { type: String, required: false },
   color: { type: String, required: false },
   ramSimId: { type: mongoose.Schema.Types.ObjectId, ref: "RamSim", required: true },
   isDispatched: { type: Boolean, default: false },
