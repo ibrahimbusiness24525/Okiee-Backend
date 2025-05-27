@@ -1,116 +1,103 @@
-const {PocketCashTransaction} = require('../schema/PocketCashSchema');
+const { PocketCashSchema, PocketCashTransactionSchema } = require('../schema/PocketCashSchema');
 const mongoose = require('mongoose');
+
+// Utility to get or create PocketCash for user
+const getOrCreatePocketCash = async (userId) => {
+  let pocketCash = await PocketCashSchema.findOne({ userId });
+  if (!pocketCash) {
+    pocketCash = await PocketCashSchema.create({ userId, accountCash: 0 });
+  }
+  return pocketCash;
+};
 
 // Add Cash
 exports.addCash = async (req, res) => {
   try {
-    const { amount, sourceOfAmountAddition } = req.body;
+    const { amount, sourceOfAmountAddition, personOfCashAddition } = req.body;
     const userId = req.user.id;
-    console.log("userID",userId,"amount",amount)
-    
+
     if (!amount || amount <= 0) {
-        
-        return res.status(400).json({ message: 'Amount must be greater than 0' });
+      return res.status(400).json({ message: 'Amount must be greater than 0' });
     }
-    
-    // const transactionData = {
-    //     accountCash: +amount,
-    //     userId,
-    // };
-    // console.log("transactionData",transactionData)
-    
-    // if (sourceOfAmountAddition) {
-    //     transactionData.sourceOfAmountAddition = sourceOfAmountAddition;
-    // }
-    
-    // console.log("transactionData",transactionData)
-    // const transaction = new PocketCashTransaction(transactionData);
-    // await transaction.save();
 
-    // return res.status(201).json({ message: 'Cash added successfully', transaction });
-    const lastTransaction = await PocketCashTransaction
-  .findOne({ userId })
-  .sort({ createdAt: -1 });
+    const pocketCash = await getOrCreatePocketCash(userId);
+    pocketCash.accountCash += amount;
+    await pocketCash.save();
 
-const lastBalance = lastTransaction?.accountCash || 0;
-const newBalance = lastBalance + amount;
+    const transaction = await PocketCashTransactionSchema.create({
+      userId,
+      accountCash: amount,
+      pocketCashId: pocketCash._id,
+      amountAdded: amount,
+      remainingAmount: pocketCash.accountCash,
+      sourceOfAmountAddition,
+      personOfCashAddition
+    });
 
-const transactionData = {
-  userId,
-  accountCash: newBalance,
-  amountAdded: amount,
-  sourceOfAmountAddition,
-};
-
-const transaction = new PocketCashTransaction(transactionData);
-await transaction.save();
-
-return res.status(201).json({ message: 'Cash added successfully', transaction });
+    return res.status(201).json({
+      message: 'Cash added successfully',
+      updatedBalance: pocketCash.accountCash,
+      transaction,
+    });
 
   } catch (error) {
-    console.log(error);
-    
+    console.error(error);
     return res.status(500).json({ message: 'Server error', error });
-}
+  }
 };
 
 // Deduct Cash
 exports.deductCash = async (req, res) => {
-    try {
+  try {
     const { amount, reasonOfAmountDeduction } = req.body;
     const userId = req.user.id;
-    
+
     if (!amount || amount <= 0) {
-        return res.status(400).json({ message: 'Amount must be greater than 0' });
+      return res.status(400).json({ message: 'Amount must be greater than 0' });
     }
-    
-    const transactionData = {
-        accountCash: -amount,
-        userId,
-    };
-    
-    if (reasonOfAmountDeduction) {
-        transactionData.reasonOfAmountDeduction = reasonOfAmountDeduction;
+
+    const pocketCash = await getOrCreatePocketCash(userId);
+
+    if (pocketCash.accountCash < amount) {
+      return res.status(400).json({ message: 'Insufficient funds' });
     }
-    
-    const transaction = new PocketCashTransaction(transactionData);
-    await transaction.save();
-    
-    return res.status(201).json({ message: 'Cash deducted successfully', transaction });
-} catch (error) {
-    console.log(error);
+
+    pocketCash.accountCash -= amount;
+    await pocketCash.save();
+
+    const transaction = await PocketCashTransactionSchema.create({
+      userId,
+      accountCash: -amount,
+      pocketCashId: pocketCash._id,
+      amountDeducted: amount,
+      reasonOfAmountDeduction,
+      remainingAmount: pocketCash.accountCash,
+    });
+
+    return res.status(201).json({
+      message: 'Cash deducted successfully',
+      updatedBalance: pocketCash.accountCash,
+      transaction,
+    });
+
+  } catch (error) {
+    console.error(error);
     return res.status(500).json({ message: 'Server error', error });
-}
-};
-
-exports.getTotalPocketCash = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        
-        if (!userId) {
-            return res.status(400).json({ message: 'userId is required in query' });
-        }
-        
-        const result = await PocketCashTransaction.aggregate([
-            {
-                $match: {
-                    userId: new mongoose.Types.ObjectId(userId),
-                },
-            },
-            {
-                $group: {
-                    _id: null,
-                    total: { $sum: '$accountCash' },
-                },
-            },
-        ]);
-
-        const total = result.length > 0 ? result[0].total : 0;
-        res.status(200).json({ total });
-    } catch (error) {
-        console.error('Error fetching total pocket cash:', error);
-    res.status(500).json({ message: 'Server error', error });
   }
 };
 
-  
+// Get Total Pocket Cash
+exports.getTotalPocketCash = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const pocketCash = await PocketCashSchema.findOne({ userId });
+
+    const total = pocketCash?.accountCash || 0;
+    return res.status(200).json({ total });
+
+  } catch (error) {
+    console.error('Error fetching total pocket cash:', error);
+    return res.status(500).json({ message: 'Server error', error });
+  }
+};
