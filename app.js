@@ -15,7 +15,14 @@ const ledgerRouter = require("./routes/LedgerRoutes.js");
 const partyLedgerRouter = require("./routes/PartyLedgerRoute.js")
 const bankRouter = require("./routes/bankRoute.js")
 const pocketCashRouter = require("./routes/PocketCashRoute.js")
+// import rateLimit from 'express-rate-limit';
 
+// const limiter = rateLimit({
+//   windowMs: 60 * 1000, // 1 minute
+//   max: 30, // limit each IP to 30 requests per windowMs
+// });
+
+// app.use(limiter);
 const connectDB = require("./config/db.js");
 
 const PORT = process.env.PORT || 8080;
