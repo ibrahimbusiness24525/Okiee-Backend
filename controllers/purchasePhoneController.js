@@ -201,6 +201,9 @@ exports.sellSinglePhone = async (req, res) => {
       accessories,
       // accesssoryAmount, 
       // accesssoryName, 
+      bankAccountUsed,
+      pocketCash,
+      accountCash,
       bankName, 
       payableAmountNow, 
       payableAmountLater, 
@@ -209,28 +212,69 @@ exports.sellSinglePhone = async (req, res) => {
     } = req.body;
 
     console.log("Received Data:", req.body);
-    
     // Fetch the purchased phone details
     const purchasedPhone = await PurchasePhone.findById(purchasePhoneId);
     if (!purchasedPhone) {
       return res.status(404).json({ message: "Purchased phone not found" });
     }
-
+    
     console.log("Purchased Phone Data:", purchasedPhone);
-
+    console.log("PurchasedPhone:", purchasedPhone);
+console.log("Company Name:", purchasedPhone.companyName);
     // Ensure the phone is not already sold
     if (purchasedPhone.isSold) {
       return res.status(400).json({ message: "This phone is already sold" });
     }
+    if (bankAccountUsed) {
+         const bank = await AddBankAccount.findById(bankAccountUsed);
+         if (!bank) return res.status(404).json({ message: "Bank not found" });
+   
+         // Deduct purchasePrice from accountCash
+         bank.accountCash += Number(accountCash);
+         await bank.save();
+   
+         // Log the transaction
+         await BankTransaction.create({
+           bankId: bank._id,
+           userId: req.user.id,
+           sourceOfAmountAddition: `sale of mobile of company name: ${purchasedPhone.companyName} and model name: ${purchasedPhone.modelName}`,
+           accountCash:accountCash,
+           accountType: bank.accountType,
+         });
+       }
+       if (pocketCash) {
+       const pocketTransaction = await PocketCashSchema.findOne({ userId: req.user.id });
+if (!pocketTransaction) {
+ return res.status(404).json({ message: 'Pocket cash account not found.' });
+}
 
+if (pocketCash > pocketTransaction.accountCash) {
+ return res.status(400).json({ message: 'Insufficient pocket cash' });
+}
+
+pocketTransaction.accountCash += Number(pocketCash);
+await pocketTransaction.save();
+
+await PocketCashTransactionSchema.create({
+ userId: req.user.id,
+ pocketCashId: pocketTransaction._id, // if you want to associate it
+ amountDeducted: pocketCash,
+ accountCash: pocketTransaction.accountCash, // ✅ add this line
+ remainingAmount: pocketTransaction.accountCash,
+ reasonOfAmountDeduction: `sale of mobile from company: ${purchasedPhone.companyName}, model: ${purchasedPhone.modelName}`,
+ sourceOfAmountAddition: 'Payment for mobile sale',
+});
+
+       }
+    
     // Set warranty based on condition
     const updatedWarranty = purchasedPhone.phoneCondition === "Used" ? warranty : "12 months";
-
+    
     // Ensure user ID exists
     if (!req.user?.id) {
       return res.status(401).json({ message: "Unauthorized: User ID missing" });
     }
-
+    
     // **Validate conditional fields based on sellingPaymentType**
     if (sellingPaymentType === "Bank" && !bankName) {
       return res.status(400).json({ message: "Bank Name is required for Bank payment type." });
@@ -241,7 +285,7 @@ exports.sellSinglePhone = async (req, res) => {
     if (sellingPaymentType === "Exchange" && !exchangePhoneDetail) {
       return res.status(400).json({ message: "Exchange phone details are required for Exchange payment type." });
     }
-
+    
     // Create a new sold phone entry
     const soldPhone = new SingleSoldPhone({
       purchasePhoneId,
