@@ -172,7 +172,6 @@ const SoldPhoneSchema = new mongoose.Schema({
   bulkPhonePurchaseId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'BulkPhonePurchase',
-    default: null  // Set default to null for single phone sales
   },
   accessories: [
     {
