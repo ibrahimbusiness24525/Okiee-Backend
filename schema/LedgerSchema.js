@@ -44,5 +44,6 @@ ledgerSchema.statics.archiveRecord = async function() {
   }
 };
 
+
 const Ledger = mongoose.model('Ledger', ledgerSchema);
 module.exports = Ledger;

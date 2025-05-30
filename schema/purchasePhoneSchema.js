@@ -169,10 +169,8 @@ const SoldPhoneSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
-  bulkPhonePurchaseId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'BulkPhonePurchase',
-  },
+  bulkPhonePurchaseId: { type: mongoose.Schema.Types.ObjectId, ref: 'BulkPhonePurchase', required: true, },
+
   accessories: [
     {
       name: { type: String, required: false },  // Accessory name
@@ -320,7 +318,7 @@ const Imei = mongoose.model("Imei", ImeiSchema);
 const RamSim = mongoose.model("RamSim", RamSimSchema);
 
 const BulkPhonePurchase = mongoose.model("BulkPhonePurchase", BulkPhonePurchaseSchema);
-BulkPhonePurchaseSchema.plugin(mongoosePaginate);
+// BulkPhonePurchaseSchema.plugin(mongoosePaginate);
 
 const PurchasePhone = mongoose.model('PurchasePhone', PurchasePhoneSchema);
 

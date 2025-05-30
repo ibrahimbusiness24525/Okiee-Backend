@@ -1253,7 +1253,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
       if (sellingPaymentType === "Exchange" && !exchangePhoneDetail) {
         return res.status(400).json({ message: "Exchange phone details are required for Exchange payment type." });
       }
-
+   console.log("THis is bulk phone purchase id", bulkPhonePurchaseId)
       // Create a new SoldPhone record
       const soldPhone = new SoldPhone({
         bulkPhonePurchaseId,

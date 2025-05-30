@@ -89,7 +89,8 @@ exports.getToDayBook = async (req, res) => {
       BulkPhonePurchase.find({ userId, createdAt: { $gte: selectedDate, $lt: nextDate } }).populate('ramSimDetails'),
       SingleSoldPhone.find({ userId, createdAt: { $gte: selectedDate, $lt: nextDate } }),
       SoldPhone.find({ userId, createdAt: { $gte: selectedDate, $lt: nextDate } }).populate({
-        path:"bulkPhonePurchaseId"
+        path:"bulkPhonePurchaseId",
+        select:"prices.buyingPrice"
       }),
     ]);
   const [allSinglePhones, allBulkPhones] = await Promise.all([
@@ -126,26 +127,8 @@ allBulkPhones.forEach((bulk) => {
   });
 });
 
-// === TOTAL COMBINED STOCK ===
 const totalStockCount = totalSinglePhones + totalBulkPhones;
 const totalStockAmount = totalSingleAmount + totalBulkAmount;
-
-  //   // Calculate total stock (ALL TIME)
-  //   const totalSinglePhones = allSinglePhones.length;
-  //   const totalBulkPhones = allBulkPhones.length;
-  //   const totalStockCount = totalSinglePhones + totalBulkPhones;
-
-  //   const totalSingleAmount = allSinglePhones.reduce((sum, phone) => {
-  //     return sum + (phone.price?.purchasePrice || 0);
-  //   }, 0);
-
-  //   const totalBulkAmount = allBulkPhones.reduce((sum, bulk) => {
-  //     return sum + (parseFloat(bulk.prices?.buyingPrice) || 0);
-  //   }, 0);
-
-  //   const totalStockAmount = totalSingleAmount + totalBulkAmount;
-
-
 
     res.status(200).json({
       message: `Records fetched for ${dateParam || 'today'}`,
