@@ -27,6 +27,10 @@ const AddBankAccountSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    accountNumber: {
+        type: Number,
+        required: false,
+    }
 }, { timestamps: true });
 
 const BankTransactionSchema = new mongoose.Schema({

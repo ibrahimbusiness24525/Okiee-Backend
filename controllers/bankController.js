@@ -4,9 +4,9 @@ const { AddBankAccount, BankTransaction } = require("../schema/BankAccountSchema
 exports.createBank = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { bankName, accountType } = req.body;
+        const { bankName, accountType, accountNumber } = req.body;
 
-        const newBank = await AddBankAccount.create({ userId, bankName, accountType });
+        const newBank = await AddBankAccount.create({ userId, bankName, accountType, accountNumber });
 
         res.status(201).json({ success: true, bank: newBank });
     } catch (error) {
@@ -40,8 +40,8 @@ exports.addAmountToBank = async (req, res) => {
 
         // Adjust accountCash based on the source of the transaction
         // if (sourceOfAmount === "deposit") {
-            newAccountCash += Number(accountCash);
-            // Add the amount if it's a deposit
+        newAccountCash += Number(accountCash);
+        // Add the amount if it's a deposit
         // } else if (sourceOfAmount === "withdrawal") {
         //     newAccountCash -= accountCash; 
         // }
@@ -49,8 +49,8 @@ exports.addAmountToBank = async (req, res) => {
         // Update the AddBankAccount with the new accountCash value
         await AddBankAccount.findByIdAndUpdate(
             bankId,
-            { 
-            $inc: { cashIn: accountCash, accountCash: accountCash } // Increment both cashIn and accountCash
+            {
+                $inc: { cashIn: accountCash, accountCash: accountCash } // Increment both cashIn and accountCash
             },
             { new: true } // Return the updated document
         );
@@ -70,7 +70,7 @@ exports.addAmountToBank = async (req, res) => {
 
 // Deduct cash from bank account
 exports.deductCashFromBank = async (req, res) => {
-    
+
     try {
         const userId = req.user.id;
         const { bankId, sourceOfAmountDeduction, accountCash } = req.body;
@@ -101,10 +101,10 @@ exports.deductCashFromBank = async (req, res) => {
                 $inc: { cashOut: accountCash, accountCash: negativeAccountCash } // Increment cashOut and decrement accountCash
             },
             {
-                $inc:{cashIn: -accountCash, accountCash: negativeAccountCash} // Increment cashIn and decrement accountCash
+                $inc: { cashIn: -accountCash, accountCash: negativeAccountCash } // Increment cashIn and decrement accountCash
             },
             { accountCash: newAccountCash },
-            { new: true } 
+            { new: true }
         );
 
         // Send response with success and the updated transaction and bank account details

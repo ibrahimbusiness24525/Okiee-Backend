@@ -6,10 +6,11 @@ const {
   getEntityLedger,
   getAllEntities
 } = require('../controllers/ShopLedgerControllers');
+const { decoderMiddleware } = require('../services/authServices');
 
-router.post('/', createEntity);
-router.post('/ledger', addLedgerEntry);
-router.get('/:entityId/ledger', getEntityLedger);
-router.get('/:entityId/ledger', getEntityLedger);
-router.get('/entities', getAllEntities); //
+router.post('/create', decoderMiddleware, createEntity);
+router.post('/ledger', decoderMiddleware, addLedgerEntry);
+router.get('/:entityId/ledger', decoderMiddleware, getEntityLedger);
+router.get('/:entityId/ledger', decoderMiddleware, getEntityLedger);
+router.get('/entities', decoderMiddleware, getAllEntities); //
 module.exports = router;
