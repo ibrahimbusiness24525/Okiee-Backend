@@ -1,66 +1,125 @@
 const { Entity, ShopLedger } = require('../schema/ShopLedgerSchema');
 
-// Create a new entity (linked to the user)
-const createEntity = async (req, res) => {
+// Utility to update status
+const updateStatus = (entity) => {
+  const balance = entity.expense - entity.cashPaid;
+  if (balance > 0) return "Payable";
+  if (balance < 0) return "Receivable";
+  return "Settled";
+};
+
+// Add new entity
+const addEntity = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { name, reference } = req.body;
-    const entity = new Entity({ userId, name, reference });
-    await entity.save();
-    res.status(201).json({ message: "Entity created", entity });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    const userId = req.user.id
+    const {  name, reference } = req.body;
+    const entity = await Entity.create({ userId, name, reference });
+    res.status(201).json(entity);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 
-// Add a ledger entry (linked to user and entity)
-const addLedgerEntry = async (req, res) => {
+// Add expense
+const addExpense = async (req, res) => {
   try {
+    const entityId = req.params.id;
     const userId = req.user.id;
-    const { entityId, type, amount, description } = req.body;
+    const { expense } = req.body;
 
-    if (!['Expense', 'CashPaid', 'CashReceived'].includes(type)) {
-      return res.status(400).json({ message: "Invalid entry type" });
-    }
-
-    const entry = new ShopLedger({ userId, entityId, type, amount, description });
-    await entry.save();
-    res.status(201).json({ message: `${type} recorded`, entry });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// Get all ledger entries for a specific entity (user-specific)
-const getEntityLedger = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { entityId } = req.params;
-
-    const entity = await Entity.findOne({ _id: entityId, userId });
+    const entity = await Entity.findById(entityId);
     if (!entity) return res.status(404).json({ message: "Entity not found" });
 
-    const entries = await ShopLedger.find({ entityId, userId }).sort({ date: -1 });
-    res.status(200).json({ entity, entries });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    await ShopLedger.create({ userId, entityId, expense });
+
+    entity.expense += expense;
+    entity.status = updateStatus(entity);
+    await entity.save();
+
+    res.status(200).json({ message: "Expense added", entity });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 
-// Get all entities for a specific user
+
+// Cash payment to entity
+const cashPayment = async (req, res) => {
+  try {
+    const entityId = req.params.id;
+    const userId = req.user.id;
+    const { cashPaid } = req.body;
+
+    const entity = await Entity.findById(entityId);
+    if (!entity) return res.status(404).json({ message: "Entity not found" });
+
+    await ShopLedger.create({ userId, entityId, cashPaid });
+
+    entity.cashPaid += cashPaid;
+    entity.status = updateStatus(entity);
+    await entity.save();
+
+    res.status(200).json({ message: "Cash paid to entity", entity });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
+// Receive cash from entity (when overpaid)
+const receiveCash = async (req, res) => {
+  try {
+    const entityId = req.params.id;
+    const userId = req.user.id;
+    const { receiveCash } = req.body;
+
+    const entity = await Entity.findById(entityId);
+    if (!entity) return res.status(404).json({ message: "Entity not found" });
+
+    await ShopLedger.create({ userId, entityId, receiveCash });
+
+    entity.cashPaid -= receiveCash;
+    entity.receiveCash += receiveCash;
+    entity.status = updateStatus(entity);
+    await entity.save();
+
+    res.status(200).json({ message: "Cash received from entity", entity });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 const getAllEntities = async (req, res) => {
   try {
     const userId = req.user.id;
+
     const entities = await Entity.find({ userId }).sort({ createdAt: -1 });
-    res.status(200).json({ entities });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+
+    res.status(200).json(entities);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+const getAllEntityRecords = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Find all ledger transactions for the user
+    const records = await ShopLedger.find({ userId })
+      .populate("entityId", "name reference") // populate entity name & reference
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(records);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 
 module.exports = {
-  createEntity,
-  addLedgerEntry,
-  getEntityLedger,
-  getAllEntities
+  addEntity,
+  addExpense,
+  cashPayment,
+  receiveCash,
+  getAllEntities,
+  getAllEntityRecords
 };
