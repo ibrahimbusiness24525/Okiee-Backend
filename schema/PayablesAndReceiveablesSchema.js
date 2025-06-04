@@ -17,6 +17,7 @@ const creditTransactionSchema = mongoose.Schema({
   personId: { type: mongoose.Schema.Types.ObjectId, ref: 'Person', required: true },
   takingCredit: { type: Number, default: 0 },
   givingCredit: { type: Number, default: 0 },
+  description: { type: String, default: "" },
 }, { timestamps: true });
 
 

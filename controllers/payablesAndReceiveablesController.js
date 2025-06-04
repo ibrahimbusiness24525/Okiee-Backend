@@ -19,7 +19,7 @@ exports.createPerson = async (req, res) => {
 // 2. Give Credit
 exports.giveCredit = async (req, res) => {
   try {
-    const { personId, amount } = req.body;
+    const { personId, amount, description } = req.body;
     const userId = req.user.id;
 
     const person = await Person.findOne({ _id: personId, userId });
@@ -46,7 +46,7 @@ exports.giveCredit = async (req, res) => {
     person.status = status;
     await person.save();
 
-    await CreditTransaction.create({ userId, personId, givingCredit: amount });
+    await CreditTransaction.create({ userId, personId, givingCredit: amount, description });
 
     res.status(200).json({ message: "Credit given successfully", person });
   } catch (error) {
@@ -57,7 +57,7 @@ exports.giveCredit = async (req, res) => {
 // 3. Take Credit
 exports.takeCredit = async (req, res) => {
   try {
-    const { personId, amount } = req.body;
+    const { personId, amount, description } = req.body;
     const userId = req.user.id;
 
     const person = await Person.findOne({ _id: personId, userId });
@@ -84,7 +84,7 @@ exports.takeCredit = async (req, res) => {
     person.status = status;
     await person.save();
 
-    await CreditTransaction.create({ userId, personId, takingCredit: amount });
+    await CreditTransaction.create({ userId, personId, takingCredit: amount ,description});
 
     res.status(200).json({ message: "Credit taken successfully", person });
   } catch (error) {
