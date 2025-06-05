@@ -1,5 +1,7 @@
 // controllers/creditController.js
+const { AddBankAccount, BankTransaction } = require("../schema/BankAccountSchema");
 const { Person, CreditTransaction } = require("../schema/PayablesAndReceiveablesSchema");
+const { PocketCashSchema, PocketCashTransactionSchema } = require("../schema/PocketCashSchema");
 
 // 1. Create a Person
 exports.createPerson = async (req, res) => {
@@ -19,9 +21,49 @@ exports.createPerson = async (req, res) => {
 // 2. Give Credit
 exports.giveCredit = async (req, res) => {
   try {
-    const { personId, amount, description } = req.body;
+    const { personId, amount, description, giveCredit } = req.body;
     const userId = req.user.id;
+    if (giveCredit?.bankAccountUsed) {
+      const bank = await AddBankAccount.findById(giveCredit?.bankAccountUsed);
+      if (!bank) return res.status(404).json({ message: "Bank not found" });
 
+      // Deduct purchasePrice from accountCash
+      bank.accountCash -= Number(giveCredit?.amountFromBank);
+      await bank.save();
+
+      // Log the transaction
+      await BankTransaction.create({
+        bankId: bank._id,
+        userId: req.user.id,
+        reasonOfAmountDeduction: `give credit to person: ${personId}, amount: ${amount}`,
+        accountCash: amount,
+        accountType: bank.accountType,
+      });
+    }
+    console.log("giveCredit", giveCredit);
+    if (giveCredit?.amountFromPocket) {
+      const pocketTransaction = await PocketCashSchema.findOne({ userId: req.user.id });
+      if (!pocketTransaction) {
+        return res.status(404).json({ message: 'Pocket cash account not found.' });
+      }
+
+      if (giveCredit?.amountFromPocket > pocketTransaction.accountCash) {
+        return res.status(400).json({ message: 'Insufficient pocket cash' });
+      }
+
+      pocketTransaction.accountCash -= Number(giveCredit?.amountFromPocket);
+      await pocketTransaction.save();
+
+      await PocketCashTransactionSchema.create({
+        userId: req.user.id,
+        pocketCashId: pocketTransaction._id, // if you want to associate it
+        amountDeducted: giveCredit?.amountFromPocket,
+        accountCash: pocketTransaction.accountCash, // ✅ add this line
+        remainingAmount: pocketTransaction.accountCash,
+        reasonOfAmountDeduction: `give credit to person: ${personId}, amount: ${amount}`,
+      });
+
+    }
     const person = await Person.findOne({ _id: personId, userId });
     if (!person) return res.status(404).json({ message: "Person not found" });
 
@@ -57,8 +99,49 @@ exports.giveCredit = async (req, res) => {
 // 3. Take Credit
 exports.takeCredit = async (req, res) => {
   try {
-    const { personId, amount, description } = req.body;
+    const { personId, amount, description, takeCredit } = req.body;
     const userId = req.user.id;
+    if (takeCredit?.bankAccountUsed) {
+      const bank = await AddBankAccount.findById(takeCredit?.bankAccountUsed);
+      if (!bank) return res.status(404).json({ message: "Bank not found" });
+
+      // Deduct purchasePrice from accountCash
+      bank.accountCash += Number(takeCredit?.amountFromBank);
+      await bank.save();
+
+      // Log the transaction
+      await BankTransaction.create({
+        bankId: bank._id,
+        userId: req.user.id,
+        reasonOfAmountDeduction: `take credit from person: ${personId}, amount: ${amount}`,
+        accountCash: amount,
+        accountType: bank.accountType,
+      });
+    }
+    console.log("giveCredit", takeCredit);
+    if (takeCredit?.amountFromPocket) {
+      const pocketTransaction = await PocketCashSchema.findOne({ userId: req.user.id });
+      if (!pocketTransaction) {
+        return res.status(404).json({ message: 'Pocket cash account not found.' });
+      }
+
+      if (takeCredit?.amountFromPocket > pocketTransaction.accountCash) {
+        return res.status(400).json({ message: 'Insufficient pocket cash' });
+      }
+
+      pocketTransaction.accountCash += Number(takeCredit?.amountFromPocket);
+      await pocketTransaction.save();
+
+      await PocketCashTransactionSchema.create({
+        userId: req.user.id,
+        pocketCashId: pocketTransaction._id, // if you want to associate it
+        amountDeducted: takeCredit?.amountFromPocket,
+        accountCash: pocketTransaction.accountCash, // ✅ add this line
+        remainingAmount: pocketTransaction.accountCash,
+        reasonOfAmountDeduction: `take credit from person: ${personId}, amount: ${amount}`,
+      });
+
+    }
 
     const person = await Person.findOne({ _id: personId, userId });
     if (!person) return res.status(404).json({ message: "Person not found" });
@@ -84,7 +167,7 @@ exports.takeCredit = async (req, res) => {
     person.status = status;
     await person.save();
 
-    await CreditTransaction.create({ userId, personId, takingCredit: amount ,description});
+    await CreditTransaction.create({ userId, personId, takingCredit: amount, description });
 
     res.status(200).json({ message: "Credit taken successfully", person });
   } catch (error) {
