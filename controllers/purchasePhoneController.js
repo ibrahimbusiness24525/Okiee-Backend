@@ -5,6 +5,7 @@ const { invoiceGenerator } = require('../services/invoiceGenerator');
 const PartyLedger = require('../schema/PartyLedgerSchema');
 const { AddBankAccount, BankTransaction } = require('../schema/BankAccountSchema');
 const { PocketCashSchema, PocketCashTransactionSchema } = require('../schema/PocketCashSchema');
+const { AccessoryTransaction, Accessory } = require('../schema/accessorySchema');
 
 
 exports.addPurchasePhone = async (req, res) => {
@@ -285,6 +286,34 @@ await PocketCashTransactionSchema.create({
     if (sellingPaymentType === "Exchange" && !exchangePhoneDetail) {
       return res.status(400).json({ message: "Exchange phone details are required for Exchange payment type." });
     }
+    console.log("accessories",accessories)
+    if (accessories && accessories.length > 0) {
+  for (const accessoryItem of accessories) {
+    const accessory = await Accessory.findOne({ _id: accessoryItem.name, userId: req.user.id });
+
+    if (!accessory) {
+      return res.status(404).json({ message: "Accessory not found" });
+    }
+
+    if (Number(accessory.stock) < Number(accessoryItem.quantity)) {
+      return res.status(400).json({ message: "Insufficient Inventory" });
+    }
+
+    const totalPrice = Number(accessoryItem.quantity) * Number(accessoryItem.price);
+
+    await AccessoryTransaction.create({
+      userId: req.user.id,
+      accessoryId: accessoryItem.name,
+      quantity: Number(accessoryItem.quantity),
+      perPiecePrice: Number(accessoryItem.price),
+      totalPrice,
+    });
+
+    accessory.stock -= Number(accessoryItem.quantity);
+    await accessory.save();
+  }
+}
+
     
     // Create a new sold phone entry
     const soldPhone = new SingleSoldPhone({
@@ -1253,6 +1282,32 @@ exports.sellPhonesFromBulk = async (req, res) => {
       if (sellingPaymentType === "Exchange" && !exchangePhoneDetail) {
         return res.status(400).json({ message: "Exchange phone details are required for Exchange payment type." });
       }
+      if (accessories && accessories.length > 0) {
+  for (const accessoryItem of accessories) {
+    const accessory = await Accessory.findOne({ _id: accessoryItem.name, userId: req.user.id });
+
+    if (!accessory) {
+      return res.status(404).json({ message: "Accessory not found" });
+    }
+
+    if (Number(accessory.stock) < Number(accessoryItem.quantity)) {
+      return res.status(400).json({ message: "Insufficient Inventory" });
+    }
+
+    const totalPrice = Number(accessoryItem.quantity) * Number(accessoryItem.price);
+
+    await AccessoryTransaction.create({
+      userId: req.user.id,
+      accessoryId: accessoryItem.name,
+      quantity: Number(accessoryItem.quantity),
+      perPiecePrice: Number(accessoryItem.price),
+      totalPrice,
+    });
+
+    accessory.stock -= Number(accessoryItem.quantity);
+    await accessory.save();
+  }
+}
    console.log("THis is bulk phone purchase id", bulkPhonePurchaseId)
       // Create a new SoldPhone record
       const soldPhone = new SoldPhone({

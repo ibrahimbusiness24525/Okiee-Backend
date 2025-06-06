@@ -23,6 +23,7 @@ exports.giveCredit = async (req, res) => {
   try {
     const { personId, amount, description, giveCredit } = req.body;
     const userId = req.user.id;
+    console.log("give credit", giveCredit)
     if (giveCredit?.bankAccountUsed) {
       const bank = await AddBankAccount.findById(giveCredit?.bankAccountUsed);
       if (!bank) return res.status(404).json({ message: "Bank not found" });
