@@ -101,3 +101,19 @@ exports.getTotalPocketCash = async (req, res) => {
     return res.status(500).json({ message: 'Server error', error });
   }
 };
+
+exports.getPocketCashTransactions = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const transactions = await PocketCashTransactionSchema.find({ userId })
+      .populate('pocketCashId', 'accountCash')
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json(transactions);
+
+  } catch (error) {
+    console.error('Error fetching pocket cash transactions:', error);
+    return res.status(500).json({ message: 'Server error', error });
+  }
+}
