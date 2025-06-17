@@ -18,6 +18,7 @@ const personRouter = require("./routes/payablesAndReceiveablesRoutes.js")
 const accessoryRouter = require("./routes/accessoryRoute.js")
 const pocketCashRouter = require("./routes/PocketCashRoute.js")
 const entityShopLedgerRouter = require("./routes/ShopLedgerRoute.js")
+const CompanyRouter = require("./routes/CompanyRoutes.js")
 // import rateLimit from 'express-rate-limit';
 
 // const limiter = rateLimit({
@@ -66,4 +67,5 @@ app.use("/api/pocketCash", pocketCashRouter);
 app.use("/api/entity", entityShopLedgerRouter);
 app.use("/api/person", personRouter);
 app.use("/api/accessory", accessoryRouter);
+app.use("/api/company", CompanyRouter);
 app.listen(PORT, () => console.log(`Server listening to port ${PORT}`));

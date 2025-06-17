@@ -14,6 +14,10 @@ exports.addPurchasePhone = async (req, res) => {
     name, fatherName, companyName, modelName, date, cnic,
     accessories, phoneCondition, specifications, ramMemory, batteryHealth,
     color, imei1, imei2, mobileNumber, isApprovedFromEgadgets,
+    paymentType,
+          payableAmountLater,
+          payableAmountNow,
+          paymentDate,
     purchasePrice, finalPrice, demandPrice, warranty, shopid, bankAccountUsed, pocketCash, accountCash
 
   } = req.body;
@@ -92,7 +96,46 @@ exports.addPurchasePhone = async (req, res) => {
       });
 
     }
+    if (paymentType === "credit") {
+      console.log('====================================');
+      console.log('Payment Type:', paymentType);
+      console.log('Payable Amount Later:', payableAmountLater);
+      console.log('Payable Amount Now:', payableAmountNow);
+      console.log('Payment Date:', paymentDate);
+      console.log('====================================');
+      // Use Person and CreditTransaction for receivables
 
+      // Find or create the person (customer) by name and number
+      let person = await Person.findOne({
+        name: name,
+        number: imei1,
+        userId: req.user.id,
+      });
+
+      if (!person) {
+        person = await Person.create({
+          userId: req.user.id,
+          name: name,
+          number: imei1,
+          reference: "Phone Purchase",
+          takingCredit: Number(payableAmountLater),
+          status: "Payable",
+        });
+      } else {
+        person.takingCredit = Number(person.takingCredit || 0) + Number(payableAmountLater);
+        person.status = "Payable";
+        person.reference = "Phone Purchase";
+        await person.save();
+      }
+
+      // Log the credit transaction
+      await CreditTransaction.create({
+        userId: req.user.id,
+        personId: person._id,
+        givingCredit: Number(payableAmountLater),
+        description: `Credit purchase of phone: ${companyName} ${modelName}`,
+      });
+    }
     // Save to database
     const savedPhone = await purchasePhone.save();
     res.status(201).json({ message: 'Purchase phone slip created successfully!', data: savedPhone });
