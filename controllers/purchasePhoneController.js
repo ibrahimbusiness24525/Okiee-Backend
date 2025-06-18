@@ -879,6 +879,9 @@ exports.addBulkPhones = async (req, res) => {
       companyName,
       modelName,
       ramSimDetails,
+      bankAccountUsed,
+      amountFromPocket,
+      amountFromBank,
       prices,
       purchasePaymentStatus,
       purchasePaymentType,
@@ -911,7 +914,47 @@ exports.addBulkPhones = async (req, res) => {
       purchasePaymentStatus,
       ...(purchasePaymentType === "credit" && { creditPaymentData }),
     });
+ if (bankAccountUsed) {
+      const bank = await AddBankAccount.findById(bankAccountUsed);
+      if (!bank) return res.status(404).json({ message: "Bank not found" });
 
+      // Deduct purchasePrice from accountCash
+      bank.accountCash -= Number(amountFromBank);
+      await bank.save();
+
+      // Log the transaction
+      await BankTransaction.create({
+        bankId: bank._id,
+        userId: req.user.id,
+        reasonOfAmountDeduction: `Purchase of bulk mobie`,
+        accountCash: Number(amountFromBank),
+        accountType: bank.accountType,
+      });
+    }
+    if (amountFromPocket) {
+      const pocketTransaction = await PocketCashSchema.findOne({ userId: req.user.id });
+      if (!pocketTransaction) {
+        return res.status(404).json({ message: 'Pocket cash account not found.' });
+      }
+
+      if (amountFromPocket > pocketTransaction.accountCash) {
+        return res.status(400).json({ message: 'Insufficient pocket cash' });
+      }
+
+      pocketTransaction.accountCash -= Number(amountFromPocket);
+      await pocketTransaction.save();
+
+      await PocketCashTransactionSchema.create({
+        userId: req.user.id,
+        pocketCashId: pocketTransaction._id, // if you want to associate it
+        amountDeducted: amountFromPocket,
+        accountCash: pocketTransaction.accountCash, // ✅ add this line
+        remainingAmount: pocketTransaction.accountCash,
+        reasonOfAmountDeduction: `Purchase of bulk mobile`,
+        sourceOfAmountAddition: 'Payment for purchase',
+      });
+
+    }
     if (purchasePaymentType === "credit") {
       const totalPaid = (Number(creditPaymentData.totalPaidAmount) || 0) + Number(creditPaymentData.payableAmountNow || 0);
       bulkPhonePurchase.creditPaymentData.totalPaidAmount = totalPaid;
@@ -951,7 +994,7 @@ exports.addBulkPhones = async (req, res) => {
         return savedRamSim;
       })
     );
-
+ 
     savedBulkPhonePurchase.ramSimDetails = ramSimData;
     await savedBulkPhonePurchase.save();
 
