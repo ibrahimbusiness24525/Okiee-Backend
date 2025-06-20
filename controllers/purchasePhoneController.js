@@ -15,9 +15,9 @@ exports.addPurchasePhone = async (req, res) => {
     accessories, phoneCondition, specifications, ramMemory, batteryHealth,
     color, imei1, imei2, mobileNumber, isApprovedFromEgadgets,
     paymentType,
-          payableAmountLater,
-          payableAmountNow,
-          paymentDate,
+    payableAmountLater,
+    payableAmountNow,
+    paymentDate,
     purchasePrice, finalPrice, demandPrice, warranty, shopid, bankAccountUsed, pocketCash, accountCash
 
   } = req.body;
@@ -914,7 +914,7 @@ exports.addBulkPhones = async (req, res) => {
       purchasePaymentStatus,
       ...(purchasePaymentType === "credit" && { creditPaymentData }),
     });
- if (bankAccountUsed) {
+    if (bankAccountUsed) {
       const bank = await AddBankAccount.findById(bankAccountUsed);
       if (!bank) return res.status(404).json({ message: "Bank not found" });
 
@@ -994,7 +994,7 @@ exports.addBulkPhones = async (req, res) => {
         return savedRamSim;
       })
     );
- 
+
     savedBulkPhonePurchase.ramSimDetails = ramSimData;
     await savedBulkPhonePurchase.save();
 
@@ -2101,3 +2101,60 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
     return res.status(500).json({ message: 'Server error', error });
   }
 };
+
+exports.soldAnyPhone = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { imei } = req.body;
+
+    if (!imei) {
+      return res.status(400).json({ error: "IMEI number is required." });
+    }
+
+    // 1. Check in single purchase phone
+    const purchasePhone = await PurchasePhone.findOne({
+      userId,
+      $or: [{ imei1: imei }, { imei2: imei }],
+    });
+
+    if (purchasePhone) {
+      // Mark as sold and remove from PurchasePhone
+      purchasePhone.isSold = true;
+      await purchasePhone.save();
+      await PurchasePhone.findByIdAndDelete(purchasePhone._id);
+      return res.status(200).json({ message: "Phone sold and removed from single purchase.", type: "single", imei });
+    }
+
+    // 2. Check in bulk purchase
+    const bulkPhone = await BulkPhonePurchase.findOne({ userId }).populate({
+      path: "ramSimDetails",
+      populate: { path: "imeiNumbers" },
+    });
+
+    if (bulkPhone) {
+      let found = false;
+      for (const ramSim of bulkPhone.ramSimDetails) {
+        const imeiIndex = ramSim.imeiNumbers.findIndex(
+          i => i.imei1 === imei || i.imei2 === imei
+        );
+        if (imeiIndex !== -1) {
+          // Remove IMEI from Imei collection and from ramSim.imeiNumbers
+          const imeiDoc = ramSim.imeiNumbers[imeiIndex];
+          await Imei.findByIdAndDelete(imeiDoc._id);
+          ramSim.imeiNumbers.splice(imeiIndex, 1);
+          await ramSim.save();
+          found = true;
+          break;
+        }
+      }
+      if (found) {
+        return res.status(200).json({ message: "IMEI sold and removed from bulk purchase.", type: "bulk", imei });
+      }
+    }
+
+    return res.status(404).json({ message: "IMEI not found in single or bulk purchase." });
+  } catch (error) {
+    console.error("Error processing sold phone:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+}

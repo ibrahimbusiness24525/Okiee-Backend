@@ -216,7 +216,8 @@ exports.getToDayBook = async (req, res) => {
         totalBulkAmount += imeiCount * priceOfOne;
       });
     });
-
+    const totalPayablePersons = persons.status === "Payable" ? persons.length : 0;
+    const totalReceivablePersons = persons.status === "Receivable" ? persons.length : 0;
     // === CREDIT CALCULATIONS ===
     const totalPayable = persons.reduce((sum, person) => sum + person.takingCredit, 0);
     const totalReceivable = persons.reduce((sum, person) => sum + person.givingCredit, 0);
@@ -238,6 +239,8 @@ exports.getToDayBook = async (req, res) => {
         creditSummary: {
           totalPayable,
           totalReceivable,
+          totalPayablePersons,
+          totalReceivablePersons,
           dailyPayable,
           dailyReceivable,
           creditTransactions

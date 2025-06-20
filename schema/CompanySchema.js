@@ -1,6 +1,11 @@
 const mongoose = require("mongoose");
 
 const CompanySchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true
+  },
   name: {
     type: String,
     required: true,
@@ -15,6 +20,11 @@ const CompanySchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const ModelNameSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true
+  },
   name: {
     type: String,
     required: true,
