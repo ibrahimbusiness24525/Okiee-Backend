@@ -37,6 +37,7 @@ const ModelNameSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+
 const Company = mongoose.model("Company", CompanySchema);
 const Model = mongoose.model("Model", ModelNameSchema);
 
