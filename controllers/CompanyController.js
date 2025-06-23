@@ -1,26 +1,65 @@
 const { Company, Model } = require("../schema/CompanySchema");
 
 // Create a new company
+// exports.createCompany = async (req, res) => {
+//   try {
+//     const userId = req.user.id; // Assuming user ID is available in req.user
+//     const { name } = req.body;
+//     console.log("Creating company with name:", name, "for user ID:", userId);
+
+//     // Check if company already exists
+//     const existingCompany = await Company.findOne({ name, userId });
+//     if (existingCompany) {
+//       return res.status(400).json({ message: "Company already exists." });
+//     }
+
+//     const company = await Company.create({ name, userId });
+//     res.status(201).json({ message: "Company created successfully", company });
+//   } catch (error) {
+//     console.error("Error creating company:", error);
+//     res.status(500).json({ message: "Internal server error", error: error.message });
+//   }
+// };
 exports.createCompany = async (req, res) => {
   try {
-    const userId = req.user.id; // Assuming user ID is available in req.user
     const { name } = req.body;
-    console.log("Creating company with name:", name, "for user ID:", userId);
+    const userId = req.user.id;
 
-    // Check if company already exists
-    const existingCompany = await Company.findOne({ name, userId });
+    if (!name?.trim()) {
+      return res.status(400).json({ message: "Company name is required." });
+    }
+
+    const normalizedName = name.trim().toLowerCase();
+
+    const existingCompany = await Company.findOne({ 
+      name: normalizedName, 
+      userId 
+    });
+
     if (existingCompany) {
       return res.status(400).json({ message: "Company already exists." });
     }
 
-    const company = await Company.create({ name, userId });
-    res.status(201).json({ message: "Company created successfully", company });
+    const company = await Company.create({ 
+      name: normalizedName, 
+      userId 
+    });
+
+    res.status(201).json({ 
+      success: true,
+      message: "Company created successfully", 
+      data: company 
+    });
+
   } catch (error) {
     console.error("Error creating company:", error);
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: "Internal server error", 
+      error: error.message 
+    });
   }
 };
-
 // Create a new model for a specific company
 exports.createModel = async (req, res) => {
   try {

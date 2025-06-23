@@ -354,6 +354,7 @@ exports.sellSinglePhone = async (req, res) => {
         });
 
         accessory.stock -= Number(accessoryItem.quantity);
+        accessory.profit += (Number(accessoryItem.price) - Number(accessory.perPiecePrice)) * Number(accessoryItem.quantity);
         await accessory.save();
       }
     }
@@ -1402,32 +1403,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
       if (sellingPaymentType === "Exchange" && !exchangePhoneDetail) {
         return res.status(400).json({ message: "Exchange phone details are required for Exchange payment type." });
       }
-      if (accessories && accessories.length > 0) {
-        for (const accessoryItem of accessories) {
-          const accessory = await Accessory.findOne({ _id: accessoryItem.name, userId: req.user.id });
-
-          if (!accessory) {
-            return res.status(404).json({ message: "Accessory not found" });
-          }
-
-          if (Number(accessory.stock) < Number(accessoryItem.quantity)) {
-            return res.status(400).json({ message: "Insufficient Inventory" });
-          }
-
-          const totalPrice = Number(accessoryItem.quantity) * Number(accessoryItem.price);
-
-          await AccessoryTransaction.create({
-            userId: req.user.id,
-            accessoryId: accessoryItem.name,
-            quantity: Number(accessoryItem.quantity),
-            perPiecePrice: Number(accessoryItem.price),
-            totalPrice,
-          });
-
-          accessory.stock -= Number(accessoryItem.quantity);
-          await accessory.save();
-        }
-      }
+     
       console.log("THis is bulk phone purchase id", bulkPhonePurchaseId)
       // Create a new SoldPhone record
       const soldPhone = new SoldPhone({
@@ -1463,7 +1439,33 @@ exports.sellPhonesFromBulk = async (req, res) => {
       ramSim.imeiNumbers = ramSim.imeiNumbers.filter(record => record._id.toString() !== imeiRecord._id.toString());
       await ramSim.save();
     }
+ if (accessories && accessories.length > 0) {
+        for (const accessoryItem of accessories) {
+          const accessory = await Accessory.findOne({ _id: accessoryItem.name, userId: req.user.id });
 
+          if (!accessory) {
+            return res.status(404).json({ message: "Accessory not found" });
+          }
+
+          if (Number(accessory.stock) < Number(accessoryItem.quantity)) {
+            return res.status(400).json({ message: "Insufficient Inventory" });
+          }
+
+          const totalPrice = Number(accessoryItem.quantity) * Number(accessoryItem.price);
+
+          await AccessoryTransaction.create({
+            userId: req.user.id,
+            accessoryId: accessoryItem.name,
+            quantity: Number(accessoryItem.quantity),
+            perPiecePrice: Number(accessoryItem.price),
+            totalPrice,
+          });
+
+          accessory.stock -= Number(accessoryItem.quantity);
+          accessory.profit += (Number(accessoryItem.price) - Number(accessory.perPiecePrice)) * Number(accessoryItem.quantity);
+          await accessory.save();
+        }
+      }
     // Reload the bulk purchase to ensure updates are reflected
     const updatedBulkPhonePurchase = await BulkPhonePurchase.findById(bulkPhonePurchaseId).populate("ramSimDetails");
 

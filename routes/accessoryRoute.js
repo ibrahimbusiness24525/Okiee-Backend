@@ -7,6 +7,7 @@ const {
   sellMultipleAccessories,
 } = require("../controllers/accessoryController");
 const { decoderMiddleware } = require("../services/authServices");
+const { getAccessoriesData } = require("../controllers/accessoryController");
 
 const router = express.Router();
 
@@ -16,6 +17,7 @@ router.post("/create", createAccessory);
 router.get("/", getAllAccessories);
 router.post("/sell", sellMultipleAccessories);
 router.get("/transactions", getAllTransactions);
+router.get("/data",getAccessoriesData)
 router.delete("/:id", deleteAccessory);
 
 module.exports = router;
