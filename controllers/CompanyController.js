@@ -30,33 +30,38 @@ exports.createCompany = async (req, res) => {
     }
 
     const normalizedName = name.trim().toLowerCase();
+    console.log(
+      "Creating company with normalized name:",
+      normalizedName,
+      "for user ID:",
+      userId
+    );
 
-    const existingCompany = await Company.findOne({ 
-      name: normalizedName, 
-      userId 
+    const existingCompany = await Company.findOne({
+      name: normalizedName,
+      userId,
     });
 
     if (existingCompany) {
       return res.status(400).json({ message: "Company already exists." });
     }
 
-    const company = await Company.create({ 
-      name: normalizedName, 
-      userId 
+    const company = await Company.create({
+      name: normalizedName,
+      userId,
     });
 
-    res.status(201).json({ 
+    res.status(201).json({
       success: true,
-      message: "Company created successfully", 
-      data: company 
+      message: "Company created successfully",
+      data: company,
     });
-
   } catch (error) {
     console.error("Error creating company:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: "Internal server error", 
-      error: error.message 
+      message: "Internal server error",
+      error: error.message,
     });
   }
 };
@@ -68,8 +73,8 @@ exports.createModel = async (req, res) => {
 
     // Check if company exists
     const company = await Company.findOne({
-      _id: companyId,  // Search by _id instead of companyId
-      userId           // Verify the company belongs to this user
+      _id: companyId, // Search by _id instead of companyId
+      userId, // Verify the company belongs to this user
     });
     if (!company) {
       return res.status(404).json({ message: "Company not found." });
@@ -84,16 +89,22 @@ exports.createModel = async (req, res) => {
     res.status(201).json({ message: "Model created successfully", model });
   } catch (error) {
     console.error("Error creating model:", error);
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
 exports.getAllCompanies = async (req, res) => {
   try {
-    const companies = await Company.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    const companies = await Company.find({ userId: req.user.id }).sort({
+      createdAt: -1,
+    });
     res.status(200).json({ companies });
   } catch (error) {
     console.error("Error fetching companies:", error);
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
 exports.getModelsByCompany = async (req, res) => {
@@ -111,6 +122,8 @@ exports.getModelsByCompany = async (req, res) => {
     res.status(200).json({ models });
   } catch (error) {
     console.error("Error fetching models:", error);
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
