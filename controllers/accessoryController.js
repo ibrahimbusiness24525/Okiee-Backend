@@ -264,7 +264,8 @@ const sellMultipleAccessories = async (req, res) => {
 
       // Update stock
       accessory.stock -= quantity;
-      accessory.profit += (Number(perPiecePrice) -Number( accessory.perPiecePrice)) * Number(quantity); // Calculate profit
+      accessory.totalPrice -= Number(accessory.perPiecePrice) * Number(quantity)
+      accessory.profit += (Number(perPiecePrice) - Number(accessory.perPiecePrice)) * Number(quantity); // Calculate profit
       await accessory.save();
 
       transactions.push(transaction);
@@ -319,19 +320,19 @@ const getAccessoriesData = async (req, res) => {
     const userId = req.user.id;
     const accessories = await Accessory.find({ userId });
     const totalProfit = accessories.reduce((sum, accessory) => sum + accessory.profit, 0);
-        // Fallback: count all transactions if transactionType is missing
-        let salesTransactions = await AccessoryTransaction.find({ userId, transactionType: 'sale' });
-        if (!salesTransactions || salesTransactions.length === 0) {
-          // Try without transactionType in case old records don't have it
-          salesTransactions = await AccessoryTransaction.find({ userId });
-        }
-        const totalSales = salesTransactions ? salesTransactions.length : 0;
-        res.status(200).json({ totalProfit, totalSales });
-      } catch (error) {
-        console.error("Error calculating total profit:", error);
-        res.status(500).json({ message: "Failed to calculate total profit", error });
-      }
+    // Fallback: count all transactions if transactionType is missing
+    let salesTransactions = await AccessoryTransaction.find({ userId, transactionType: 'sale' });
+    if (!salesTransactions || salesTransactions.length === 0) {
+      // Try without transactionType in case old records don't have it
+      salesTransactions = await AccessoryTransaction.find({ userId });
     }
+    const totalSales = salesTransactions ? salesTransactions.length : 0;
+    res.status(200).json({ totalProfit, totalSales });
+  } catch (error) {
+    console.error("Error calculating total profit:", error);
+    res.status(500).json({ message: "Failed to calculate total profit", error });
+  }
+}
 
 module.exports = {
   createAccessory,

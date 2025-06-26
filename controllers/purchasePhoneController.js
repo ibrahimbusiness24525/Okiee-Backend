@@ -419,6 +419,7 @@ exports.sellSinglePhone = async (req, res) => {
         });
 
         accessory.stock -= Number(accessoryItem.quantity);
+        accessory.totalPrice -= Number(accessory.perPiecePrice) * Number(quantity)
         accessory.profit +=
           (Number(accessoryItem.price) - Number(accessory.perPiecePrice)) *
           Number(accessoryItem.quantity);
@@ -1609,6 +1610,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
         });
 
         accessory.stock -= Number(accessoryItem.quantity);
+        accessory.totalPrice -= Number(accessory.perPiecePrice) * Number(quantity)
         accessory.profit +=
           (Number(accessoryItem.price) - Number(accessory.perPiecePrice)) *
           Number(accessoryItem.quantity);
