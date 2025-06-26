@@ -2304,31 +2304,63 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
 exports.soldAnyPhone = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { imei } = req.body;
+    const { imei, ...otherDetails } = req.body;
 
     if (!imei) {
       return res.status(400).json({ error: "IMEI number is required." });
     }
 
-    // 1. Check in single purchase phone
+    // 1. Try to find and sell in single purchase phone
     const purchasePhone = await PurchasePhone.findOne({
       userId,
       $or: [{ imei1: imei }, { imei2: imei }],
     });
 
     if (purchasePhone) {
-      // Mark as sold and remove from PurchasePhone
+      // Mark as sold, create SingleSoldPhone with extra details, then remove from PurchasePhone
       purchasePhone.isSold = true;
       await purchasePhone.save();
+
+      const soldPhone = new SingleSoldPhone({
+        purchasePhoneId: purchasePhone._id,
+        userId,
+        shopid: purchasePhone.shopid,
+        name: purchasePhone.name,
+        fatherName: purchasePhone.fatherName,
+        companyName: purchasePhone.companyName,
+        modelName: purchasePhone.modelName,
+        purchaseDate: purchasePhone.date,
+        phoneCondition: purchasePhone.phoneCondition,
+        warranty: purchasePhone.warranty,
+        specifications: purchasePhone.specifications,
+        ramMemory: purchasePhone.ramMemory,
+        color: purchasePhone.color,
+        imei1: purchasePhone.imei1,
+        imei2: purchasePhone.imei2,
+        phonePicture: purchasePhone.phonePicture,
+        personPicture: purchasePhone.personPicture,
+        accessories: purchasePhone.accessories,
+        purchasePrice: purchasePhone.price?.purchasePrice,
+        finalPrice: purchasePhone.price?.finalPrice,
+        demandPrice: purchasePhone.price?.demandPrice,
+        isApprovedFromEgadgets: purchasePhone.isApprovedFromEgadgets,
+        eGadgetStatusPicture: purchasePhone.eGadgetStatusPicture,
+        invoiceNumber: "INV-" + new Date().getTime(),
+        ...otherDetails, // Allow user to add extra details
+      });
+
+      await soldPhone.save();
       await PurchasePhone.findByIdAndDelete(purchasePhone._id);
+
       return res.status(200).json({
         message: "Phone sold and removed from single purchase.",
         type: "single",
         imei,
+        soldPhone,
       });
     }
 
-    // 2. Check in bulk purchase
+    // 2. Try to find and sell in bulk purchase
     const bulkPhone = await BulkPhonePurchase.findOne({ userId }).populate({
       path: "ramSimDetails",
       populate: { path: "imeiNumbers" },
@@ -2336,6 +2368,7 @@ exports.soldAnyPhone = async (req, res) => {
 
     if (bulkPhone) {
       let found = false;
+      let soldPhone = null;
       for (const ramSim of bulkPhone.ramSimDetails) {
         const imeiIndex = ramSim.imeiNumbers.findIndex(
           (i) => i.imei1 === imei || i.imei2 === imei
@@ -2343,6 +2376,23 @@ exports.soldAnyPhone = async (req, res) => {
         if (imeiIndex !== -1) {
           // Remove IMEI from Imei collection and from ramSim.imeiNumbers
           const imeiDoc = ramSim.imeiNumbers[imeiIndex];
+
+          // Create SoldPhone record with extra details
+          soldPhone = new SoldPhone({
+            bulkPhonePurchaseId: bulkPhone._id,
+            imei1: imeiDoc.imei1,
+            imei2: imeiDoc.imei2,
+            userId,
+            companyName: bulkPhone.companyName,
+            modelName: bulkPhone.modelName,
+            ramMemory: ramSim.ramMemory,
+            simOption: ramSim.simOption,
+            priceOfOne: ramSim.priceOfOne,
+            ...otherDetails, // Allow user to add extra details
+            invoiceNumber: "INV-" + new Date().getTime(),
+          });
+          await soldPhone.save();
+
           await Imei.findByIdAndDelete(imeiDoc._id);
           ramSim.imeiNumbers.splice(imeiIndex, 1);
           await ramSim.save();
@@ -2355,6 +2405,7 @@ exports.soldAnyPhone = async (req, res) => {
           message: "IMEI sold and removed from bulk purchase.",
           type: "bulk",
           imei,
+          soldPhone,
         });
       }
     }

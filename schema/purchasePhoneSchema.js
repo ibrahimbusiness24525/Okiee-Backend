@@ -94,7 +94,7 @@ const SingleSoldPhoneSchema = new mongoose.Schema({
   ],
   sellingPaymentType: {
     type: String,
-    enum: ["Bank", "Credit", "Cash", "Exchange"],
+    enum: ["Bank", "Credit", "Cash", "Exchange","Full Payment"],
     required: [true, "Path `sellingPaymentType` is required."],
   },
   salePrice: { type: Number, required: true },
@@ -180,7 +180,7 @@ const SoldPhoneSchema = new mongoose.Schema({
   ],
   sellingPaymentType: {
     type: String,
-    enum: ["Bank", "Credit", "Cash", "Exchange"],
+    enum: ["Bank", "Credit", "Cash", "Exchange","Full Payment"],
     required: [true, "Path `sellingPaymentType` is required."],
   },
 
