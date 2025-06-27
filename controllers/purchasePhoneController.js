@@ -2303,125 +2303,253 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
   }
 };
 
+// exports.soldAnyPhone = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+//     const { imei, ...otherDetails } = req.body;
+
+//     if (!imei) {
+//       return res.status(400).json({ error: "IMEI number is required." });
+//     }
+
+//     // 1. Try to find and sell in single purchase phone
+//     const purchasePhone = await PurchasePhone.findOne({
+//       userId,
+//       $or: [{ imei1: imei }, { imei2: imei }],
+//     });
+
+//     if (purchasePhone) {
+//       // Mark as sold, create SingleSoldPhone with extra details, then remove from PurchasePhone
+//       purchasePhone.isSold = true;
+//       await purchasePhone.save();
+
+//       const soldPhone = new SingleSoldPhone({
+//         purchasePhoneId: purchasePhone._id,
+//         userId,
+//         shopid: purchasePhone.shopid,
+//         name: purchasePhone.name,
+//         fatherName: purchasePhone.fatherName,
+//         companyName: purchasePhone.companyName,
+//         modelName: purchasePhone.modelName,
+//         purchaseDate: purchasePhone.date,
+//         phoneCondition: purchasePhone.phoneCondition,
+//         warranty: purchasePhone.warranty,
+//         specifications: purchasePhone.specifications,
+//         ramMemory: purchasePhone.ramMemory,
+//         color: purchasePhone.color,
+//         imei1: purchasePhone.imei1,
+//         imei2: purchasePhone.imei2,
+//         phonePicture: purchasePhone.phonePicture,
+//         personPicture: purchasePhone.personPicture,
+//         accessories: purchasePhone.accessories,
+//         purchasePrice: purchasePhone.price?.purchasePrice,
+//         finalPrice: purchasePhone.price?.finalPrice,
+//         demandPrice: purchasePhone.price?.demandPrice,
+//         isApprovedFromEgadgets: purchasePhone.isApprovedFromEgadgets,
+//         eGadgetStatusPicture: purchasePhone.eGadgetStatusPicture,
+//         invoiceNumber: "INV-" + new Date().getTime(),
+//         ...otherDetails, // Allow user to add extra details
+//       });
+
+//       await soldPhone.save();
+//       await PurchasePhone.findByIdAndDelete(purchasePhone._id);
+
+//       return res.status(200).json({
+//         message: "Phone sold and removed from single purchase.",
+//         type: "single",
+//         imei,
+//         soldPhone,
+//       });
+//     }
+
+//     // 2. Try to find and sell in bulk purchase
+//     const bulkPhone = await BulkPhonePurchase.findOne({ userId }).populate({
+//       path: "ramSimDetails",
+//       populate: { path: "imeiNumbers" },
+//     });
+
+//     if (bulkPhone) {
+//       let found = false;
+//       let soldPhone = null;
+//       for (const ramSim of bulkPhone.ramSimDetails) {
+//         const imeiIndex = ramSim.imeiNumbers.findIndex(
+//           (i) => i.imei1 === imei || i.imei2 === imei
+//         );
+//         if (imeiIndex !== -1) {
+//           // Remove IMEI from Imei collection and from ramSim.imeiNumbers
+//           const imeiDoc = ramSim.imeiNumbers[imeiIndex];
+
+//           // Create SoldPhone record with extra details
+//           soldPhone = new SoldPhone({
+//             bulkPhonePurchaseId: bulkPhone._id,
+//             imei1: imeiDoc.imei1,
+//             imei2: imeiDoc.imei2,
+//             userId,
+//             companyName: bulkPhone.companyName,
+//             modelName: bulkPhone.modelName,
+//             ramMemory: ramSim.ramMemory,
+//             simOption: ramSim.simOption,
+//             priceOfOne: ramSim.priceOfOne,
+//             ...otherDetails, // Allow user to add extra details
+//             invoiceNumber: "INV-" + new Date().getTime(),
+//           });
+//           await soldPhone.save();
+
+//           await Imei.findByIdAndDelete(imeiDoc._id);
+//           ramSim.imeiNumbers.splice(imeiIndex, 1);
+//           await ramSim.save();
+//           found = true;
+//           break;
+//         }
+//       }
+//       if (found) {
+//         return res.status(200).json({
+//           message: "IMEI sold and removed from bulk purchase.",
+//           type: "bulk",
+//           imei,
+//           soldPhone,
+//         });
+//       }
+//     }
+
+//     return res
+//       .status(404)
+//       .json({ message: "IMEI not found in single or bulk purchase." });
+//   } catch (error) {
+//     console.error("Error processing sold phone:", error);
+//     res
+//       .status(500)
+//       .json({ message: "Internal server error", error: error.message });
+//   }
+// };
 exports.soldAnyPhone = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { imei, ...otherDetails } = req.body;
+    const { imeis, ...otherDetails } = req.body;
 
-    if (!imei) {
-      return res.status(400).json({ error: "IMEI number is required." });
+    if (!Array.isArray(imeis) || imeis.length === 0) {
+      return res.status(400).json({ error: "IMEI array is required." });
     }
 
-    // 1. Try to find and sell in single purchase phone
-    const purchasePhone = await PurchasePhone.findOne({
-      userId,
-      $or: [{ imei1: imei }, { imei2: imei }],
-    });
+    const soldPhones = [];
+    const notFoundImeis = [];
 
-    if (purchasePhone) {
-      // Mark as sold, create SingleSoldPhone with extra details, then remove from PurchasePhone
-      purchasePhone.isSold = true;
-      await purchasePhone.save();
-
-      const soldPhone = new SingleSoldPhone({
-        purchasePhoneId: purchasePhone._id,
-        userId,
-        shopid: purchasePhone.shopid,
-        name: purchasePhone.name,
-        fatherName: purchasePhone.fatherName,
-        companyName: purchasePhone.companyName,
-        modelName: purchasePhone.modelName,
-        purchaseDate: purchasePhone.date,
-        phoneCondition: purchasePhone.phoneCondition,
-        warranty: purchasePhone.warranty,
-        specifications: purchasePhone.specifications,
-        ramMemory: purchasePhone.ramMemory,
-        color: purchasePhone.color,
-        imei1: purchasePhone.imei1,
-        imei2: purchasePhone.imei2,
-        phonePicture: purchasePhone.phonePicture,
-        personPicture: purchasePhone.personPicture,
-        accessories: purchasePhone.accessories,
-        purchasePrice: purchasePhone.price?.purchasePrice,
-        finalPrice: purchasePhone.price?.finalPrice,
-        demandPrice: purchasePhone.price?.demandPrice,
-        isApprovedFromEgadgets: purchasePhone.isApprovedFromEgadgets,
-        eGadgetStatusPicture: purchasePhone.eGadgetStatusPicture,
-        invoiceNumber: "INV-" + new Date().getTime(),
-        ...otherDetails, // Allow user to add extra details
-      });
-
-      await soldPhone.save();
-      await PurchasePhone.findByIdAndDelete(purchasePhone._id);
-
-      return res.status(200).json({
-        message: "Phone sold and removed from single purchase.",
-        type: "single",
-        imei,
-        soldPhone,
-      });
-    }
-
-    // 2. Try to find and sell in bulk purchase
+    // Get bulk phone once (to avoid re-query)
     const bulkPhone = await BulkPhonePurchase.findOne({ userId }).populate({
       path: "ramSimDetails",
       populate: { path: "imeiNumbers" },
     });
 
-    if (bulkPhone) {
+    for (const imei of imeis) {
       let found = false;
-      let soldPhone = null;
-      for (const ramSim of bulkPhone.ramSimDetails) {
-        const imeiIndex = ramSim.imeiNumbers.findIndex(
-          (i) => i.imei1 === imei || i.imei2 === imei
-        );
-        if (imeiIndex !== -1) {
-          // Remove IMEI from Imei collection and from ramSim.imeiNumbers
-          const imeiDoc = ramSim.imeiNumbers[imeiIndex];
 
-          // Create SoldPhone record with extra details
-          soldPhone = new SoldPhone({
-            bulkPhonePurchaseId: bulkPhone._id,
-            imei1: imeiDoc.imei1,
-            imei2: imeiDoc.imei2,
-            userId,
-            companyName: bulkPhone.companyName,
-            modelName: bulkPhone.modelName,
-            ramMemory: ramSim.ramMemory,
-            simOption: ramSim.simOption,
-            priceOfOne: ramSim.priceOfOne,
-            ...otherDetails, // Allow user to add extra details
-            invoiceNumber: "INV-" + new Date().getTime(),
-          });
-          await soldPhone.save();
+      // Try single purchase
+      const purchasePhone = await PurchasePhone.findOne({
+        userId,
+        $or: [{ imei1: imei }, { imei2: imei }],
+      });
 
-          await Imei.findByIdAndDelete(imeiDoc._id);
-          ramSim.imeiNumbers.splice(imeiIndex, 1);
-          await ramSim.save();
-          found = true;
-          break;
+      if (purchasePhone) {
+        purchasePhone.isSold = true;
+        await purchasePhone.save();
+
+        const soldPhone = new SingleSoldPhone({
+          purchasePhoneId: purchasePhone._id,
+          userId,
+          shopid: purchasePhone.shopid,
+          name: purchasePhone.name,
+          fatherName: purchasePhone.fatherName,
+          companyName: purchasePhone.companyName,
+          modelName: purchasePhone.modelName,
+          purchaseDate: purchasePhone.date,
+          phoneCondition: purchasePhone.phoneCondition,
+          warranty: purchasePhone.warranty,
+          specifications: purchasePhone.specifications,
+          ramMemory: purchasePhone.ramMemory,
+          color: purchasePhone.color,
+          imei1: purchasePhone.imei1,
+          imei2: purchasePhone.imei2,
+          phonePicture: purchasePhone.phonePicture,
+          personPicture: purchasePhone.personPicture,
+          accessories: purchasePhone.accessories,
+          purchasePrice: purchasePhone.price?.purchasePrice,
+          finalPrice: purchasePhone.price?.finalPrice,
+          demandPrice: purchasePhone.price?.demandPrice,
+          isApprovedFromEgadgets: purchasePhone.isApprovedFromEgadgets,
+          eGadgetStatusPicture: purchasePhone.eGadgetStatusPicture,
+          invoiceNumber: "INV-" + new Date().getTime(),
+          ...otherDetails,
+        });
+
+        await soldPhone.save();
+        await PurchasePhone.findByIdAndDelete(purchasePhone._id);
+
+        soldPhones.push({ imei, type: "single", soldPhone });
+        found = true;
+        continue;
+      }
+
+      // Try bulk purchase if not found
+      if (bulkPhone) {
+        for (const ramSim of bulkPhone.ramSimDetails) {
+          const imeiIndex = ramSim.imeiNumbers.findIndex(
+            (i) => i.imei1 === imei || i.imei2 === imei
+          );
+          if (imeiIndex !== -1) {
+            const imeiDoc = ramSim.imeiNumbers[imeiIndex];
+
+            const soldPhone = new SoldPhone({
+              bulkPhonePurchaseId: bulkPhone._id,
+              imei1: imeiDoc.imei1,
+              imei2: imeiDoc.imei2,
+              userId,
+              companyName: bulkPhone.companyName,
+              modelName: bulkPhone.modelName,
+              ramMemory: ramSim.ramMemory,
+              simOption: ramSim.simOption,
+              priceOfOne: ramSim.priceOfOne,
+              invoiceNumber: "INV-" + new Date().getTime(),
+              ...otherDetails,
+            });
+
+            await soldPhone.save();
+
+            if (imeiDoc && imeiDoc._id) {
+              await Imei.findByIdAndDelete(imeiDoc._id);
+            } else if (typeof imeiDoc === 'string' || imeiDoc instanceof mongoose.Types.ObjectId) {
+              await Imei.findByIdAndDelete(imeiDoc); // In case it's just the ID
+            }
+
+            ramSim.imeiNumbers.splice(imeiIndex, 1);
+            await ramSim.save();
+
+            soldPhones.push({ imei, type: "bulk", soldPhone });
+            found = true;
+            break;
+          }
         }
       }
-      if (found) {
-        return res.status(200).json({
-          message: "IMEI sold and removed from bulk purchase.",
-          type: "bulk",
-          imei,
-          soldPhone,
-        });
+
+      if (!found) {
+        notFoundImeis.push(imei);
       }
     }
 
-    return res
-      .status(404)
-      .json({ message: "IMEI not found in single or bulk purchase." });
+    return res.status(200).json({
+      message: "Processed IMEIs.",
+      soldCount: soldPhones.length,
+      notFoundCount: notFoundImeis.length,
+      soldPhones,
+      notFoundImeis,
+    });
   } catch (error) {
-    console.error("Error processing sold phone:", error);
+    console.error("Error processing sold phones:", error);
     res
       .status(500)
       .json({ message: "Internal server error", error: error.message });
   }
 };
+
 
 exports.updateSoldPhone = async (req, res) => {
   try {
