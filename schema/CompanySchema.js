@@ -10,7 +10,6 @@ const CompanySchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
     },
     modelName: {
@@ -21,6 +20,9 @@ const CompanySchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// This ensures names are unique per user but can be duplicated across different users
+CompanySchema.index({ name: 1, userId: 1 }, { unique: true });
 
 const ModelNameSchema = new mongoose.Schema(
   {
@@ -42,8 +44,6 @@ const ModelNameSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-// In your Company model file
-CompanySchema.index({ name: 1, userId: 1 }, { unique: true });
 
 const Company = mongoose.model("Company", CompanySchema);
 const Model = mongoose.model("Model", ModelNameSchema);

@@ -35,6 +35,7 @@ const {
   soldAnyPhone,
   updateSoldPhone,
   deleteSoldPhone,
+  getDetailByImeiNumber,
 } = require("../controllers/purchasePhoneController");
 const { decoderMiddleware } = require("../services/authServices");
 
@@ -151,4 +152,5 @@ router.get(
 router.post("/general-mobile-sale", decoderMiddleware, soldAnyPhone);
 router.put("/update-sold-phone/:id", decoderMiddleware, updateSoldPhone);
 router.delete("/delete-sold-phone/:id", decoderMiddleware, deleteSoldPhone);
+router.get("/getDetailByImei/:imei", decoderMiddleware, getDetailByImeiNumber);
 module.exports = router;

@@ -127,3 +127,56 @@ exports.getModelsByCompany = async (req, res) => {
       .json({ message: "Internal server error", error: error.message });
   }
 };
+exports.deleteCompanyByName = async (req, res) => {
+  try {
+    const { companyName } = req.body;
+    if (!companyName?.trim()) {
+      return res.status(400).json({ message: "Company name is required." });
+    }
+    const normalizedName = companyName.trim().toLowerCase();
+    const company = await Company.findOne({ name: normalizedName });
+    if (!company) {
+      return res.status(404).json({ message: "Company not found." });
+    }
+    // Delete the company
+    console.log("Deleting company with name:", normalizedName);
+
+    await Company.deleteOne({ name: normalizedName });
+    res.status(200).json({ message: "Company deleted successfully." });
+  } catch (error) {
+    console.error("Error deleting company:", error);
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
+  }
+};
+exports.editCompany = async (req, res) => {
+  try {
+    const { companyId, newName } = req.body;
+    if (!companyId || !newName?.trim()) {
+      return res
+        .status(400)
+        .json({ message: "Company ID and new name are required." });
+    }
+
+    const normalizedNewName = newName.trim().toLowerCase();
+    const userId = req.user.id;
+
+    // Check if the company exists and belongs to the user
+    const company = await Company.findOne({ _id: companyId, userId });
+    if (!company) {
+      return res.status(404).json({ message: "Company not found." });
+    }
+
+    // Update the company name
+    company.name = normalizedNewName;
+    await company.save();
+
+    res.status(200).json({ message: "Company updated successfully", company });
+  } catch (error) {
+    console.error("Error updating company:", error);
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
+  }
+};

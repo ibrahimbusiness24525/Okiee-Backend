@@ -419,7 +419,8 @@ exports.sellSinglePhone = async (req, res) => {
         });
 
         accessory.stock -= Number(accessoryItem.quantity);
-        accessory.totalPrice -= Number(accessory.perPiecePrice) * Number(quantity)
+        accessory.totalPrice -=
+          Number(accessory.perPiecePrice) * Number(quantity);
         accessory.profit +=
           (Number(accessoryItem.price) - Number(accessory.perPiecePrice)) *
           Number(accessoryItem.quantity);
@@ -1610,7 +1611,8 @@ exports.sellPhonesFromBulk = async (req, res) => {
         });
 
         accessory.stock -= Number(accessoryItem.quantity);
-        accessory.totalPrice -= Number(accessory.perPiecePrice) * Number(quantity)
+        accessory.totalPrice -=
+          Number(accessory.perPiecePrice) * Number(quantity);
         accessory.profit +=
           (Number(accessoryItem.price) - Number(accessory.perPiecePrice)) *
           Number(accessoryItem.quantity);
@@ -2434,8 +2436,8 @@ exports.soldAnyPhone = async (req, res) => {
     const soldPhones = [];
     const notFoundImeis = [];
 
-    // Get bulk phone once (to avoid re-query)
-    const bulkPhone = await BulkPhonePurchase.findOne({ userId }).populate({
+    // Get all bulk phones for this user (not just one)
+    const bulkPhones = await BulkPhonePurchase.find({ userId }).populate({
       path: "ramSimDetails",
       populate: { path: "imeiNumbers" },
     });
@@ -2448,6 +2450,7 @@ exports.soldAnyPhone = async (req, res) => {
         userId,
         $or: [{ imei1: imei }, { imei2: imei }],
       });
+      console.log("otherDetail", otherDetails);
 
       if (purchasePhone) {
         purchasePhone.isSold = true;
@@ -2456,6 +2459,7 @@ exports.soldAnyPhone = async (req, res) => {
         const soldPhone = new SingleSoldPhone({
           purchasePhoneId: purchasePhone._id,
           userId,
+          dateSold: otherDetails.saleDate,
           shopid: purchasePhone.shopid,
           name: purchasePhone.name,
           fatherName: purchasePhone.fatherName,
@@ -2482,6 +2486,7 @@ exports.soldAnyPhone = async (req, res) => {
         });
 
         await soldPhone.save();
+        // Delete the phone from single purchase collection
         await PurchasePhone.findByIdAndDelete(purchasePhone._id);
 
         soldPhones.push({ imei, type: "single", soldPhone });
@@ -2490,7 +2495,9 @@ exports.soldAnyPhone = async (req, res) => {
       }
 
       // Try bulk purchase if not found
-      if (bulkPhone) {
+      for (const bulkPhone of bulkPhones) {
+        let ramSimToRemove = [];
+        let ramSimChanged = false;
         for (const ramSim of bulkPhone.ramSimDetails) {
           const imeiIndex = ramSim.imeiNumbers.findIndex(
             (i) => i.imei1 === imei || i.imei2 === imei
@@ -2503,6 +2510,7 @@ exports.soldAnyPhone = async (req, res) => {
               imei1: imeiDoc.imei1,
               imei2: imeiDoc.imei2,
               userId,
+              dateSold: otherDetails.saleDate,
               companyName: bulkPhone.companyName,
               modelName: bulkPhone.modelName,
               ramMemory: ramSim.ramMemory,
@@ -2516,18 +2524,39 @@ exports.soldAnyPhone = async (req, res) => {
 
             if (imeiDoc && imeiDoc._id) {
               await Imei.findByIdAndDelete(imeiDoc._id);
-            } else if (typeof imeiDoc === 'string' || imeiDoc instanceof mongoose.Types.ObjectId) {
-              await Imei.findByIdAndDelete(imeiDoc); // In case it's just the ID
+            } else if (
+              typeof imeiDoc === "string" ||
+              imeiDoc instanceof mongoose.Types.ObjectId
+            ) {
+              await Imei.findByIdAndDelete(imeiDoc);
             }
 
             ramSim.imeiNumbers.splice(imeiIndex, 1);
+            ramSimChanged = true;
             await ramSim.save();
+
+            // If ramSim.imeiNumbers is now empty, mark for removal from bulkPhone
+            if (ramSim.imeiNumbers.length === 0) {
+              ramSimToRemove.push(ramSim._id.toString());
+            }
 
             soldPhones.push({ imei, type: "bulk", soldPhone });
             found = true;
             break;
           }
         }
+        // Remove empty ramSimDetails from bulkPhone
+        if (ramSimChanged && ramSimToRemove.length > 0) {
+          bulkPhone.ramSimDetails = bulkPhone.ramSimDetails.filter(
+            (ramSim) => !ramSimToRemove.includes(ramSim._id.toString())
+          );
+          await bulkPhone.save();
+        }
+        // If after removal, bulkPhone.ramSimDetails is empty, delete the bulkPhonePurchase
+        if (ramSimChanged && bulkPhone.ramSimDetails.length === 0) {
+          await BulkPhonePurchase.findByIdAndDelete(bulkPhone._id);
+        }
+        if (found) break;
       }
 
       if (!found) {
@@ -2549,7 +2578,6 @@ exports.soldAnyPhone = async (req, res) => {
       .json({ message: "Internal server error", error: error.message });
   }
 };
-
 
 exports.updateSoldPhone = async (req, res) => {
   try {
@@ -2620,5 +2648,58 @@ exports.deleteSoldPhone = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Internal server error", error: error.message });
+  }
+};
+
+exports.getDetailByImeiNumber = async (req, res) => {
+  try {
+    const { imei } = req.params;
+    const userId = req.user.id;
+
+    if (!imei) {
+      return res.status(400).json({ error: "IMEI number is required." });
+    }
+
+    // 1. Check in single purchase
+    const singlePurchasePhone = await PurchasePhone.findOne({
+      userId,
+      $or: [{ imei1: imei }, { imei2: imei }],
+    });
+
+    if (singlePurchasePhone) {
+      return res
+        .status(200)
+        .json({ type: "single", data: singlePurchasePhone });
+    }
+
+    // 2. Check in bulk purchase (deep search in IMEI collection)
+    const bulkPhones = await BulkPhonePurchase.find({ userId }).populate({
+      path: "ramSimDetails",
+      populate: { path: "imeiNumbers" },
+    });
+
+    for (const bulkPhone of bulkPhones) {
+      for (const ramSim of bulkPhone.ramSimDetails) {
+        for (const imeiDoc of ramSim.imeiNumbers) {
+          if (imeiDoc.imei1 === imei || imeiDoc.imei2 === imei) {
+            return res.status(200).json({
+              type: "bulk",
+              data: {
+                bulkPhonePurchase: bulkPhone,
+                ramSim,
+                imei: imeiDoc,
+              },
+            });
+          }
+        }
+      }
+    }
+
+    return res
+      .status(404)
+      .json({ error: "IMEI not found in single or bulk purchase." });
+  } catch (error) {
+    console.error("Error fetching phone details by IMEI:", error);
+    return res.status(500).json({ error: "Internal server error." });
   }
 };
