@@ -1,5 +1,8 @@
-const { PocketCashSchema, PocketCashTransactionSchema } = require('../schema/PocketCashSchema');
-const mongoose = require('mongoose');
+const {
+  PocketCashSchema,
+  PocketCashTransactionSchema,
+} = require("../schema/PocketCashSchema");
+const mongoose = require("mongoose");
 
 // Utility to get or create PocketCash for user
 const getOrCreatePocketCash = async (userId) => {
@@ -17,7 +20,7 @@ exports.addCash = async (req, res) => {
     const userId = req.user.id;
 
     if (!amount || amount <= 0) {
-      return res.status(400).json({ message: 'Amount must be greater than 0' });
+      return res.status(400).json({ message: "Amount must be greater than 0" });
     }
 
     const pocketCash = await getOrCreatePocketCash(userId);
@@ -31,18 +34,17 @@ exports.addCash = async (req, res) => {
       amountAdded: amount,
       remainingAmount: pocketCash.accountCash,
       sourceOfAmountAddition,
-      personOfCashAddition
+      personOfCashAddition,
     });
 
     return res.status(201).json({
-      message: 'Cash added successfully',
+      message: "Cash added successfully",
       updatedBalance: pocketCash.accountCash,
       transaction,
     });
-
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: 'Server error', error });
+    return res.status(500).json({ message: "Server error", error });
   }
 };
 
@@ -53,13 +55,13 @@ exports.deductCash = async (req, res) => {
     const userId = req.user.id;
 
     if (!amount || amount <= 0) {
-      return res.status(400).json({ message: 'Amount must be greater than 0' });
+      return res.status(400).json({ message: "Amount must be greater than 0" });
     }
 
     const pocketCash = await getOrCreatePocketCash(userId);
 
     if (pocketCash.accountCash < amount) {
-      return res.status(400).json({ message: 'Insufficient funds' });
+      return res.status(400).json({ message: "Insufficient funds" });
     }
 
     pocketCash.accountCash -= amount;
@@ -75,14 +77,13 @@ exports.deductCash = async (req, res) => {
     });
 
     return res.status(201).json({
-      message: 'Cash deducted successfully',
+      message: "Cash deducted successfully",
       updatedBalance: pocketCash.accountCash,
       transaction,
     });
-
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: 'Server error', error });
+    return res.status(500).json({ message: "Server error", error });
   }
 };
 
@@ -94,26 +95,35 @@ exports.getTotalPocketCash = async (req, res) => {
     const pocketCash = await PocketCashSchema.findOne({ userId });
 
     const total = pocketCash?.accountCash || 0;
-    return res.status(200).json({ total });
-
+    const id = pocketCash?._id || null;
+    return res.status(200).json({ total, id });
   } catch (error) {
-    console.error('Error fetching total pocket cash:', error);
-    return res.status(500).json({ message: 'Server error', error });
+    console.error("Error fetching total pocket cash:", error);
+    return res.status(500).json({ message: "Server error", error });
   }
 };
 
 exports.getPocketCashTransactions = async (req, res) => {
   try {
     const userId = req.user.id;
+    const { id } = req.params;
 
-    const transactions = await PocketCashTransactionSchema.find({ userId })
-      .populate('pocketCashId', 'accountCash')
-      .sort({ createdAt: -1 });
+    if (!userId) {
+      return res.status(401).json({ message: "Authenticate please" });
+    }
+    if (!id) {
+      return res.status(400).json({ message: "Pocket Cash ID is required" });
+    }
+
+    // Fetch transactions from PocketCashTransactionSchema, not PocketCashSchema
+    const transactions = await PocketCashTransactionSchema.find({
+      userId,
+      pocketCashId: id,
+    }).sort({ createdAt: -1 });
 
     return res.status(200).json(transactions);
-
   } catch (error) {
-    console.error('Error fetching pocket cash transactions:', error);
-    return res.status(500).json({ message: 'Server error', error });
+    console.error("Error fetching pocket cash transactions:", error);
+    return res.status(500).json({ message: "Server error", error });
   }
-}
+};

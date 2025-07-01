@@ -2428,6 +2428,7 @@ exports.soldAnyPhone = async (req, res) => {
   try {
     const userId = req.user.id;
     const { imeis, ...otherDetails } = req.body;
+    const accessories = req.body.accessories || [];
 
     if (!Array.isArray(imeis) || imeis.length === 0) {
       return res.status(400).json({ error: "IMEI array is required." });
@@ -2564,6 +2565,42 @@ exports.soldAnyPhone = async (req, res) => {
       }
     }
 
+    if (accessories && accessories.length > 0) {
+      for (const accessoryItem of accessories) {
+        const accessory = await Accessory.findOne({
+          _id: accessoryItem.name,
+          userId: req.user.id,
+        });
+
+        if (!accessory) {
+          return res.status(404).json({ message: "Accessory not found" });
+        }
+
+        if (Number(accessory.stock) < Number(accessoryItem.quantity)) {
+          return res.status(400).json({ message: "Insufficient Inventory" });
+        }
+
+        const totalPrice =
+          Number(accessoryItem.quantity) * Number(accessoryItem.price);
+
+        await AccessoryTransaction.create({
+          userId: req.user.id,
+          accessoryId: accessoryItem.name,
+          quantity: Number(accessoryItem.quantity),
+          perPiecePrice: Number(accessoryItem.price),
+          totalPrice,
+        });
+
+        accessory.stock -= Number(accessoryItem.quantity);
+        accessory.totalPrice -=
+          Number(accessory.perPiecePrice) * Number(accessoryItem.quantity);
+        accessory.profit +=
+          (Number(accessoryItem.price) - Number(accessory.perPiecePrice)) *
+          Number(accessoryItem.quantity);
+        await accessory.save();
+      }
+    }
+
     return res.status(200).json({
       message: "Processed IMEIs.",
       soldCount: soldPhones.length,
@@ -2581,8 +2618,13 @@ exports.soldAnyPhone = async (req, res) => {
 
 exports.updateSoldPhone = async (req, res) => {
   try {
+    const userId = req.user.id; // Extract user ID from request
+    if (!userId) {
+      return res.status(404).json({ message: "Authenticate please" });
+    }
     const { id } = req.params;
     const updateData = req.body;
+    console.log("Update data:", updateData);
 
     // Try to update in SingleSoldPhone first
     let singleSoldPhone = await SingleSoldPhone.findById(id);
@@ -2594,6 +2636,10 @@ exports.updateSoldPhone = async (req, res) => {
         soldPhone: singleSoldPhone,
       });
     }
+    console.log(
+      "Single sold phone not found, checking SoldPhone...",
+      singleSoldPhone
+    );
 
     // Find the sold phone record
     const soldPhone = await SoldPhone.findById(id);
