@@ -333,6 +333,41 @@ const getAccessoriesData = async (req, res) => {
     res.status(500).json({ message: "Failed to calculate total profit", error });
   }
 }
+const handleAddAcessoryStockById = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { quantity, perPiecePrice } = req.body;
+
+    // Validate input
+    if (!quantity || !perPiecePrice) {
+      return res.status(400).json({ message: "Quantity and price are required" });
+    }
+
+    if (isNaN(quantity) || isNaN(perPiecePrice) || quantity <= 0 || perPiecePrice <= 0) {
+      return res.status(400).json({ message: "Quantity and price must be positive numbers" });
+    }
+
+    const accessory = await Accessory.findOne({ _id: id, userId });
+    if (!accessory) {
+      return res.status(404).json({ message: "Accessory not found or unauthorized" });
+    }
+    // Optionally update perPiecePrice if you want to track the latest purchase price
+    // Update perPiecePrice only if you want the latest purchase price to reflect in future sales.
+    // If you want to keep a history of prices, consider storing each stock addition as a separate record or in a subdocument.
+    // For simple use-case (latest price applies to all future sales):
+    accessory.perPiecePrice = Number(perPiecePrice);
+    // Update stock and total price
+    accessory.stock += Number(quantity);
+    accessory.totalPrice += Number(perPiecePrice) * Number(quantity);
+    await accessory.save();
+
+    res.status(200).json({ message: "Accessory stock updated successfully", accessory });
+  } catch (error) {
+    console.error("Error updating accessory stock:", error);
+    res.status(500).json({ message: "Failed to update accessory stock", error: error.message });
+  }
+}
 
 module.exports = {
   createAccessory,
@@ -341,4 +376,5 @@ module.exports = {
   getAllTransactions,
   deleteAccessory,
   getAccessoriesData,
+  handleAddAcessoryStockById
 };

@@ -5,6 +5,7 @@ const {
   getAllTransactions,
   deleteAccessory,
   sellMultipleAccessories,
+  handleAddAcessoryStockById,
 } = require("../controllers/accessoryController");
 const { decoderMiddleware } = require("../services/authServices");
 const { getAccessoriesData } = require("../controllers/accessoryController");
@@ -19,5 +20,6 @@ router.post("/sell", sellMultipleAccessories);
 router.get("/transactions", getAllTransactions);
 router.get("/data",getAccessoriesData)
 router.delete("/:id", deleteAccessory);
+router.post("/:id", handleAddAcessoryStockById);
 
 module.exports = router;

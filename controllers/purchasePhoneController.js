@@ -1652,31 +1652,97 @@ exports.sellPhonesFromBulk = async (req, res) => {
 };
 
 // Get all sales (both single and bulk)
+// exports.getAllSales = async (req, res) => {
+//   try {
+//     const allSales = await SoldPhone.find({ userId: req.user.id })
+//       .populate({
+//         path: 'bulkPhonePurchaseId',
+//         // Populate all necessary fields from bulk purchase
+//         select: 'companyName modelName partyName date prices ramSimDetails partyLedgerId purchasePaymentStatus purchasePaymentType creditPaymentData',
+//         // Also populate the ramSimDetails if needed
+//         populate: {
+//           path: 'ramSimDetails',
+//           select: 'ramMemory simOption priceOfOne imeiNumbers',
+//           populate: {
+//             path: 'imeiNumbers',
+//             select: 'imei1 imei2 batteryHealth color'
+//           }
+//         }
+//       })
+  
+//       .sort({ dateSold: -1 }); // Sort by most recent sales first
+
+//     const responseData = allSales.map((sale) => {
+//       const saleObj = sale.toObject();
+      
+//       if (sale.bulkPhonePurchaseId) {
+//         // Calculate purchase price from bulk data
+//         const purchasePrice = sale.bulkPhonePurchaseId.ramSimDetails?.find(ramSim => 
+//           ramSim.imeiNumbers.some(imei => 
+//             imei.imei1 === sale.imei1 || imei.imei2 === sale.imei1
+//           )
+//         )?.priceOfOne;
+
+//         return {
+//           ...saleObj,
+//           type: "Bulk Phone",
+//           buyingPrice: sale.bulkPhonePurchaseId.prices?.buyingPrice || null,
+//           salePrice: sale.salePrice,
+//           sellingPaymentType: sale.sellingPaymentType,
+//           warranty: sale.warranty,
+//           dateSold: sale.dateSold
+//         };
+//       } else if (sale.purchasePhoneId) {
+//         return {
+//           ...saleObj,
+//           type: "Single Phone",
+//           purchaseDetails: sale.purchasePhoneId
+//         };
+//       }
+//       return saleObj;
+//     });
+
+//     res.status(200).json({
+//       message: "Sales retrieved successfully!",
+//       data: responseData,
+//     });
+//   } catch (error) {
+//     console.error("Error fetching sales:", error);
+//     res.status(500).json({
+//       message: "Internal server error",
+//       error: error.message,
+//     });
+//   }
+// };
 exports.getAllSales = async (req, res) => {
   try {
-    // const pageNumber = req.query.page || 1;
-    // const pageSize = 10;
-    // SoldPhone.paginate({},{page: pageNumber,limit: pageSize},(err,result)=>{
-    //   if(err){
-    //     return res.status(500).json({message: "Error while fetching the sold phones"})
-    //   }
+    const bulkSales = await SoldPhone.find({ 
+      userId: req.user.id,
+      bulkPhonePurchaseId: { $exists: true } // Only get bulk phone sales
+    })
+    .populate({
+      path: 'bulkPhonePurchaseId',
+      select: 'prices' // Only get prices field from bulk purchase
+    })
+    .select('salePrice sellingPaymentType warranty dateSold') // Only select these fields
+    .sort({ dateSold: -1 });
 
-    //   const {docs, total, limit, page, pages} = result;
-    //   res.json({users: docs, total, limit, page, pages})
-    // })
-    const allSales = await SoldPhone.find({ userId: req.user.id });
-
-    const responseData = allSales.map((sale) => ({
-      ...sale.toObject(),
-      type: sale.bulkPhonePurchaseId ? "Bulk Phone" : "Single Phone", // Check if the sale is linked to a bulk purchase
+    const responseData = bulkSales.map((sale) => ({
+      type: "Bulk Phone",
+      buyingPrice: sale.bulkPhonePurchaseId?.prices?.buyingPrice || null,
+      salePrice: sale.salePrice,
+      sellingPaymentType: sale.sellingPaymentType,
+      warranty: sale.warranty,
+      dateSold: sale.dateSold
     }));
 
     res.status(200).json({
-      message: "Sales retrieved successfully!",
+      message: "Bulk phone sales retrieved successfully!",
       data: responseData,
+      count: responseData.length
     });
   } catch (error) {
-    console.error("Error fetching sales:", error);
+    console.error("Error fetching bulk sales:", error);
     res.status(500).json({
       message: "Internal server error",
       error: error.message,
@@ -2424,43 +2490,277 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
 //       .json({ message: "Internal server error", error: error.message });
 //   }
 // };
+// exports.soldAnyPhone = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+//     const { imeis, ...otherDetails } = req.body;
+//     const accessories = req.body.accessories || [];
+
+//     if (!Array.isArray(imeis) || imeis.length === 0) {
+//       return res.status(400).json({ error: "IMEI array is required." });
+//     }
+
+//     const soldPhones = [];
+//     const notFoundImeis = [];
+
+//     // Get all bulk phones for this user (not just one)
+//     const bulkPhones = await BulkPhonePurchase.find({ userId }).populate({
+//       path: "ramSimDetails",
+//       populate: { path: "imeiNumbers" },
+//     });
+
+//     for (const imei of imeis) {
+//       let found = false;
+
+//       // Try single purchase
+//       const purchasePhone = await PurchasePhone.findOne({
+//         userId,
+//         $or: [{ imei1: imei }, { imei2: imei }],
+//       });
+//       console.log("otherDetail", otherDetails);
+
+//       if (purchasePhone) {
+//         purchasePhone.isSold = true;
+//         await purchasePhone.save();
+
+//         const soldPhone = new SingleSoldPhone({
+//           purchasePhoneId: purchasePhone._id,
+//           userId,
+//           dateSold: otherDetails.saleDate,
+//           shopid: purchasePhone.shopid,
+//           name: purchasePhone.name,
+//           fatherName: purchasePhone.fatherName,
+//           companyName: purchasePhone.companyName,
+//           modelName: purchasePhone.modelName,
+//           purchaseDate: purchasePhone.date,
+//           phoneCondition: purchasePhone.phoneCondition,
+//           warranty: purchasePhone.warranty,
+//           specifications: purchasePhone.specifications,
+//           ramMemory: purchasePhone.ramMemory,
+//           color: purchasePhone.color,
+//           imei1: purchasePhone.imei1,
+//           imei2: purchasePhone.imei2,
+//           phonePicture: purchasePhone.phonePicture,
+//           personPicture: purchasePhone.personPicture,
+//           accessories: purchasePhone.accessories,
+//           purchasePrice: purchasePhone.price?.purchasePrice,
+//           finalPrice: purchasePhone.price?.finalPrice,
+//           demandPrice: purchasePhone.price?.demandPrice,
+//           isApprovedFromEgadgets: purchasePhone.isApprovedFromEgadgets,
+//           eGadgetStatusPicture: purchasePhone.eGadgetStatusPicture,
+//           invoiceNumber: "INV-" + new Date().getTime(),
+//           ...otherDetails,
+//         });
+
+//         await soldPhone.save();
+//         // Delete the phone from single purchase collection
+//         await PurchasePhone.findByIdAndDelete(purchasePhone._id);
+
+//         soldPhones.push({ imei, type: "single", soldPhone });
+//         found = true;
+//         continue;
+//       }
+
+//       // Try bulk purchase if not found
+//       for (const bulkPhone of bulkPhones) {
+//         let ramSimToRemove = [];
+//         let ramSimChanged = false;
+//         for (const ramSim of bulkPhone.ramSimDetails) {
+//           const imeiIndex = ramSim.imeiNumbers.findIndex(
+//             (i) => i.imei1 === imei || i.imei2 === imei
+//           );
+//           if (imeiIndex !== -1) {
+//             const imeiDoc = ramSim.imeiNumbers[imeiIndex];
+
+//             const soldPhone = new SoldPhone({
+//               bulkPhonePurchaseId: bulkPhone._id,
+//               imei1: imeiDoc.imei1,
+//               imei2: imeiDoc.imei2,
+//               userId,
+//               dateSold: otherDetails.saleDate,
+//               companyName: bulkPhone.companyName,
+//               modelName: bulkPhone.modelName,
+//               ramMemory: ramSim.ramMemory,
+//               simOption: ramSim.simOption,
+//               priceOfOne: ramSim.priceOfOne,
+//               invoiceNumber: "INV-" + new Date().getTime(),
+//               ...otherDetails,
+//             });
+
+//             await soldPhone.save();
+
+//             if (imeiDoc && imeiDoc._id) {
+//               await Imei.findByIdAndDelete(imeiDoc._id);
+//             } else if (
+//               typeof imeiDoc === "string" ||
+//               imeiDoc instanceof mongoose.Types.ObjectId
+//             ) {
+//               await Imei.findByIdAndDelete(imeiDoc);
+//             }
+
+//             ramSim.imeiNumbers.splice(imeiIndex, 1);
+//             ramSimChanged = true;
+//             await ramSim.save();
+
+//             // If ramSim.imeiNumbers is now empty, mark for removal from bulkPhone
+//             if (ramSim.imeiNumbers.length === 0) {
+//               ramSimToRemove.push(ramSim._id.toString());
+//             }
+
+//             soldPhones.push({ imei, type: "bulk", soldPhone });
+//             found = true;
+//             break;
+//           }
+//         }
+//         // Remove empty ramSimDetails from bulkPhone
+//         if (ramSimChanged && ramSimToRemove.length > 0) {
+//           bulkPhone.ramSimDetails = bulkPhone.ramSimDetails.filter(
+//             (ramSim) => !ramSimToRemove.includes(ramSim._id.toString())
+//           );
+//           await bulkPhone.save();
+//         }
+//         // If after removal, bulkPhone.ramSimDetails is empty, delete the bulkPhonePurchase
+//         if (ramSimChanged && bulkPhone.ramSimDetails.length === 0) {
+//           await BulkPhonePurchase.findByIdAndDelete(bulkPhone._id);
+//         }
+//         if (found) break;
+//       }
+
+//       if (!found) {
+//         notFoundImeis.push(imei);
+//       }
+//     }
+
+//     if (accessories && accessories.length > 0) {
+//       for (const accessoryItem of accessories) {
+//         const accessory = await Accessory.findOne({
+//           _id: accessoryItem.name,
+//           userId: req.user.id,
+//         });
+
+//         if (!accessory) {
+//           return res.status(404).json({ message: "Accessory not found" });
+//         }
+
+//         if (Number(accessory.stock) < Number(accessoryItem.quantity)) {
+//           return res.status(400).json({ message: "Insufficient Inventory" });
+//         }
+
+//         const totalPrice =
+//           Number(accessoryItem.quantity) * Number(accessoryItem.price);
+
+//         await AccessoryTransaction.create({
+//           userId: req.user.id,
+//           accessoryId: accessoryItem.name,
+//           quantity: Number(accessoryItem.quantity),
+//           perPiecePrice: Number(accessoryItem.price),
+//           totalPrice,
+//         });
+
+//         accessory.stock -= Number(accessoryItem.quantity);
+//         accessory.totalPrice -=
+//           Number(accessory.perPiecePrice) * Number(accessoryItem.quantity);
+//         accessory.profit +=
+//           (Number(accessoryItem.price) - Number(accessory.perPiecePrice)) *
+//           Number(accessoryItem.quantity);
+//         await accessory.save();
+//       }
+//     }
+    
+//      if (otherDetails?.bankAccountUsed) {
+//       const bank = await AddBankAccount.findById(otherDetails?.bankAccountUsed);
+//       if (!bank) return res.status(404).json({ message: "Bank not found" });
+
+//       // Deduct purchasePrice from accountCash
+//       bank.accountCash += Number(otherDetails?.accountCash);
+//       await bank.save();
+
+//       // Log the transaction
+//       await BankTransaction.create({
+//         bankId: bank._id,
+//         userId: req.user.id,
+//         sourceOfAmountAddition: `sale of mobile `,
+//         accountCash: otherDetails?.accountCash,
+//         accountType: bank.accountType,
+//       });
+//     }
+//     if (otherDetails?.pocketCash) {
+//       const pocketTransaction = await PocketCashSchema.findOne({
+//         userId: req.user.id,
+//       });
+//       if (!pocketTransaction) {
+//         return res
+//           .status(404)
+//           .json({ message: "Pocket cash account not found." });
+//       }
+
+
+//       pocketTransaction.accountCash += Number(otherDetails?.pocketCash);
+//       await pocketTransaction.save();
+
+//       await PocketCashTransactionSchema.create({
+//         userId: req.user.id,
+//         pocketCashId: pocketTransaction._id, // if you want to associate it
+//         amountDeducted: otherDetails?.pocketCash,
+//         accountCash: pocketTransaction.accountCash, // ✅ add this line
+//         remainingAmount: pocketTransaction.accountCash,
+//         reasonOfAmountDeduction: `sale of mobile`,
+//         sourceOfAmountAddition: "Payment for mobile sale",
+//       });
+//     }
+
+
+//     return res.status(200).json({
+  //       message: "Processed IMEIs.",
+  //       soldCount: soldPhones.length,
+  //       notFoundCount: notFoundImeis.length,
+  //       soldPhones,
+  //       notFoundImeis,
+//     });
+//   } catch (error) {
+  //     console.error("Error processing sold phones:", error);
+  //     res
+//       .status(500)
+//       .json({ message: "Internal server error", error: error.message });
+//   }
+// };
 exports.soldAnyPhone = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { imeis, ...otherDetails } = req.body;
+    const { imeis, bankAccountUsed, accountCash, pocketCash, ...phoneDetails } = req.body;
     const accessories = req.body.accessories || [];
-
+    
     if (!Array.isArray(imeis) || imeis.length === 0) {
+      console.log("bankAccountUsed", bankAccountUsed, "accountCash", accountCash, "pocketCash", pocketCash);
       return res.status(400).json({ error: "IMEI array is required." });
     }
-
+    
     const soldPhones = [];
     const notFoundImeis = [];
-
+    
     // Get all bulk phones for this user (not just one)
     const bulkPhones = await BulkPhonePurchase.find({ userId }).populate({
       path: "ramSimDetails",
       populate: { path: "imeiNumbers" },
     });
-
+    
     for (const imei of imeis) {
       let found = false;
-
+      
       // Try single purchase
       const purchasePhone = await PurchasePhone.findOne({
         userId,
         $or: [{ imei1: imei }, { imei2: imei }],
       });
-      console.log("otherDetail", otherDetails);
-
+      
       if (purchasePhone) {
         purchasePhone.isSold = true;
         await purchasePhone.save();
-
+        
         const soldPhone = new SingleSoldPhone({
           purchasePhoneId: purchasePhone._id,
           userId,
-          dateSold: otherDetails.saleDate,
+          dateSold: phoneDetails.saleDate,
           shopid: purchasePhone.shopid,
           name: purchasePhone.name,
           fatherName: purchasePhone.fatherName,
@@ -2483,7 +2783,7 @@ exports.soldAnyPhone = async (req, res) => {
           isApprovedFromEgadgets: purchasePhone.isApprovedFromEgadgets,
           eGadgetStatusPicture: purchasePhone.eGadgetStatusPicture,
           invoiceNumber: "INV-" + new Date().getTime(),
-          ...otherDetails,
+          ...phoneDetails, // Now filtered to exclude financial fields
         });
 
         await soldPhone.save();
@@ -2511,14 +2811,14 @@ exports.soldAnyPhone = async (req, res) => {
               imei1: imeiDoc.imei1,
               imei2: imeiDoc.imei2,
               userId,
-              dateSold: otherDetails.saleDate,
+              dateSold: phoneDetails.saleDate,
               companyName: bulkPhone.companyName,
               modelName: bulkPhone.modelName,
               ramMemory: ramSim.ramMemory,
               simOption: ramSim.simOption,
               priceOfOne: ramSim.priceOfOne,
               invoiceNumber: "INV-" + new Date().getTime(),
-              ...otherDetails,
+              ...phoneDetails, // Now filtered to exclude financial fields
             });
 
             await soldPhone.save();
@@ -2600,6 +2900,49 @@ exports.soldAnyPhone = async (req, res) => {
         await accessory.save();
       }
     }
+    
+    // Handle financial transactions separately
+    if (bankAccountUsed) {
+      const bank = await AddBankAccount.findById(bankAccountUsed);
+      if (!bank) return res.status(404).json({ message: "Bank not found" });
+
+      // Add the sale amount to accountCash
+      bank.accountCash += Number(accountCash || 0);
+      await bank.save();
+
+      // Log the transaction
+      await BankTransaction.create({
+        bankId: bank._id,
+        userId: req.user.id,
+        sourceOfAmountAddition: `sale of mobile`,
+        accountCash: accountCash || 0,
+        accountType: bank.accountType,
+      });
+    }
+    
+    if (pocketCash) {
+      const pocketTransaction = await PocketCashSchema.findOne({
+        userId: req.user.id,
+      });
+      if (!pocketTransaction) {
+        return res
+          .status(404)
+          .json({ message: "Pocket cash account not found." });
+      }
+
+      pocketTransaction.accountCash += Number(pocketCash || 0);
+      await pocketTransaction.save();
+
+      await PocketCashTransactionSchema.create({
+        userId: req.user.id,
+        pocketCashId: pocketTransaction._id,
+        amountDeducted: pocketCash || 0,
+        accountCash: pocketTransaction.accountCash,
+        remainingAmount: pocketTransaction.accountCash,
+        reasonOfAmountDeduction: `sale of mobile`,
+        sourceOfAmountAddition: "Payment for mobile sale",
+      });
+    }
 
     return res.status(200).json({
       message: "Processed IMEIs.",
@@ -2615,7 +2958,6 @@ exports.soldAnyPhone = async (req, res) => {
       .json({ message: "Internal server error", error: error.message });
   }
 };
-
 exports.updateSoldPhone = async (req, res) => {
   try {
     const userId = req.user.id; // Extract user ID from request

@@ -92,7 +92,7 @@ router.get("/all-purchase-phone", decoderMiddleware, getAllPurchasePhones); //us
 // Route to get purchase phone slips with filtering
 router.get("/purchase-phone/filter", getPurchasePhoneByFilter);
 
-router.post("/sell-phone", decoderMiddleware, sellPhonesFromBulk); //used to sale bulk phones
+router.post("/sell-phone", decoderMiddleware, sellPhonesFromBulk);
 
 router.get("/all-sales", decoderMiddleware, getAllSales);
 
