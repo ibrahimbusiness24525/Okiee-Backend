@@ -2,8 +2,14 @@ const {
   Accessory,
   AccessoryTransaction,
 } = require("../schema/accessorySchema");
-const { AddBankAccount, BankTransaction } = require("../schema/BankAccountSchema");
-const { PocketCashSchema, PocketCashTransactionSchema } = require("../schema/PocketCashSchema");
+const {
+  AddBankAccount,
+  BankTransaction,
+} = require("../schema/BankAccountSchema");
+const {
+  PocketCashSchema,
+  PocketCashTransactionSchema,
+} = require("../schema/PocketCashSchema");
 
 // CREATE a new accessory
 const createAccessory = async (req, res) => {
@@ -13,12 +19,21 @@ const createAccessory = async (req, res) => {
 
     // Validate required fields
     if (!accessoryName || !quantity || !perPiecePrice) {
-      return res.status(400).json({ message: "Accessory name, quantity, and price are required" });
+      return res
+        .status(400)
+        .json({ message: "Accessory name, quantity, and price are required" });
     }
 
     // Validate numeric values
-    if (isNaN(quantity) || isNaN(perPiecePrice) || quantity <= 0 || perPiecePrice <= 0) {
-      return res.status(400).json({ message: "Quantity and price must be positive numbers" });
+    if (
+      isNaN(quantity) ||
+      isNaN(perPiecePrice) ||
+      quantity <= 0 ||
+      perPiecePrice <= 0
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Quantity and price must be positive numbers" });
     }
 
     const totalPrice = quantity * perPiecePrice;
@@ -29,12 +44,18 @@ const createAccessory = async (req, res) => {
       if (!bank) return res.status(404).json({ message: "Bank not found" });
 
       // Validate amount
-      if (!givePayment.amountFromBank || isNaN(givePayment.amountFromBank) || givePayment.amountFromBank <= 0) {
+      if (
+        !givePayment.amountFromBank ||
+        isNaN(givePayment.amountFromBank) ||
+        givePayment.amountFromBank <= 0
+      ) {
         return res.status(400).json({ message: "Invalid amount from bank" });
       }
 
       if (givePayment.amountFromBank > bank.accountCash) {
-        return res.status(400).json({ message: "Insufficient funds in bank account" });
+        return res
+          .status(400)
+          .json({ message: "Insufficient funds in bank account" });
       }
 
       // Deduct purchase amount from account
@@ -49,12 +70,12 @@ const createAccessory = async (req, res) => {
         amount: givePayment.amountFromBank,
         accountCash: bank.accountCash,
         accountType: bank.accountType,
-        transactionType: 'debit',
+        transactionType: "debit",
         details: {
           accessoryName,
           quantity,
-          totalPrice
-        }
+          totalPrice,
+        },
       });
     }
 
@@ -62,16 +83,21 @@ const createAccessory = async (req, res) => {
     if (givePayment?.amountFromPocket) {
       const pocketTransaction = await PocketCashSchema.findOne({ userId });
       if (!pocketTransaction) {
-        return res.status(404).json({ message: 'Pocket cash account not found.' });
+        return res
+          .status(404)
+          .json({ message: "Pocket cash account not found." });
       }
 
       // Validate amount
-      if (isNaN(givePayment.amountFromPocket) || givePayment.amountFromPocket <= 0) {
-        return res.status(400).json({ message: 'Invalid pocket cash amount' });
+      if (
+        isNaN(givePayment.amountFromPocket) ||
+        givePayment.amountFromPocket <= 0
+      ) {
+        return res.status(400).json({ message: "Invalid pocket cash amount" });
       }
 
       if (givePayment.amountFromPocket > pocketTransaction.accountCash) {
-        return res.status(400).json({ message: 'Insufficient pocket cash' });
+        return res.status(400).json({ message: "Insufficient pocket cash" });
       }
 
       // Deduct amount from pocket
@@ -88,8 +114,8 @@ const createAccessory = async (req, res) => {
         details: {
           accessoryName,
           quantity,
-          totalPrice
-        }
+          totalPrice,
+        },
       });
     }
 
@@ -105,13 +131,13 @@ const createAccessory = async (req, res) => {
 
     res.status(201).json({
       message: "Accessory created successfully",
-      accessory: newAccessory
+      accessory: newAccessory,
     });
   } catch (error) {
     console.error("Error creating accessory:", error);
     res.status(500).json({
       message: "Failed to create accessory",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -180,7 +206,10 @@ const sellMultipleAccessories = async (req, res) => {
       console.log("amountFromBank", getPayment.amountFromBank);
 
       // Validate amount
-      if (typeof Number(getPayment.amountFromBank) !== 'number' || Number(getPayment.amountFromBank) <= 0) {
+      if (
+        typeof Number(getPayment.amountFromBank) !== "number" ||
+        Number(getPayment.amountFromBank) <= 0
+      ) {
         return res.status(400).json({ message: "Invalid amount from bank" });
       }
 
@@ -196,19 +225,26 @@ const sellMultipleAccessories = async (req, res) => {
         amount: getPayment.amountFromBank,
         accountCash: bank.accountCash,
         accountType: bank.accountType,
-        transactionType: 'credit'
+        transactionType: "credit",
       });
     }
 
     // Handle pocket cash if provided
     if (getPayment?.amountFromPocket) {
-      const pocketTransaction = await PocketCashSchema.findOne({ userId: userId });
+      const pocketTransaction = await PocketCashSchema.findOne({
+        userId: userId,
+      });
       if (!pocketTransaction) {
-        return res.status(404).json({ message: 'Pocket cash account not found.' });
+        return res
+          .status(404)
+          .json({ message: "Pocket cash account not found." });
       }
 
-      if (typeof Number(getPayment.amountFromPocket) !== 'number' || Number(getPayment.amountFromPocket) <= 0) {
-        return res.status(400).json({ message: 'Invalid pocket cash amount' });
+      if (
+        typeof Number(getPayment.amountFromPocket) !== "number" ||
+        Number(getPayment.amountFromPocket) <= 0
+      ) {
+        return res.status(400).json({ message: "Invalid pocket cash amount" });
       }
 
       // Add to pocket cash (since we're receiving money from sale)
@@ -231,11 +267,15 @@ const sellMultipleAccessories = async (req, res) => {
 
       // Validate sale data
       if (!accessoryId || !quantity || !perPiecePrice) {
-        return res.status(400).json({ message: "Missing required fields in sale item" });
+        return res
+          .status(400)
+          .json({ message: "Missing required fields in sale item" });
       }
 
       if (quantity <= 0 || perPiecePrice <= 0) {
-        return res.status(400).json({ message: "Quantity and price must be positive numbers" });
+        return res
+          .status(400)
+          .json({ message: "Quantity and price must be positive numbers" });
       }
 
       const accessory = await Accessory.findOne({ _id: accessoryId, userId });
@@ -259,22 +299,29 @@ const sellMultipleAccessories = async (req, res) => {
         quantity,
         perPiecePrice,
         totalPrice,
-        transactionType: 'sale'
+        transactionType: "sale",
       });
 
       // Update stock
       accessory.stock -= quantity;
-      accessory.totalPrice -= Number(accessory.perPiecePrice) * Number(quantity)
-      accessory.profit += (Number(perPiecePrice) - Number(accessory.perPiecePrice)) * Number(quantity); // Calculate profit
+      accessory.totalPrice -=
+        Number(accessory.perPiecePrice) * Number(quantity);
+      accessory.profit +=
+        (Number(perPiecePrice) - Number(accessory.perPiecePrice)) *
+        Number(quantity); // Calculate profit
       await accessory.save();
 
       transactions.push(transaction);
     }
 
-    res.status(201).json({ message: "Accessories sold successfully", transactions });
+    res
+      .status(201)
+      .json({ message: "Accessories sold successfully", transactions });
   } catch (error) {
     console.error("Error selling accessories:", error);
-    res.status(500).json({ message: "Failed to sell accessories", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Failed to sell accessories", error: error.message });
   }
 };
 
@@ -319,9 +366,15 @@ const getAccessoriesData = async (req, res) => {
   try {
     const userId = req.user.id;
     const accessories = await Accessory.find({ userId });
-    const totalProfit = accessories.reduce((sum, accessory) => sum + accessory.profit, 0);
+    const totalProfit = accessories.reduce(
+      (sum, accessory) => sum + accessory.profit,
+      0
+    );
     // Fallback: count all transactions if transactionType is missing
-    let salesTransactions = await AccessoryTransaction.find({ userId, transactionType: 'sale' });
+    let salesTransactions = await AccessoryTransaction.find({
+      userId,
+      transactionType: "sale",
+    });
     if (!salesTransactions || salesTransactions.length === 0) {
       // Try without transactionType in case old records don't have it
       salesTransactions = await AccessoryTransaction.find({ userId });
@@ -330,44 +383,70 @@ const getAccessoriesData = async (req, res) => {
     res.status(200).json({ totalProfit, totalSales });
   } catch (error) {
     console.error("Error calculating total profit:", error);
-    res.status(500).json({ message: "Failed to calculate total profit", error });
+    res
+      .status(500)
+      .json({ message: "Failed to calculate total profit", error });
   }
-}
+};
 const handleAddAcessoryStockById = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
     const { quantity, perPiecePrice } = req.body;
-
+    console.log("quantity", quantity, "perPiecePrice", perPiecePrice);
     // Validate input
     if (!quantity || !perPiecePrice) {
-      return res.status(400).json({ message: "Quantity and price are required" });
+      return res
+        .status(400)
+        .json({ message: "Quantity and price are required" });
     }
 
-    if (isNaN(quantity) || isNaN(perPiecePrice) || quantity <= 0 || perPiecePrice <= 0) {
-      return res.status(400).json({ message: "Quantity and price must be positive numbers" });
+    if (
+      isNaN(quantity) ||
+      isNaN(perPiecePrice) ||
+      quantity <= 0 ||
+      perPiecePrice <= 0
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Quantity and price must be positive numbers" });
     }
 
     const accessory = await Accessory.findOne({ _id: id, userId });
     if (!accessory) {
-      return res.status(404).json({ message: "Accessory not found or unauthorized" });
+      return res
+        .status(404)
+        .json({ message: "Accessory not found or unauthorized" });
     }
     // Optionally update perPiecePrice if you want to track the latest purchase price
     // Update perPiecePrice only if you want the latest purchase price to reflect in future sales.
     // If you want to keep a history of prices, consider storing each stock addition as a separate record or in a subdocument.
     // For simple use-case (latest price applies to all future sales):
-    accessory.perPiecePrice = Number(perPiecePrice);
+    // Calculate new average perPiecePrice based on existing and added stock
+    const existingStock = Number(accessory.stock);
+    const existingTotalCost = Number(accessory.perPiecePrice) * existingStock;
+    const addedStock = Number(quantity);
+    const addedTotalCost = Number(perPiecePrice) * addedStock;
+    const newTotalStock = existingStock + addedStock;
+    const newTotalCost = existingTotalCost + addedTotalCost;
+    accessory.perPiecePrice =
+      newTotalStock > 0 ? newTotalCost / newTotalStock : Number(perPiecePrice);
     // Update stock and total price
     accessory.stock += Number(quantity);
     accessory.totalPrice += Number(perPiecePrice) * Number(quantity);
     await accessory.save();
 
-    res.status(200).json({ message: "Accessory stock updated successfully", accessory });
+    res
+      .status(200)
+      .json({ message: "Accessory stock updated successfully", accessory });
   } catch (error) {
     console.error("Error updating accessory stock:", error);
-    res.status(500).json({ message: "Failed to update accessory stock", error: error.message });
+    res.status(500).json({
+      message: "Failed to update accessory stock",
+      error: error.message,
+    });
   }
-}
+};
 
 module.exports = {
   createAccessory,
@@ -376,5 +455,5 @@ module.exports = {
   getAllTransactions,
   deleteAccessory,
   getAccessoriesData,
-  handleAddAcessoryStockById
+  handleAddAcessoryStockById,
 };

@@ -420,7 +420,7 @@ exports.sellSinglePhone = async (req, res) => {
 
         accessory.stock -= Number(accessoryItem.quantity);
         accessory.totalPrice -=
-          Number(accessory.perPiecePrice) * Number(quantity);
+          Number(accessory.perPiecePrice) * Number(accessoryItem.quantity);
         accessory.profit +=
           (Number(accessoryItem.price) - Number(accessory.perPiecePrice)) *
           Number(accessoryItem.quantity);
@@ -436,6 +436,7 @@ exports.sellSinglePhone = async (req, res) => {
       customerName,
       customerNumber,
       saleDate,
+      profit: Number(salePrice) - Number(purchasedPhone.price.purchasePrice),
       accessories: accessories,
       cnicFrontPic,
       salePrice: salePrice,
@@ -542,7 +543,7 @@ exports.getAllSingleSoldPhones = async (req, res) => {
       .populate({
         path: "purchasePhoneId",
         model: "PurchasePhone", // Explicitly specify the model
-        select: "companyName modelName imei1 imei2", // Select required fields
+        select: "companyName modelName imei1 imei2 profit", // Select required fields
       }); // If needed, get original phone details
 
     if (!soldPhones || soldPhones.length === 0) {
@@ -1553,7 +1554,10 @@ exports.sellPhonesFromBulk = async (req, res) => {
         totalInvoice,
         accessories,
         customerName,
+        profit:
+          Number(salePrice) - Number(bulkPhonePurchase.prices.buyingPrice),
         customerNumber,
+        purchasePrice: bulkPhonePurchase.prices.buyingPrice,
         dateSold,
         cnicBackPic,
         cnicFrontPic,
@@ -1669,16 +1673,16 @@ exports.sellPhonesFromBulk = async (req, res) => {
 //           }
 //         }
 //       })
-  
+
 //       .sort({ dateSold: -1 }); // Sort by most recent sales first
 
 //     const responseData = allSales.map((sale) => {
 //       const saleObj = sale.toObject();
-      
+
 //       if (sale.bulkPhonePurchaseId) {
 //         // Calculate purchase price from bulk data
-//         const purchasePrice = sale.bulkPhonePurchaseId.ramSimDetails?.find(ramSim => 
-//           ramSim.imeiNumbers.some(imei => 
+//         const purchasePrice = sale.bulkPhonePurchaseId.ramSimDetails?.find(ramSim =>
+//           ramSim.imeiNumbers.some(imei =>
 //             imei.imei1 === sale.imei1 || imei.imei2 === sale.imei1
 //           )
 //         )?.priceOfOne;
@@ -1716,30 +1720,34 @@ exports.sellPhonesFromBulk = async (req, res) => {
 // };
 exports.getAllSales = async (req, res) => {
   try {
-    const bulkSales = await SoldPhone.find({ 
+    const bulkSales = await SoldPhone.find({
       userId: req.user.id,
-      bulkPhonePurchaseId: { $exists: true } // Only get bulk phone sales
+      bulkPhonePurchaseId: { $exists: true }, // Only get bulk phone sales
     })
-    .populate({
-      path: 'bulkPhonePurchaseId',
-      select: 'prices' // Only get prices field from bulk purchase
-    })
-    .select('salePrice sellingPaymentType warranty dateSold') // Only select these fields
-    .sort({ dateSold: -1 });
+      .populate({
+        path: "bulkPhonePurchaseId",
+        select: "prices.buyingPrice", // nly get prices field from bulk purchase
+      })
+      .select(
+        "salePrice sellingPaymentType warranty dateSold profit purchasePrice"
+      ) // Only select these fields
+      .sort({ dateSold: -1 });
 
     const responseData = bulkSales.map((sale) => ({
       type: "Bulk Phone",
       buyingPrice: sale.bulkPhonePurchaseId?.prices?.buyingPrice || null,
+      profit: sale.profit || 0,
       salePrice: sale.salePrice,
+      purchasePrice: sale.purchasePrice || 0,
       sellingPaymentType: sale.sellingPaymentType,
       warranty: sale.warranty,
-      dateSold: sale.dateSold
+      dateSold: sale.dateSold,
     }));
 
     res.status(200).json({
       message: "Bulk phone sales retrieved successfully!",
       data: responseData,
-      count: responseData.length
+      count: responseData.length,
     });
   } catch (error) {
     console.error("Error fetching bulk sales:", error);
@@ -2666,7 +2674,7 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
 //         await accessory.save();
 //       }
 //     }
-    
+
 //      if (otherDetails?.bankAccountUsed) {
 //       const bank = await AddBankAccount.findById(otherDetails?.bankAccountUsed);
 //       if (!bank) return res.status(404).json({ message: "Bank not found" });
@@ -2694,7 +2702,6 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
 //           .json({ message: "Pocket cash account not found." });
 //       }
 
-
 //       pocketTransaction.accountCash += Number(otherDetails?.pocketCash);
 //       await pocketTransaction.save();
 
@@ -2709,17 +2716,16 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
 //       });
 //     }
 
-
 //     return res.status(200).json({
-  //       message: "Processed IMEIs.",
-  //       soldCount: soldPhones.length,
-  //       notFoundCount: notFoundImeis.length,
-  //       soldPhones,
-  //       notFoundImeis,
+//       message: "Processed IMEIs.",
+//       soldCount: soldPhones.length,
+//       notFoundCount: notFoundImeis.length,
+//       soldPhones,
+//       notFoundImeis,
 //     });
 //   } catch (error) {
-  //     console.error("Error processing sold phones:", error);
-  //     res
+//     console.error("Error processing sold phones:", error);
+//     res
 //       .status(500)
 //       .json({ message: "Internal server error", error: error.message });
 //   }
@@ -2727,36 +2733,44 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
 exports.soldAnyPhone = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { imeis, bankAccountUsed, accountCash, pocketCash, ...phoneDetails } = req.body;
+    const { imeis, bankAccountUsed, accountCash, pocketCash, ...phoneDetails } =
+      req.body;
     const accessories = req.body.accessories || [];
-    
+
     if (!Array.isArray(imeis) || imeis.length === 0) {
-      console.log("bankAccountUsed", bankAccountUsed, "accountCash", accountCash, "pocketCash", pocketCash);
+      console.log(
+        "bankAccountUsed",
+        bankAccountUsed,
+        "accountCash",
+        accountCash,
+        "pocketCash",
+        pocketCash
+      );
       return res.status(400).json({ error: "IMEI array is required." });
     }
-    
+
     const soldPhones = [];
     const notFoundImeis = [];
-    
+
     // Get all bulk phones for this user (not just one)
     const bulkPhones = await BulkPhonePurchase.find({ userId }).populate({
       path: "ramSimDetails",
       populate: { path: "imeiNumbers" },
     });
-    
+
     for (const imei of imeis) {
       let found = false;
-      
+
       // Try single purchase
       const purchasePhone = await PurchasePhone.findOne({
         userId,
         $or: [{ imei1: imei }, { imei2: imei }],
       });
-      
+
       if (purchasePhone) {
         purchasePhone.isSold = true;
         await purchasePhone.save();
-        
+
         const soldPhone = new SingleSoldPhone({
           purchasePhoneId: purchasePhone._id,
           userId,
@@ -2900,7 +2914,7 @@ exports.soldAnyPhone = async (req, res) => {
         await accessory.save();
       }
     }
-    
+
     // Handle financial transactions separately
     if (bankAccountUsed) {
       const bank = await AddBankAccount.findById(bankAccountUsed);
@@ -2919,7 +2933,7 @@ exports.soldAnyPhone = async (req, res) => {
         accountType: bank.accountType,
       });
     }
-    
+
     if (pocketCash) {
       const pocketTransaction = await PocketCashSchema.findOne({
         userId: req.user.id,

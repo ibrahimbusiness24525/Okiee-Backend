@@ -161,7 +161,7 @@ const SingleSoldPhoneSchema = new mongoose.Schema(
 
     // Warranty should be updated based on condition
     warranty: { type: String, required: true },
-
+    profit: { type: Number, required: false, default: 0 },
     specifications: { type: String, required: true },
     ramMemory: { type: String, required: true },
     color: { type: String, required: false },
@@ -247,6 +247,7 @@ const SoldPhoneSchema = new mongoose.Schema(
         return this.sellingPaymentType === "Credit";
       },
     },
+    purchasePrice: { type: Number, required: false },
     payableAmountLater: {
       type: Number,
       required: function () {
@@ -259,7 +260,7 @@ const SoldPhoneSchema = new mongoose.Schema(
         return this.sellingPaymentType === "Credit";
       },
     },
-
+    profit: { type: Number, required: false, default: 0 },
     exchangePhoneDetail: {
       type: String,
       required: function () {
@@ -284,6 +285,7 @@ const SoldPhoneSchema = new mongoose.Schema(
       required: false,
     },
   },
+
   { timestamps: true }
 );
 
