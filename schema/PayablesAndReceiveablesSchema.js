@@ -1,6 +1,6 @@
 const { default: mongoose } = require("mongoose");
 
-const personSchema =  mongoose.Schema({
+const personSchema = mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   name: { type: String, required: true },
   number: { type: Number, required: true },
