@@ -3,7 +3,7 @@ const { PocketCashSchema, PocketCashTransactionSchema } = require('../schema/Poc
 const { Person, CreditTransaction } = require('../schema/PayablesAndReceiveablesSchema');
 const { Entity, ShopLedger } = require('../schema/ShopLedgerSchema');
 const { Accessory, AccessoryTransaction } = require('../schema/accessorySchema');
-const { BulkPhonePurchase, PurchasePhone, SoldPhone } = require('../schema/purchasePhoneSchema');
+const { BulkPhonePurchase, PurchasePhone, SoldPhone, SingleSoldPhone } = require('../schema/purchasePhoneSchema');
 
 const calculateBalanceSheet = async (req, res) => {
     try {
@@ -23,7 +23,7 @@ const calculateBalanceSheet = async (req, res) => {
         // 3. Calculate Inventory Value
         // Accessories
         const accessories = await Accessory.find({ userId });
-        const accessoriesValue = accessories.reduce((sum, item) => sum + ((item.stock || 0) * (item.perPiecePrice || 0)), 0);
+        const accessoriesValue = accessories.reduce((sum, item) => sum + (item.totalPrice), 0);
 
         // Single phones (purchased but not sold)
         const unsoldPhones = await PurchasePhone.find({ userId, isSold: false });
@@ -32,7 +32,7 @@ const calculateBalanceSheet = async (req, res) => {
         // Bulk phones (available status)
         const bulkPhones = await BulkPhonePurchase.find({
             userId,
-            status: { $in: ['Available', 'Partially Sold'] }
+            // status: { $in: ['Available', 'Partially Sold'] }
         }).populate('ramSimDetails');
 
         let bulkPhonesValue = 0;
@@ -50,7 +50,7 @@ const calculateBalanceSheet = async (req, res) => {
         // 4. Calculate Receivables
         const creditCustomers = await Person.find({ userId, status: 'Receivable' });
         const customerReceivables = creditCustomers.reduce((sum, customer) => {
-            return sum + (parseFloat(customer.takingCredit) || 0) - (parseFloat(customer.givingCredit) || 0);
+            return sum + (parseFloat(customer.givingCredit) || 0) - (parseFloat(customer.takingCredit) || 0);
         }, 0);
 
         const receivableEntities = await Entity.find({ userId, status: 'Receivable' });
@@ -86,6 +86,10 @@ const calculateBalanceSheet = async (req, res) => {
         const totalPayables = customerPayables + entityPayables + bulkPurchasePayables;
 
         // 6. Calculate Profit from sales
+        // Calculate profit from single phone sales
+        const singlePhoneSales = await SingleSoldPhone.find({ userId });
+        const singlePhoneSaleProfit = singlePhoneSales.reduce((sum, sale) => sum + (parseFloat(sale.profit) || 0), 0);
+
         const soldPhones = await SoldPhone.find({ userId });
         const phoneProfit = soldPhones.reduce((sum, phone) => sum + (parseFloat(phone.profit) || 0), 0);
 
@@ -99,7 +103,7 @@ const calculateBalanceSheet = async (req, res) => {
             return sum;
         }, 0);
 
-        const totalProfit = phoneProfit + accessoryProfit;
+        const totalProfit = phoneProfit + accessoryProfit + singlePhoneSaleProfit;
 
         // 7. Prepare Balance Sheet with proper number formatting
         const balanceSheet = {
