@@ -1346,35 +1346,43 @@ exports.deleteBulkPhone = async (req, res) => {
 // exports.sellPhonesFromBulk = async (req, res) => {
 //   try {
 //     const {
+//       bankAccountUsed,
+//       pocketCash,
+//       accountCash,
 //       bulkPhonePurchaseId,
 //       imeiNumbers,
 //       salePrice,
 //       totalInvoice,
-//        warranty,
-//        customerName,
-//        cnicBackPic,
-//        cnicFrontPic,
-//        accessories,
-//        sellingPaymentType,
-//       //  accesssoryAmount,
-//       //  accesssoryName,
-//        bankName,
-//        payableAmountNow,
-//        payableAmountLater,
-//        payableAmountLaterDate,
-//        exchangePhoneDetail
-//       } = req.body;
+//       warranty,
+//       customerName,
+//       cnicBackPic,
+//       dateSold,
+//       customerNumber,
+//       cnicFrontPic,
+//       accessories,
+//       sellingPaymentType,
+//       bankName,
+//       payableAmountNow,
+//       payableAmountLater,
+//       payableAmountLaterDate,
+//       exchangePhoneDetail,
+//     } = req.body;
+//     console.log(bankAccountUsed, pocketCash, accountCash);
 
 //     if (!salePrice || !warranty) {
-//       return res.status(400).json({ message: "Sale price and warranty are required" });
+//       return res
+//         .status(400)
+//         .json({ message: "Sale price and warranty are required" });
 //     }
 
 //     // Find the bulk phone purchase
-//     const bulkPhonePurchase = await BulkPhonePurchase.findById(bulkPhonePurchaseId).populate({
-//       path: 'ramSimDetails',
+//     const bulkPhonePurchase = await BulkPhonePurchase.findById(
+//       bulkPhonePurchaseId
+//     ).populate({
+//       path: "ramSimDetails",
 //       populate: {
-//         path: 'imeiNumbers'
-//       }
+//         path: "imeiNumbers",
+//       },
 //     });
 
 //     if (!bulkPhonePurchase) {
@@ -1383,90 +1391,208 @@ exports.deleteBulkPhone = async (req, res) => {
 
 //     const soldPhones = [];
 
-//     // Extract phones to be sold based on IMEI numbers
 //     for (const imei of imeiNumbers) {
-//       const ramSim = bulkPhonePurchase.ramSimDetails.find(ramSim =>
-//         ramSim.imeiNumbers.some(imeiRecord => imeiRecord.imei1 === imei || imeiRecord.imei2 === imei)
+//       const ramSim = bulkPhonePurchase.ramSimDetails.find((ramSim) =>
+//         ramSim.imeiNumbers.some(
+//           (imeiRecord) => imeiRecord.imei1 === imei || imeiRecord.imei2 === imei
+//         )
 //       );
 
 //       if (!ramSim) {
-//         return res.status(404).json({ message: `Phone with IMEI ${imei} not found in this bulk purchase` });
+//         return res.status(404).json({
+//           message: `Phone with IMEI ${imei} not found in this bulk purchase`,
+//         });
 //       }
 
-//       // Find the IMEI record that matches the provided IMEI number
-//       const imeiRecord = ramSim.imeiNumbers.find(imeiRecord => imeiRecord.imei1 === imei || imeiRecord.imei2 === imei);
+//       const imeiRecord = ramSim.imeiNumbers.find(
+//         (imeiRecord) => imeiRecord.imei1 === imei || imeiRecord.imei2 === imei
+//       );
 //       if (sellingPaymentType === "Bank" && !bankName) {
-//         return res.status(400).json({ message: "Bank Name is required for Bank payment type." });
+//         return res
+//           .status(400)
+//           .json({ message: "Bank Name is required for Bank payment type." });
 //       }
-//       if (sellingPaymentType === "Credit" && (!payableAmountNow || !payableAmountLater || !payableAmountLaterDate)) {
-//         return res.status(400).json({ message: "All credit payment fields (Now, Later, Date) are required." });
+//       if (
+//         sellingPaymentType === "Credit" &&
+//         (!payableAmountNow || !payableAmountLater || !payableAmountLaterDate)
+//       ) {
+//         return res.status(400).json({
+//           message: "All credit payment fields (Now, Later, Date) are required.",
+//         });
 //       }
 //       if (sellingPaymentType === "Exchange" && !exchangePhoneDetail) {
-//         return res.status(400).json({ message: "Exchange phone details are required for Exchange payment type." });
+//         return res.status(400).json({
+//           message:
+//             "Exchange phone details are required for Exchange payment type.",
+//         });
 //       }
+
+//       console.log("THis is bulk phone purchase id", bulkPhonePurchaseId);
 //       // Create a new SoldPhone record
 //       const soldPhone = new SoldPhone({
 //         bulkPhonePurchaseId,
 //         imei1: imeiRecord.imei1,
-//         imei2: imeiRecord.imei2 || null, // Handle missing imei2
+//         imei2: imeiRecord.imei2 || null,
 //         salePrice,
 //         totalInvoice,
 //         accessories,
 //         customerName,
+//         profit:
+//           Number(salePrice) - Number(bulkPhonePurchase.prices.buyingPrice),
+//         customerNumber,
+//         purchasePrice: bulkPhonePurchase.prices.buyingPrice,
+//         dateSold,
 //         cnicBackPic,
 //         cnicFrontPic,
 //         sellingPaymentType,
-//         // accesssoryAmount,
-//         // accesssoryName,
 //         warranty,
 //         userId: req.user.id,
 //         invoiceNumber: invoiceGenerator(),
 //         bankName: sellingPaymentType === "Bank" ? bankName : undefined,
-//         payableAmountNow: sellingPaymentType === "Credit" ? payableAmountNow : undefined,
-//         payableAmountLater: sellingPaymentType === "Credit" ? payableAmountLater : undefined,
-//         payableAmountLaterDate: sellingPaymentType === "Credit" ? payableAmountLaterDate : undefined,
-//         exchangePhoneDetail: sellingPaymentType === "Exchange" ? exchangePhoneDetail : undefined,
+//         payableAmountNow:
+//           sellingPaymentType === "Credit" ? payableAmountNow : undefined,
+//         payableAmountLater:
+//           sellingPaymentType === "Credit" ? payableAmountLater : undefined,
+//         payableAmountLaterDate:
+//           sellingPaymentType === "Credit" ? payableAmountLaterDate : undefined,
+//         exchangePhoneDetail:
+//           sellingPaymentType === "Exchange" ? exchangePhoneDetail : undefined,
 //       });
 
-//       // Save the sold phone record
-//       const savedSoldPhone = await soldPhone.save();
-//       soldPhones.push(savedSoldPhone);
+//       await soldPhone.save();
+//       soldPhones.push(soldPhone);
 
-//       // Remove the sold IMEI from the bulk purchase's RamSim and Imei collection
+//       // Remove IMEI from `Imei` collection
 //       await Imei.findByIdAndDelete(imeiRecord._id);
-//       ramSim.imeiNumbers = ramSim.imeiNumbers.filter(imei => imei._id.toString() !== imeiRecord._id.toString());
+
+//       // Update `ramSimDetails`
+//       ramSim.imeiNumbers = ramSim.imeiNumbers.filter(
+//         (record) => record._id.toString() !== imeiRecord._id.toString()
+//       );
 //       await ramSim.save();
 //     }
+//     console.log(
+//       "check for bank and pocket cash",
+//       bankAccountUsed,
+//       pocketCash,
+//       accountCash
+//     );
 
-//     // Check if all phones are sold
-//     const remainingPhones = bulkPhonePurchase.ramSimDetails.some(ramSim => ramSim.imeiNumbers.length > 0);
+//     if (bankAccountUsed) {
+//       const bank = await AddBankAccount.findById(bankAccountUsed);
+//       if (!bank) return res.status(404).json({ message: "Bank not found" });
 
-//     if (bulkPhonePurchase.ramSimDetails.length === 0) { // ✅ Check if no phones are left
-//       bulkPhonePurchase.status = "Sold"; // ✅ Update status
-//       await bulkPhonePurchase.save();
+//       // Deduct purchasePrice from accountCash
+//       bank.accountCash += Number(accountCash);
+//       await bank.save();
 
-//       // ✅ Delete bulk purchase after marking it as sold
-
+//       // Log the transaction
+//       await BankTransaction.create({
+//         bankId: bank._id,
+//         userId: req.user.id,
+//         sourceOfAmountAddition: `sale of bulk mobile ${imeiNumbers.length} number to customer: ${customerName}`,
+//         accountCash: accountCash,
+//         accountType: bank.accountType,
+//       });
 //     }
-//     if(bulkPhonePurchase.ramSimDetails[0].imeiNumbers.length === 0 && !bulkPhonePurchase.ramSimDetails[1]|| bulkPhonePurchase.ramSimDetails[1].imeiNumbers.length===0){
-//       await BulkPhonePurchase.findByIdAndDelete(bulkPhonePurchase._id);
-//       return res.status(200).json({ message: "All phones sold. Bulk purchase deleted." });
+//     if (pocketCash) {
+//       const pocketTransaction = await PocketCashSchema.findOne({
+//         userId: req.user.id,
+//       });
+//       if (!pocketTransaction) {
+//         return res
+//           .status(404)
+//           .json({ message: "Pocket cash account not found." });
+//       }
+
+//       if (pocketCash > pocketTransaction.accountCash) {
+//         return res.status(400).json({ message: "Insufficient pocket cash" });
+//       }
+
+//       pocketTransaction.accountCash += Number(pocketCash);
+//       await pocketTransaction.save();
+
+//       await PocketCashTransactionSchema.create({
+//         userId: req.user.id,
+//         pocketCashId: pocketTransaction._id, // if you want to associate it
+//         amountDeducted: pocketCash,
+//         accountCash: pocketTransaction.accountCash, // ✅ add this line
+//         remainingAmount: pocketTransaction.accountCash,
+//         sourceOfAmountAddition: `Sale of bulk mobile ${imeiNumbers.length} number to customer: ${customerName}`,
+//       });
+//     }
+//     if (accessories && accessories.length > 0) {
+//       for (const accessoryItem of accessories) {
+//         const accessory = await Accessory.findOne({
+//           _id: accessoryItem.name,
+//           userId: req.user.id,
+//         });
+
+//         if (!accessory) {
+//           return res.status(404).json({ message: "Accessory not found" });
+//         }
+
+//         if (Number(accessory.stock) < Number(accessoryItem.quantity)) {
+//           return res.status(400).json({ message: "Insufficient Inventory" });
+//         }
+
+//         const totalPrice =
+//           Number(accessoryItem.quantity) * Number(accessoryItem.price);
+
+//         await AccessoryTransaction.create({
+//           userId: req.user.id,
+//           accessoryId: accessoryItem.name,
+//           quantity: Number(accessoryItem.quantity),
+//           perPiecePrice: Number(accessoryItem.price),
+//           totalPrice,
+//         });
+
+//         accessory.stock -= Number(accessoryItem.quantity);
+//         accessory.totalPrice -=
+//           Number(accessory.perPiecePrice) * Number(quantity);
+//         accessory.profit +=
+//           (Number(accessoryItem.price) - Number(accessory.perPiecePrice)) *
+//           Number(accessoryItem.quantity);
+//         await accessory.save();
+//       }
+//     }
+//     // Reload the bulk purchase to ensure updates are reflected
+//     const updatedBulkPhonePurchase = await BulkPhonePurchase.findById(
+//       bulkPhonePurchaseId
+//     ).populate("ramSimDetails");
+
+//     // If no phones are left, delete the bulk purchase safely
+//     if (
+//       !updatedBulkPhonePurchase ||
+//       updatedBulkPhonePurchase.ramSimDetails.every(
+//         (ramSim) => ramSim.imeiNumbers.length === 0
+//       )
+//     ) {
+//       await BulkPhonePurchase.findByIdAndDelete(bulkPhonePurchaseId);
+//       return res.status(200).json({
+//         message: "All phones sold. Bulk purchase deleted.",
+//         soldPhones,
+//       });
 //     }
 
 //     res.status(200).json({
 //       message: "Phones sold successfully",
 //       soldPhones,
-//       statusUpdated: !remainingPhones ? "Bulk purchase is fully sold" : "Partial sale completed"
+//       statusUpdated: "Partial sale completed",
 //     });
-
 //   } catch (error) {
 //     console.error("Error selling phones:", error);
-//     res.status(500).json({ message: "Error selling phones", error: error.message });
+//     res
+//       .status(500)
+//       .json({ message: "Error selling phones", error: error.message });
 //   }
 // };
 exports.sellPhonesFromBulk = async (req, res) => {
   try {
     const {
+      bankAccountUsed,
+      pocketCash,
+      accountCash,
       bulkPhonePurchaseId,
       imeiNumbers,
       salePrice,
@@ -1486,10 +1612,21 @@ exports.sellPhonesFromBulk = async (req, res) => {
       exchangePhoneDetail,
     } = req.body;
 
+    // Validation
     if (!salePrice || !warranty) {
       return res
         .status(400)
         .json({ message: "Sale price and warranty are required" });
+    }
+
+    if (
+      !imeiNumbers ||
+      !Array.isArray(imeiNumbers) ||
+      imeiNumbers.length === 0
+    ) {
+      return res
+        .status(400)
+        .json({ message: "At least one IMEI must be provided" });
     }
 
     // Find the bulk phone purchase
@@ -1506,7 +1643,31 @@ exports.sellPhonesFromBulk = async (req, res) => {
       return res.status(404).json({ message: "Bulk phone purchase not found" });
     }
 
-    const soldPhones = [];
+    // Validate payment type specific fields
+    if (sellingPaymentType === "Bank" && !bankName) {
+      return res
+        .status(400)
+        .json({ message: "Bank Name is required for Bank payment type." });
+    }
+    if (
+      sellingPaymentType === "Credit" &&
+      (!payableAmountNow || !payableAmountLater || !payableAmountLaterDate)
+    ) {
+      return res.status(400).json({
+        message: "All credit payment fields (Now, Later, Date) are required.",
+      });
+    }
+    if (sellingPaymentType === "Exchange" && !exchangePhoneDetail) {
+      return res.status(400).json({
+        message:
+          "Exchange phone details are required for Exchange payment type.",
+      });
+    }
+
+    // Collect all IMEI records being sold
+    const imeiRecords = [];
+    const imei1List = [];
+    const imei2List = [];
 
     for (const imei of imeiNumbers) {
       const ramSim = bulkPhonePurchase.ramSimDetails.find((ramSim) =>
@@ -1524,70 +1685,141 @@ exports.sellPhonesFromBulk = async (req, res) => {
       const imeiRecord = ramSim.imeiNumbers.find(
         (imeiRecord) => imeiRecord.imei1 === imei || imeiRecord.imei2 === imei
       );
-      if (sellingPaymentType === "Bank" && !bankName) {
-        return res
-          .status(400)
-          .json({ message: "Bank Name is required for Bank payment type." });
-      }
-      if (
-        sellingPaymentType === "Credit" &&
-        (!payableAmountNow || !payableAmountLater || !payableAmountLaterDate)
+
+      imeiRecords.push(imeiRecord);
+      if (imeiRecord.imei1) imei1List.push(imeiRecord.imei1);
+      if (imeiRecord.imei2) imei2List.push(imeiRecord.imei2);
+    }
+    // Calculate total buying price for the sold IMEIs
+    let totalBuyingPrice = 0;
+    for (const imeiRecord of imeiRecords) {
+      // Find the ramSim that contains this IMEI
+      const ramSim = bulkPhonePurchase.ramSimDetails.find((rs) =>
+        rs.imeiNumbers.some(
+          (ir) => ir._id.toString() === imeiRecord._id.toString()
+        )
+      );
+      if (ramSim && ramSim.priceOfOne) {
+        totalBuyingPrice += Number(ramSim.priceOfOne);
+      } else if (
+        bulkPhonePurchase.prices &&
+        bulkPhonePurchase.prices.buyingPrice
       ) {
-        return res.status(400).json({
-          message: "All credit payment fields (Now, Later, Date) are required.",
-        });
+        // fallback to overall bulk buying price (divided by total IMEIs if needed)
+        totalBuyingPrice +=
+          Number(bulkPhonePurchase.prices.buyingPrice) /
+          (bulkPhonePurchase.ramSimDetails.reduce(
+            (sum, rs) => sum + (rs.imeiNumbers ? rs.imeiNumbers.length : 0),
+            0
+          ) || 1);
       }
-      if (sellingPaymentType === "Exchange" && !exchangePhoneDetail) {
-        return res.status(400).json({
-          message:
-            "Exchange phone details are required for Exchange payment type.",
-        });
-      }
+    }
 
-      console.log("THis is bulk phone purchase id", bulkPhonePurchaseId);
-      // Create a new SoldPhone record
-      const soldPhone = new SoldPhone({
-        bulkPhonePurchaseId,
-        imei1: imeiRecord.imei1,
-        imei2: imeiRecord.imei2 || null,
-        salePrice,
-        totalInvoice,
-        accessories,
-        customerName,
-        profit:
-          Number(salePrice) - Number(bulkPhonePurchase.prices.buyingPrice),
-        customerNumber,
-        purchasePrice: bulkPhonePurchase.prices.buyingPrice,
-        dateSold,
-        cnicBackPic,
-        cnicFrontPic,
-        sellingPaymentType,
-        warranty,
-        userId: req.user.id,
-        invoiceNumber: invoiceGenerator(),
-        bankName: sellingPaymentType === "Bank" ? bankName : undefined,
-        payableAmountNow:
-          sellingPaymentType === "Credit" ? payableAmountNow : undefined,
-        payableAmountLater:
-          sellingPaymentType === "Credit" ? payableAmountLater : undefined,
-        payableAmountLaterDate:
-          sellingPaymentType === "Credit" ? payableAmountLaterDate : undefined,
-        exchangePhoneDetail:
-          sellingPaymentType === "Exchange" ? exchangePhoneDetail : undefined,
-      });
+    // Calculate total profit
+    const totalProfit = Number(salePrice) - totalBuyingPrice;
+    // )
+    // *
+    //  imeiNumbers.length;
 
-      await soldPhone.save();
-      soldPhones.push(soldPhone);
+    // Create a single SoldPhone record for all IMEIs
+    const soldPhone = new SoldPhone({
+      bulkPhonePurchaseId,
+      imei1: imei1List, // Array of all IMEI1s
+      imei2: imei2List.length > 0 ? imei2List : null, // Array of all IMEI2s or null
+      salePrice,
+      totalInvoice,
+      accessories,
+      customerName,
+      profit: totalProfit,
+      customerNumber,
+      purchasePrice: bulkPhonePurchase.prices.buyingPrice,
+      dateSold,
+      cnicBackPic,
+      cnicFrontPic,
+      sellingPaymentType,
+      warranty,
+      userId: req.user.id,
+      invoiceNumber: invoiceGenerator(),
+      bankName: sellingPaymentType === "Bank" ? bankName : undefined,
+      payableAmountNow:
+        sellingPaymentType === "Credit" ? payableAmountNow : undefined,
+      payableAmountLater:
+        sellingPaymentType === "Credit" ? payableAmountLater : undefined,
+      payableAmountLaterDate:
+        sellingPaymentType === "Credit" ? payableAmountLaterDate : undefined,
+      exchangePhoneDetail:
+        sellingPaymentType === "Exchange" ? exchangePhoneDetail : undefined,
+      bankAccountUsed: bankAccountUsed || undefined,
+      pocketCash: pocketCash || undefined,
+    });
 
-      // Remove IMEI from `Imei` collection
+    await soldPhone.save();
+
+    // Remove all sold IMEIs from the system
+    for (const imeiRecord of imeiRecords) {
       await Imei.findByIdAndDelete(imeiRecord._id);
 
-      // Update `ramSimDetails`
-      ramSim.imeiNumbers = ramSim.imeiNumbers.filter(
-        (record) => record._id.toString() !== imeiRecord._id.toString()
+      // Update ramSimDetails by removing the sold IMEI
+      const ramSim = bulkPhonePurchase.ramSimDetails.find((rs) =>
+        rs.imeiNumbers.some(
+          (ir) => ir._id.toString() === imeiRecord._id.toString()
+        )
       );
-      await ramSim.save();
+
+      if (ramSim) {
+        ramSim.imeiNumbers = ramSim.imeiNumbers.filter(
+          (record) => record._id.toString() !== imeiRecord._id.toString()
+        );
+        await ramSim.save();
+      }
     }
+
+    // Handle bank transaction if applicable
+    if (bankAccountUsed) {
+      const bank = await AddBankAccount.findById(bankAccountUsed);
+      if (!bank) return res.status(404).json({ message: "Bank not found" });
+
+      bank.accountCash += Number(accountCash);
+      await bank.save();
+
+      await BankTransaction.create({
+        bankId: bank._id,
+        userId: req.user.id,
+        sourceOfAmountAddition: `Sale of ${imeiNumbers.length} phones to ${customerName}`,
+        accountCash: accountCash,
+        accountType: bank.accountType,
+      });
+    }
+
+    // Handle pocket cash transaction if applicable
+    if (pocketCash) {
+      const pocketTransaction = await PocketCashSchema.findOne({
+        userId: req.user.id,
+      });
+      if (!pocketTransaction) {
+        return res
+          .status(404)
+          .json({ message: "Pocket cash account not found." });
+      }
+
+      if (pocketCash > pocketTransaction.accountCash) {
+        return res.status(400).json({ message: "Insufficient pocket cash" });
+      }
+
+      pocketTransaction.accountCash += Number(pocketCash);
+      await pocketTransaction.save();
+
+      await PocketCashTransactionSchema.create({
+        userId: req.user.id,
+        pocketCashId: pocketTransaction._id,
+        amountDeducted: pocketCash,
+        accountCash: pocketTransaction.accountCash,
+        remainingAmount: pocketTransaction.accountCash,
+        sourceOfAmountAddition: `Sale of ${imeiNumbers.length} phones to ${customerName}`,
+      });
+    }
+
+    // Handle accessories if applicable
     if (accessories && accessories.length > 0) {
       for (const accessoryItem of accessories) {
         const accessory = await Accessory.findOne({
@@ -1615,22 +1847,20 @@ exports.sellPhonesFromBulk = async (req, res) => {
         });
 
         accessory.stock -= Number(accessoryItem.quantity);
-        accessory.totalPrice -=
-          Number(accessory.perPiecePrice) * Number(quantity);
+        accessory.totalPrice -= totalPrice;
         accessory.profit +=
           (Number(accessoryItem.price) - Number(accessory.perPiecePrice)) *
           Number(accessoryItem.quantity);
         await accessory.save();
       }
     }
-    // Reload the bulk purchase to ensure updates are reflected
+
+    // Check if bulk purchase should be deleted (all phones sold)
     const updatedBulkPhonePurchase = await BulkPhonePurchase.findById(
       bulkPhonePurchaseId
     ).populate("ramSimDetails");
 
-    // If no phones are left, delete the bulk purchase safely
     if (
-      !updatedBulkPhonePurchase ||
       updatedBulkPhonePurchase.ramSimDetails.every(
         (ramSim) => ramSim.imeiNumbers.length === 0
       )
@@ -1638,13 +1868,13 @@ exports.sellPhonesFromBulk = async (req, res) => {
       await BulkPhonePurchase.findByIdAndDelete(bulkPhonePurchaseId);
       return res.status(200).json({
         message: "All phones sold. Bulk purchase deleted.",
-        soldPhones,
+        soldPhone, // Return the single sold phone document
       });
     }
 
     res.status(200).json({
       message: "Phones sold successfully",
-      soldPhones,
+      soldPhone, // Return the single sold phone document
       statusUpdated: "Partial sale completed",
     });
   } catch (error) {
@@ -1654,7 +1884,6 @@ exports.sellPhonesFromBulk = async (req, res) => {
       .json({ message: "Error selling phones", error: error.message });
   }
 };
-
 // Get all sales (both single and bulk)
 // exports.getAllSales = async (req, res) => {
 //   try {
@@ -3065,7 +3294,10 @@ exports.getDetailByImeiNumber = async (req, res) => {
     // Support comma-separated IMEIs
     let imeiList = Array.isArray(imei)
       ? imei
-      : imei.split(",").map((i) => i.trim()).filter(Boolean);
+      : imei
+          .split(",")
+          .map((i) => i.trim())
+          .filter(Boolean);
 
     const results = [];
 
@@ -3108,7 +3340,8 @@ exports.getDetailByImeiNumber = async (req, res) => {
                 modelName: ramSim.modelName || bulkPhone.modelName,
                 specifications: ramSim.specifications || "",
                 ramMemory: ramSim.ramMemory,
-                batteryHealth: imeiDoc.batteryHealth || ramSim.batteryHealth || "",
+                batteryHealth:
+                  imeiDoc.batteryHealth || ramSim.batteryHealth || "",
                 color: imeiDoc.color || "",
                 simOption: ramSim.simOption || "",
                 type: "bulk",

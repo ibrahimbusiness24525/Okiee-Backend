@@ -272,8 +272,10 @@ const SoldPhoneSchema = new mongoose.Schema(
     customerNumber: { type: String, required: false },
     cnicFrontPic: { type: String, required: false }, // File URL
     cnicBackPic: { type: String, required: false }, // File
-    imei1: { type: String, required: true },
-    imei2: { type: String, default: null },
+    // imei1: { type: String, required: true },
+    // imei2: { type: String, default: null },
+    imei1: [{ type: String, required: true }],
+    imei2: [{ type: String, default: null }],
     salePrice: { type: Number, required: true },
     totalInvoice: { type: Number, required: true },
     invoiceNumber: { type: String, required: false },
