@@ -1,7 +1,15 @@
-const Ledger = require('../schema/LedgerSchema');
-const { Person, CreditTransaction } = require('../schema/PayablesAndReceiveablesSchema');
-const { PurchasePhone, SoldPhone, SingleSoldPhone, BulkPhonePurchase } = require('../schema/purchasePhoneSchema');
-const { getTodaysLedger } = require('./ledgerController');
+const Ledger = require("../schema/LedgerSchema");
+const {
+  Person,
+  CreditTransaction,
+} = require("../schema/PayablesAndReceiveablesSchema");
+const {
+  PurchasePhone,
+  SoldPhone,
+  SingleSoldPhone,
+  BulkPhonePurchase,
+} = require("../schema/purchasePhoneSchema");
+const { getTodaysLedger } = require("./ledgerController");
 // exports.getToDayBook = async (req, res) => {
 //     try {
 //       const today = new Date();
@@ -35,7 +43,7 @@ const { getTodaysLedger } = require('./ledgerController');
 // }
 // exports.getToDayBook = async (req, res) => {
 //     try {
-//       const userId = req.user.id; 
+//       const userId = req.user.id;
 
 //       const today = new Date();
 //       today.setHours(0, 0, 0, 0);
@@ -69,7 +77,6 @@ const { getTodaysLedger } = require('./ledgerController');
 //   try {
 //     const userId = req.user.id;
 //     const dateParam = req.query.date;
-
 
 //     let selectedDate = new Date();
 //     if (dateParam) {
@@ -159,7 +166,9 @@ exports.getToDayBook = async (req, res) => {
     if (dateParam) {
       selectedDate = new Date(dateParam);
       if (isNaN(selectedDate.getTime())) {
-        return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD." });
+        return res
+          .status(400)
+          .json({ message: "Invalid date format. Use YYYY-MM-DD." });
       }
     }
 
@@ -177,33 +186,48 @@ exports.getToDayBook = async (req, res) => {
       allSinglePhones,
       allBulkPhones,
       persons,
-      creditTransactions
+      creditTransactions,
     ] = await Promise.all([
       Ledger.find({ userId, createdAt: { $gte: selectedDate, $lt: nextDate } }),
-      PurchasePhone.find({ userId, createdAt: { $gte: selectedDate, $lt: nextDate } }),
-      BulkPhonePurchase.find({ userId, createdAt: { $gte: selectedDate, $lt: nextDate } }).populate('ramSimDetails'),
-      SingleSoldPhone.find({ userId, createdAt: { $gte: selectedDate, $lt: nextDate } }),
-      SoldPhone.find({ userId, createdAt: { $gte: selectedDate, $lt: nextDate } }).populate({
+      PurchasePhone.find({
+        userId,
+        createdAt: { $gte: selectedDate, $lt: nextDate },
+      }),
+      BulkPhonePurchase.find({
+        userId,
+        createdAt: { $gte: selectedDate, $lt: nextDate },
+      }).populate("ramSimDetails"),
+      SingleSoldPhone.find({
+        userId,
+        createdAt: { $gte: selectedDate, $lt: nextDate },
+      }),
+      SoldPhone.find({
+        userId,
+        createdAt: { $gte: selectedDate, $lt: nextDate },
+      }).populate({
         path: "bulkPhonePurchaseId",
-        select: "prices.buyingPrice"
+        select: "prices.buyingPrice salePrice",
       }),
       PurchasePhone.find({ userId }),
       BulkPhonePurchase.find({ userId }).populate({
         path: "ramSimDetails",
         populate: {
-          path: "imeiNumbers"
-        }
+          path: "imeiNumbers",
+        },
       }),
       Person.find({ userId }),
       CreditTransaction.find({
         userId,
-        createdAt: { $gte: selectedDate, $lt: nextDate }
-      })
+        createdAt: { $gte: selectedDate, $lt: nextDate },
+      }),
     ]);
 
     // === PHONE STOCK CALCULATIONS ===
     const totalSinglePhones = allSinglePhones.length;
-    const totalSingleAmount = allSinglePhones.reduce((sum, phone) => sum + (phone.price?.purchasePrice || 0), 0);
+    const totalSingleAmount = allSinglePhones.reduce(
+      (sum, phone) => sum + (phone.price?.purchasePrice || 0),
+      0
+    );
 
     let totalBulkPhones = 0;
     let totalBulkAmount = 0;
@@ -216,18 +240,32 @@ exports.getToDayBook = async (req, res) => {
         totalBulkAmount += imeiCount * priceOfOne;
       });
     });
-    const totalPayablePersons = persons.status === "Payable" ? persons.length : 0;
-    const totalReceivablePersons = persons.status === "Receivable" ? persons.length : 0;
+    const totalPayablePersons =
+      persons.status === "Payable" ? persons.length : 0;
+    const totalReceivablePersons =
+      persons.status === "Receivable" ? persons.length : 0;
     // === CREDIT CALCULATIONS ===
-    const totalPayable = persons.reduce((sum, person) => sum + person.takingCredit, 0);
-    const totalReceivable = persons.reduce((sum, person) => sum + person.givingCredit, 0);
+    const totalPayable = persons.reduce(
+      (sum, person) => sum + person.takingCredit,
+      0
+    );
+    const totalReceivable = persons.reduce(
+      (sum, person) => sum + person.givingCredit,
+      0
+    );
 
     // Daily credit transactions
-    const dailyPayable = creditTransactions.reduce((sum, txn) => sum + txn.takingCredit, 0);
-    const dailyReceivable = creditTransactions.reduce((sum, txn) => sum + txn.givingCredit, 0);
+    const dailyPayable = creditTransactions.reduce(
+      (sum, txn) => sum + txn.takingCredit,
+      0
+    );
+    const dailyReceivable = creditTransactions.reduce(
+      (sum, txn) => sum + txn.givingCredit,
+      0
+    );
 
     res.status(200).json({
-      message: `Records fetched for ${dateParam || 'today'}`,
+      message: `Records fetched for ${dateParam || "today"}`,
       data: {
         ledger,
         purchasedSinglePhone,
@@ -243,11 +281,10 @@ exports.getToDayBook = async (req, res) => {
           totalReceivablePersons,
           dailyPayable,
           dailyReceivable,
-          creditTransactions
-        }
+          creditTransactions,
+        },
       },
     });
-
   } catch (err) {
     console.log("Error in getToDayBook:", err);
     res.status(500).json({ message: "Internal Server Error" });

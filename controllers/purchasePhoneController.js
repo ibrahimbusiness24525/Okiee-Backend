@@ -1750,7 +1750,6 @@ exports.sellPhonesFromBulk = async (req, res) => {
       exchangePhoneDetail:
         sellingPaymentType === "Exchange" ? exchangePhoneDetail : undefined,
       bankAccountUsed: bankAccountUsed || undefined,
-      pocketCash: pocketCash || undefined,
     });
 
     await soldPhone.save();
@@ -1790,7 +1789,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
         accountType: bank.accountType,
       });
     }
-
+    console.log("check for userId", req.user.id);
     // Handle pocket cash transaction if applicable
     if (pocketCash) {
       const pocketTransaction = await PocketCashSchema.findOne({
@@ -1800,10 +1799,6 @@ exports.sellPhonesFromBulk = async (req, res) => {
         return res
           .status(404)
           .json({ message: "Pocket cash account not found." });
-      }
-
-      if (pocketCash > pocketTransaction.accountCash) {
-        return res.status(400).json({ message: "Insufficient pocket cash" });
       }
 
       pocketTransaction.accountCash += Number(pocketCash);
