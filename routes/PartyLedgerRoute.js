@@ -1,10 +1,10 @@
-const { createParty, getAllPartyNames, getAllPartiesRecords, getBulkPurchasesByPartyId } = require("../controllers/partyLedgerControllers");
+const { createParty, getAllPartyNames, getAllPartiesRecords, getBulkPurchasesByPartyId, getPartiesNameAndId, getPartyDetailById } = require("../controllers/partyLedgerControllers");
 const PartyLedger = require("../schema/PartyLedgerSchema");
 const { decoderMiddleware } = require("../services/authServices");
 const ModelValidator = require("../validators/ModelValidator");
 const express = require('express');
 
-const router =  express.Router();
+const router = express.Router();
 
 router.post(
     "/create",
@@ -26,6 +26,16 @@ router.get(
 router.get(
     "/bulkPurchase/:id",
     getBulkPurchasesByPartyId
+)
+router.get(
+    "/partyNameAndId",
+    decoderMiddleware,
+    getPartiesNameAndId
+)
+router.get(
+    "/partyDetail/:id",
+    decoderMiddleware,
+    getPartyDetailById
 )
 
 module.exports = router;

@@ -15,16 +15,22 @@ const {
 const createAccessory = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { accessoryName, quantity, perPiecePrice, givePayment } = req.body;
+    const {
+      accessoryName,
+      quantity,
+      perPiecePrice,
+      givePayment,
+      partyLedgerId,
+      purchasePaymentType,
+      creditPaymentData,
+    } = req.body;
 
-    // Validate required fields
-    if (!accessoryName || !quantity || !perPiecePrice) {
-      return res
-        .status(400)
-        .json({ message: "Accessory name, quantity, and price are required" });
+    if (!accessoryName || !quantity || !perPiecePrice || !purchasePaymentType) {
+      return res.status(400).json({
+        message: "Accessory name, quantity, price, and payment type are required",
+      });
     }
 
-    // Validate numeric values
     if (
       isNaN(quantity) ||
       isNaN(perPiecePrice) ||
@@ -38,85 +44,95 @@ const createAccessory = async (req, res) => {
 
     const totalPrice = quantity * perPiecePrice;
 
-    // Handle bank payment if provided
-    if (givePayment?.bankAccountUsed) {
-      const bank = await AddBankAccount.findById(givePayment.bankAccountUsed);
-      if (!bank) return res.status(404).json({ message: "Bank not found" });
+    let purchasePaymentStatus = "paid";
+    let creditData = undefined;
 
-      // Validate amount
+    if (purchasePaymentType === "credit") {
+      purchasePaymentStatus = "pending";
       if (
-        !givePayment.amountFromBank ||
-        isNaN(givePayment.amountFromBank) ||
-        givePayment.amountFromBank <= 0
+        !creditPaymentData ||
+        isNaN(creditPaymentData.payableAmountNow) ||
+        isNaN(creditPaymentData.payableAmountLater)
       ) {
-        return res.status(400).json({ message: "Invalid amount from bank" });
+        return res.status(400).json({
+          message: "Credit payment data is required for credit purchases",
+        });
       }
-
-      if (givePayment.amountFromBank > bank.accountCash) {
-        return res
-          .status(400)
-          .json({ message: "Insufficient funds in bank account" });
-      }
-
-      // Deduct purchase amount from account
-      bank.accountCash -= Number(givePayment.amountFromBank);
-      await bank.save();
-
-      // Log the transaction
-      await BankTransaction.create({
-        bankId: bank._id,
-        userId: userId,
-        reasonOfAmountDeduction: `Purchasing accessory: ${accessoryName}`,
-        amount: givePayment.amountFromBank,
-        accountCash: bank.accountCash,
-        accountType: bank.accountType,
-        transactionType: "debit",
-        details: {
-          accessoryName,
-          quantity,
-          totalPrice,
-        },
-      });
+      creditData = {
+        payableAmountNow: creditPaymentData.payableAmountNow,
+        payableAmountLater: creditPaymentData.payableAmountLater,
+        totalPaidAmount: creditPaymentData.totalPaidAmount || 0,
+        dateOfPayment: creditPaymentData.dateOfPayment,
+      };
     }
 
-    // Handle pocket payment if provided
-    if (givePayment?.amountFromPocket) {
-      const pocketTransaction = await PocketCashSchema.findOne({ userId });
-      if (!pocketTransaction) {
-        return res
-          .status(404)
-          .json({ message: "Pocket cash account not found." });
+    // Handle payment (only for full-payment or partial credit payment)
+    if (purchasePaymentType === "full-payment" || (purchasePaymentType === "credit" && Number(creditPaymentData.payableAmountNow) > 0)) {
+      // Bank payment
+      if (givePayment?.bankAccountUsed) {
+        const bank = await AddBankAccount.findById(givePayment.bankAccountUsed);
+        if (!bank) return res.status(404).json({ message: "Bank not found" });
+
+        const amountToDeduct =
+          purchasePaymentType === "full-payment"
+            ? totalPrice
+            : Number(creditPaymentData.payableAmountNow);
+
+        if (
+          isNaN(amountToDeduct) ||
+          amountToDeduct <= 0 ||
+          amountToDeduct > bank.accountCash
+        ) {
+          return res.status(400).json({ message: "Invalid or insufficient bank amount" });
+        }
+
+        bank.accountCash -= amountToDeduct;
+        await bank.save();
+
+        await BankTransaction.create({
+          bankId: bank._id,
+          userId,
+          reasonOfAmountDeduction: `Purchasing accessory: ${accessoryName}`,
+          amount: amountToDeduct,
+          accountCash: bank.accountCash,
+          accountType: bank.accountType,
+
+        });
       }
 
-      // Validate amount
-      if (
-        isNaN(givePayment.amountFromPocket) ||
-        givePayment.amountFromPocket <= 0
-      ) {
-        return res.status(400).json({ message: "Invalid pocket cash amount" });
+      // Pocket payment
+      if (givePayment?.amountFromPocket) {
+        const pocketTransaction = await PocketCashSchema.findOne({ userId });
+        if (!pocketTransaction) {
+          return res.status(404).json({ message: "Pocket cash account not found." });
+        }
+
+        const amountToDeduct =
+          purchasePaymentType === "full-payment"
+            ? totalPrice
+            : Number(creditPaymentData.payableAmountNow);
+
+        if (
+          isNaN(amountToDeduct) ||
+          amountToDeduct <= 0 ||
+          amountToDeduct > pocketTransaction.accountCash
+        ) {
+          return res.status(400).json({ message: "Invalid or insufficient pocket cash" });
+        }
+
+        pocketTransaction.accountCash -= amountToDeduct;
+        await pocketTransaction.save();
+
+        await PocketCashTransactionSchema.create({
+          userId,
+          pocketCashId: pocketTransaction._id,
+          amountDeducted: amountToDeduct,
+          accountCash: pocketTransaction.accountCash,
+          remainingAmount: pocketTransaction.accountCash,
+          reasonOfAmountDeduction: `Purchasing accessory: ${accessoryName}`,
+
+        });
       }
-
-      if (givePayment.amountFromPocket > pocketTransaction.accountCash) {
-        return res.status(400).json({ message: "Insufficient pocket cash" });
-      }
-
-      // Deduct amount from pocket
-      pocketTransaction.accountCash -= Number(givePayment.amountFromPocket);
-      await pocketTransaction.save();
-
-      await PocketCashTransactionSchema.create({
-        userId: userId,
-        pocketCashId: pocketTransaction._id,
-        amountDeducted: givePayment.amountFromPocket,
-        accountCash: pocketTransaction.accountCash,
-        remainingAmount: pocketTransaction.accountCash,
-        reasonOfAmountDeduction: `Purchasing accessory: ${accessoryName}`,
-        details: {
-          accessoryName,
-          quantity,
-          totalPrice,
-        },
-      });
     }
 
     // Create the new accessory
@@ -127,6 +143,23 @@ const createAccessory = async (req, res) => {
       perPiecePrice,
       totalPrice,
       stock: quantity,
+      partyLedgerId: partyLedgerId || undefined,
+      purchasePaymentStatus,
+      purchasePaymentType,
+      creditPaymentData: creditData,
+    });
+
+    // Log accessory transaction
+    await AccessoryTransaction.create({
+      userId,
+      accessoryId: newAccessory._id,
+      quantity,
+      perPiecePrice,
+      totalPrice,
+      partyLedgerId: partyLedgerId || undefined,
+      purchasePaymentStatus,
+      purchasePaymentType,
+      creditPaymentData: creditData,
     });
 
     res.status(201).json({
