@@ -161,6 +161,7 @@ const createAccessory = async (req, res) => {
       perPiecePrice,
       totalPrice,
       stock: quantity,
+      personId: entityData._id , // Use the person ID from the created or found person
    
     });
 
@@ -171,6 +172,8 @@ const createAccessory = async (req, res) => {
       quantity,
       perPiecePrice,
       totalPrice,
+      personId: entityData._id , // Use the person ID from the created or found person
+
  
     });
 

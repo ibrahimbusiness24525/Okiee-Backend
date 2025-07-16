@@ -31,7 +31,12 @@ const accessorySchema = mongoose.Schema({
         required: true,
         default: 0,
     },
-
+    
+    personId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Person",
+        required: true,
+    },
 })
 
 const accessoryTransactionSchema = mongoose.Schema({
@@ -57,7 +62,12 @@ const accessoryTransactionSchema = mongoose.Schema({
         type: Number,
         required: true,
     },
-   
+    personId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Person",
+        required: true,
+    },
+    
 
 
 })
