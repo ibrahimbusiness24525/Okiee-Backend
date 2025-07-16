@@ -6,6 +6,7 @@ const {
   AddBankAccount,
   BankTransaction,
 } = require("../schema/BankAccountSchema");
+const { Person, CreditTransaction } = require("../schema/PayablesAndReceiveablesSchema");
 const {
   PocketCashSchema,
   PocketCashTransactionSchema,
@@ -21,6 +22,7 @@ const createAccessory = async (req, res) => {
       perPiecePrice,
       givePayment,
       partyLedgerId,
+      entityData,
       purchasePaymentType,
       creditPaymentData,
     } = req.body;
@@ -44,30 +46,46 @@ const createAccessory = async (req, res) => {
 
     const totalPrice = quantity * perPiecePrice;
 
-    let purchasePaymentStatus = "paid";
-    let creditData = undefined;
-
     if (purchasePaymentType === "credit") {
-      purchasePaymentStatus = "pending";
-      if (
-        !creditPaymentData ||
-        isNaN(creditPaymentData.payableAmountNow) ||
-        isNaN(creditPaymentData.payableAmountLater)
-      ) {
-        return res.status(400).json({
-          message: "Credit payment data is required for credit purchases",
-        });
-      }
-      creditData = {
-        payableAmountNow: creditPaymentData.payableAmountNow,
-        payableAmountLater: creditPaymentData.payableAmountLater,
-        totalPaidAmount: creditPaymentData.totalPaidAmount || 0,
-        dateOfPayment: creditPaymentData.dateOfPayment,
-      };
-    }
+    
 
+      // Use Person and CreditTransaction for receivables
+
+      // Find or create the person (customer) by name and number
+      let person = await Person.findOne({
+        _id: entityData._id,
+        // name: personData,
+        ...(entityData.number && { number: entityData.number }),
+        userId: req.user.id,
+      });
+
+      if (!person) {
+        person = await Person.create({
+          userId: req.user.id,
+          name: entityData.name,
+          number: entityData.number,
+          reference: "Accessory Purchase",
+          takingCredit: Number(creditPaymentData.payableAmountLater),
+          status: "Payable",
+        });
+      } else {
+        person.takingCredit =
+          Number(person.takingCredit || 0) + Number(creditPaymentData.payableAmountLater);
+        person.status = "Payable";
+        person.reference = "accessory Purchase";
+        await person.save();
+      }
+
+      // Log the credit transaction
+      await CreditTransaction.create({
+        userId: req.user.id,
+        personId: person._id,
+        givingCredit: Number(creditPaymentData.payableAmountLater),
+        description: `Credit purchase of accessory: ${accessoryName} by ${entityData.name}`,
+      });
+    }
     // Handle payment (only for full-payment or partial credit payment)
-    if (purchasePaymentType === "full-payment" || (purchasePaymentType === "credit" && Number(creditPaymentData.payableAmountNow) > 0)) {
+   
       // Bank payment
       if (givePayment?.bankAccountUsed) {
         const bank = await AddBankAccount.findById(givePayment.bankAccountUsed);
@@ -98,7 +116,7 @@ const createAccessory = async (req, res) => {
           accountType: bank.accountType,
 
         });
-      }
+  
 
       // Pocket payment
       if (givePayment?.amountFromPocket) {
@@ -143,10 +161,7 @@ const createAccessory = async (req, res) => {
       perPiecePrice,
       totalPrice,
       stock: quantity,
-      partyLedgerId: partyLedgerId || undefined,
-      purchasePaymentStatus,
-      purchasePaymentType,
-      creditPaymentData: creditData,
+   
     });
 
     // Log accessory transaction
@@ -156,10 +171,7 @@ const createAccessory = async (req, res) => {
       quantity,
       perPiecePrice,
       totalPrice,
-      partyLedgerId: partyLedgerId || undefined,
-      purchasePaymentStatus,
-      purchasePaymentType,
-      creditPaymentData: creditData,
+ 
     });
 
     res.status(201).json({
@@ -174,6 +186,168 @@ const createAccessory = async (req, res) => {
     });
   }
 };
+// const createAccessory = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+//     const {
+//       accessoryName,
+//       quantity,
+//       perPiecePrice,
+//       givePayment,
+//       partyLedgerId,
+//       purchasePaymentType,
+//       creditPaymentData,
+//     } = req.body;
+
+//     if (!accessoryName || !quantity || !perPiecePrice || !purchasePaymentType) {
+//       return res.status(400).json({
+//         message: "Accessory name, quantity, price, and payment type are required",
+//       });
+//     }
+
+//     if (
+//       isNaN(quantity) ||
+//       isNaN(perPiecePrice) ||
+//       quantity <= 0 ||
+//       perPiecePrice <= 0
+//     ) {
+//       return res
+//         .status(400)
+//         .json({ message: "Quantity and price must be positive numbers" });
+//     }
+
+//     const totalPrice = quantity * perPiecePrice;
+
+//     let purchasePaymentStatus = "paid";
+//     let creditData = undefined;
+
+//     if (purchasePaymentType === "credit") {
+//       purchasePaymentStatus = "pending";
+//       if (
+//         !creditPaymentData ||
+//         isNaN(creditPaymentData.payableAmountNow) ||
+//         isNaN(creditPaymentData.payableAmountLater)
+//       ) {
+//         return res.status(400).json({
+//           message: "Credit payment data is required for credit purchases",
+//         });
+//       }
+//       creditData = {
+//         payableAmountNow: creditPaymentData.payableAmountNow,
+//         payableAmountLater: creditPaymentData.payableAmountLater,
+//         totalPaidAmount: creditPaymentData.totalPaidAmount || 0,
+//         dateOfPayment: creditPaymentData.dateOfPayment,
+//       };
+//     }
+
+//     // Handle payment (only for full-payment or partial credit payment)
+//     if (purchasePaymentType === "full-payment" || (purchasePaymentType === "credit" && Number(creditPaymentData.payableAmountNow) > 0)) {
+//       // Bank payment
+//       if (givePayment?.bankAccountUsed) {
+//         const bank = await AddBankAccount.findById(givePayment.bankAccountUsed);
+//         if (!bank) return res.status(404).json({ message: "Bank not found" });
+
+//         const amountToDeduct =
+//           purchasePaymentType === "full-payment"
+//             ? totalPrice
+//             : Number(creditPaymentData.payableAmountNow);
+
+//         if (
+//           isNaN(amountToDeduct) ||
+//           amountToDeduct <= 0 ||
+//           amountToDeduct > bank.accountCash
+//         ) {
+//           return res.status(400).json({ message: "Invalid or insufficient bank amount" });
+//         }
+
+//         bank.accountCash -= amountToDeduct;
+//         await bank.save();
+
+//         await BankTransaction.create({
+//           bankId: bank._id,
+//           userId,
+//           reasonOfAmountDeduction: `Purchasing accessory: ${accessoryName}`,
+//           amount: amountToDeduct,
+//           accountCash: bank.accountCash,
+//           accountType: bank.accountType,
+
+//         });
+//       }
+
+//       // Pocket payment
+//       if (givePayment?.amountFromPocket) {
+//         const pocketTransaction = await PocketCashSchema.findOne({ userId });
+//         if (!pocketTransaction) {
+//           return res.status(404).json({ message: "Pocket cash account not found." });
+//         }
+
+//         const amountToDeduct =
+//           purchasePaymentType === "full-payment"
+//             ? totalPrice
+//             : Number(creditPaymentData.payableAmountNow);
+
+//         if (
+//           isNaN(amountToDeduct) ||
+//           amountToDeduct <= 0 ||
+//           amountToDeduct > pocketTransaction.accountCash
+//         ) {
+//           return res.status(400).json({ message: "Invalid or insufficient pocket cash" });
+//         }
+
+//         pocketTransaction.accountCash -= amountToDeduct;
+//         await pocketTransaction.save();
+
+//         await PocketCashTransactionSchema.create({
+//           userId,
+//           pocketCashId: pocketTransaction._id,
+//           amountDeducted: amountToDeduct,
+//           accountCash: pocketTransaction.accountCash,
+//           remainingAmount: pocketTransaction.accountCash,
+//           reasonOfAmountDeduction: `Purchasing accessory: ${accessoryName}`,
+
+//         });
+//       }
+//     }
+
+//     // Create the new accessory
+//     const newAccessory = await Accessory.create({
+//       userId,
+//       accessoryName,
+//       quantity,
+//       perPiecePrice,
+//       totalPrice,
+//       stock: quantity,
+//       partyLedgerId: partyLedgerId || undefined,
+//       purchasePaymentStatus,
+//       purchasePaymentType,
+//       creditPaymentData: creditData,
+//     });
+
+//     // Log accessory transaction
+//     await AccessoryTransaction.create({
+//       userId,
+//       accessoryId: newAccessory._id,
+//       quantity,
+//       perPiecePrice,
+//       totalPrice,
+//       partyLedgerId: partyLedgerId || undefined,
+//       purchasePaymentStatus,
+//       purchasePaymentType,
+//       creditPaymentData: creditData,
+//     });
+
+//     res.status(201).json({
+//       message: "Accessory created successfully",
+//       accessory: newAccessory,
+//     });
+//   } catch (error) {
+//     console.error("Error creating accessory:", error);
+//     res.status(500).json({
+//       message: "Failed to create accessory",
+//       error: error.message,
+//     });
+//   }
+// };
 
 // GET all accessories for the user
 const getAllAccessories = async (req, res) => {
@@ -480,7 +654,6 @@ const handleAddAcessoryStockById = async (req, res) => {
     });
   }
 };
-
 module.exports = {
   createAccessory,
   getAllAccessories,

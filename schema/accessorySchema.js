@@ -31,26 +31,7 @@ const accessorySchema = mongoose.Schema({
         required: true,
         default: 0,
     },
-    partyLedgerId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "PartyLedger",
-    },
-    purchasePaymentStatus: {
-        type: String,
-        enum: ["paid", "pending"],
-        default: "paid",
-    },
-    purchasePaymentType: {
-        type: String,
-        enum: ["full-payment", "credit"],
-        required: true,
-    },
-    creditPaymentData: {
-        payableAmountNow: { type: String, required: false },
-        payableAmountLater: { type: String, required: false },
-        totalPaidAmount: { type: Number, required: false },
-        dateOfPayment: { type: Date, required: false },
-    },
+
 })
 
 const accessoryTransactionSchema = mongoose.Schema({
@@ -76,26 +57,8 @@ const accessoryTransactionSchema = mongoose.Schema({
         type: Number,
         required: true,
     },
-    partyLedgerId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "PartyLedger",
-    },
-    purchasePaymentStatus: {
-        type: String,
-        enum: ["paid", "pending"],
-        default: "paid",
-    },
-    purchasePaymentType: {
-        type: String,
-        enum: ["full-payment", "credit"],
-        required: true,
-    },
-    creditPaymentData: {
-        payableAmountNow: { type: String, required: false },
-        payableAmountLater: { type: String, required: false },
-        totalPaidAmount: { type: Number, required: false },
-        dateOfPayment: { type: Date, required: false },
-    },
+   
+
 
 })
 

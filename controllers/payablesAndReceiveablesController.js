@@ -203,3 +203,12 @@ exports.getPersonDetail = async (req, res) => {
     res.status(500).json({ message: "Error fetching person detail", error });
   }
 };
+exports.getAllPersonsNameAndId = async (req, res) => {
+  try{
+    const userId = req.user.id;
+    const persons = await Person.find({ userId }).select('name _id').sort({ createdAt: -1 });
+    res.status(200).json(persons);
+    }catch(error) {
+    res.status(500).json({ message: "Error fetching persons", error });
+  }
+}

@@ -20,7 +20,9 @@ router.post("/take-credit",decoderMiddleware,  creditController.takeCredit);
 // 4. Get all persons with their credit info
 router.get("/all",decoderMiddleware,  creditController.getAllPersons);
 
+router.get("/nameAndId",decoderMiddleware,  creditController.getAllPersonsNameAndId);
 // 5. Get detailed info of a specific person by ID
 router.get("/:id",decoderMiddleware,  creditController.getPersonDetail);
+
 
 module.exports = router;
