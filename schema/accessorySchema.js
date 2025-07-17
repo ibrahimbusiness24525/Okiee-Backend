@@ -35,9 +35,13 @@ const accessorySchema = mongoose.Schema({
     personId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Person",
-        required: true,
+        required: false,
     },
-})
+},
+{
+  timestamps: true // ✅ This adds createdAt and updatedAt
+}
+)
 
 const accessoryTransactionSchema = mongoose.Schema({
     userId: {
@@ -70,6 +74,8 @@ const accessoryTransactionSchema = mongoose.Schema({
     
 
 
+},{
+  timestamps: true // ✅ This adds createdAt and updatedAt
 })
 
 module.exports = {

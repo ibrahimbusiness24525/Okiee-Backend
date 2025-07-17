@@ -1,3 +1,4 @@
+const { Accessory, AccessoryTransaction } = require("../schema/accessorySchema");
 const Ledger = require("../schema/LedgerSchema");
 const {
   Person,
@@ -187,6 +188,8 @@ exports.getToDayBook = async (req, res) => {
       allBulkPhones,
       persons,
       creditTransactions,
+      accessories,
+      accessoryTransactions,
     ] = await Promise.all([
       Ledger.find({ userId, createdAt: { $gte: selectedDate, $lt: nextDate } }),
       PurchasePhone.find({
@@ -220,6 +223,11 @@ exports.getToDayBook = async (req, res) => {
         userId,
         createdAt: { $gte: selectedDate, $lt: nextDate },
       }),
+      Accessory.find({ userId, createdAt: { $gte: selectedDate, $lt: nextDate } }),
+      AccessoryTransaction.find({
+        userId,
+        createdAt:{$gte: selectedDate, $lt: nextDate},
+      })
     ]);
 
     // === PHONE STOCK CALCULATIONS ===
@@ -263,7 +271,16 @@ exports.getToDayBook = async (req, res) => {
       (sum, txn) => sum + txn.givingCredit,
       0
     );
-
+    // Calculate totalAccessoriesProfit based on the latest profit values saved in each accessory.
+   const totalAccessoriesProfit = accessoryTransactions.reduce(
+  (sum, transaction) => sum + (transaction.totalProfit || 0),
+  0
+);
+    const totalAccesoriesTransactionLength = accessoryTransactions.length;
+    const totalAccessoryTransactionAmount = accessoryTransactions.reduce(
+      (sum, transaction) => sum + (transaction.totalPrice || 0),
+      0
+    );
     res.status(200).json({
       message: `Records fetched for ${dateParam || "today"}`,
       data: {
@@ -274,6 +291,9 @@ exports.getToDayBook = async (req, res) => {
         soldBulkPhone,
         totalStockCount: totalSinglePhones + totalBulkPhones,
         totalStockAmount: totalSingleAmount + totalBulkAmount,
+        totalAccessoriesProfit,
+        totalAccesoriesTransactionLength,
+        totalAccessoryTransactionAmount,
         creditSummary: {
           totalPayable,
           totalReceivable,
