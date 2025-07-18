@@ -223,10 +223,10 @@ exports.getToDayBook = async (req, res) => {
         userId,
         createdAt: { $gte: selectedDate, $lt: nextDate },
       }),
-      Accessory.find({ userId, createdAt: { $gte: selectedDate, $lt: nextDate } }),
+      Accessory.find({ userId, updatedAt: { $gte: selectedDate, $lt: nextDate } }),
       AccessoryTransaction.find({
         userId,
-        createdAt:{$gte: selectedDate, $lt: nextDate},
+        createdAt: { $gte: selectedDate, $lt: nextDate },
       })
     ]);
 
@@ -271,11 +271,14 @@ exports.getToDayBook = async (req, res) => {
       (sum, txn) => sum + txn.givingCredit,
       0
     );
-    // Calculate totalAccessoriesProfit based on the latest profit values saved in each accessory.
-   const totalAccessoriesProfit = accessoryTransactions.reduce(
-  (sum, transaction) => sum + (transaction.totalProfit || 0),
-  0
-);
+    // const totalAccessoriesProfit = accessoryTransactions.reduce(
+    //   (sum, transaction) => sum + (transaction.totalProfit || 0),
+    //   0
+    // );
+    const totalAccessoriesProfit = accessories.reduce(
+      (sum, accessory) => sum + (accessory.profit || 0),
+      0
+    );
     const totalAccesoriesTransactionLength = accessoryTransactions.length;
     const totalAccessoryTransactionAmount = accessoryTransactions.reduce(
       (sum, transaction) => sum + (transaction.totalPrice || 0),

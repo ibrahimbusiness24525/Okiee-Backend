@@ -46,18 +46,18 @@ const createAccessory = async (req, res) => {
     const totalPrice = quantity * perPiecePrice;
 
     let person = await Person.findOne({
-     ...(!entityData.number && { _id: entityData._id }),
+      ...(!entityData.number && { _id: entityData._id }),
       // name: personData,
       ...(entityData.number && { number: entityData.number }),
       userId: req.user.id,
     });
     if (purchasePaymentType === "credit") {
-    
+
 
       // Use Person and CreditTransaction for receivables
 
       // Find or create the person (customer) by name and number
-console.log("entityData", person);
+      console.log("entityData", person);
       if (!person) {
         person = await Person.create({
           userId: req.user.id,
@@ -84,38 +84,38 @@ console.log("entityData", person);
       });
     }
     // Handle payment (only for full-payment or partial credit payment)
-   
-      // Bank payment
-      if (givePayment?.bankAccountUsed) {
-        const bank = await AddBankAccount.findById(givePayment.bankAccountUsed);
-        if (!bank) return res.status(404).json({ message: "Bank not found" });
 
-        const amountToDeduct =
-          purchasePaymentType === "full-payment"
-            ? totalPrice
-            : Number(creditPaymentData.payableAmountNow);
+    // Bank payment
+    if (givePayment?.bankAccountUsed) {
+      const bank = await AddBankAccount.findById(givePayment.bankAccountUsed);
+      if (!bank) return res.status(404).json({ message: "Bank not found" });
 
-        if (
-          isNaN(amountToDeduct) ||
-          amountToDeduct <= 0 ||
-          amountToDeduct > bank.accountCash
-        ) {
-          return res.status(400).json({ message: "Invalid or insufficient bank amount" });
-        }
+      const amountToDeduct =
+        purchasePaymentType === "full-payment"
+          ? totalPrice
+          : Number(creditPaymentData.payableAmountNow);
 
-        bank.accountCash -= amountToDeduct;
-        await bank.save();
+      if (
+        isNaN(amountToDeduct) ||
+        amountToDeduct <= 0 ||
+        amountToDeduct > bank.accountCash
+      ) {
+        return res.status(400).json({ message: "Invalid or insufficient bank amount" });
+      }
 
-        await BankTransaction.create({
-          bankId: bank._id,
-          userId,
-          reasonOfAmountDeduction: `Purchasing accessory: ${accessoryName}`,
-          amount: amountToDeduct,
-          accountCash: bank.accountCash,
-          accountType: bank.accountType,
+      bank.accountCash -= amountToDeduct;
+      await bank.save();
 
-        });
-  
+      await BankTransaction.create({
+        bankId: bank._id,
+        userId,
+        reasonOfAmountDeduction: `Purchasing accessory: ${accessoryName}`,
+        amount: amountToDeduct,
+        accountCash: bank.accountCash,
+        accountType: bank.accountType,
+
+      });
+
 
       // Pocket payment
       if (givePayment?.amountFromPocket) {
@@ -161,7 +161,7 @@ console.log("entityData", person);
       totalPrice,
       stock: quantity,
       personId: entityData._id || person._id, // Use the person ID from the created or found person
-   
+
     });
 
     // Log accessory transaction
@@ -171,9 +171,9 @@ console.log("entityData", person);
       quantity,
       perPiecePrice,
       totalPrice,
-      personId: entityData._id || person._id , // Use the person ID from the created or found person
+      personId: entityData._id || person._id, // Use the person ID from the created or found person
 
- 
+
     });
 
     res.status(201).json({
@@ -210,7 +210,7 @@ const sellMultipleAccessories = async (req, res) => {
       return res.status(400).json({ message: "Sales array is required" });
     }
 
-    const { getPayment,  entityData,
+    const { getPayment, entityData,
       purchasePaymentType,
       creditPaymentData, } = req.body;
     const transactions = [];
@@ -277,19 +277,19 @@ const sellMultipleAccessories = async (req, res) => {
         sourceOfAmountAddition: `making sale of accessories`,
       });
     }
- let person = await Person.findOne({
-     ...(!entityData.number && { _id: entityData._id }),
+    let person = await Person.findOne({
+      ...(!entityData.number && { _id: entityData._id }),
       // name: personData,
       ...(entityData.number && { number: entityData.number }),
       userId: req.user.id,
     });
     if (purchasePaymentType === "credit") {
-    
+
 
       // Use Person and CreditTransaction for receivables
 
       // Find or create the person (customer) by name and number
-console.log("entityData", person);
+      console.log("entityData", person);
       if (!person) {
         person = await Person.create({
           userId: req.user.id,
@@ -355,8 +355,10 @@ console.log("entityData", person);
       }
 
       const totalPrice = quantity * perPiecePrice;
+      const profit = (Number(perPiecePrice) - Number(accessory.perPiecePrice)) * Number(quantity);
+      console.log(`Profit for ${accessory.accessoryName}:`, profit);
 
-   
+
       const transaction = await AccessoryTransaction.create({
         userId,
         accessoryId,
@@ -364,10 +366,11 @@ console.log("entityData", person);
         perPiecePrice,
         totalPrice,
         transactionType: "sale",
+        totalProfit: (Number(perPiecePrice) - Number(accessory.perPiecePrice)) * Number(quantity),
         personId: entityData._id || person._id, // Use the person ID from the created or found person
       });
 
-      // Update stock
+      // Update stock`
       accessory.stock -= quantity;
       accessory.totalPrice -=
         Number(accessory.perPiecePrice) * Number(quantity);
