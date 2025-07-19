@@ -10,7 +10,6 @@ const personSchema = mongoose.Schema({
   status: { type: String, enum: ["Payable", "Receivable", "Settled"], default: "Settled" },
 }, { timestamps: true });
 
-// Create a model for the person schema
 
 const creditTransactionSchema = mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

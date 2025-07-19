@@ -284,6 +284,14 @@ exports.getToDayBook = async (req, res) => {
       (sum, transaction) => sum + (transaction.totalPrice || 0),
       0
     );
+    const todayPersonsOfAccessories = accessories.map(accessory => ({
+      name: accessory?.personId?.name || "Unknown",
+      phone: accessory?.personId?.number || "Unknown",
+      totalPrice: accessory?.totalPrice || 0,
+      profit: accessory?.profit || 0,
+      accessoryName: accessory.accessoryName || "Unknown",
+      quantity: accessory.quantity || 0,
+    }));
     res.status(200).json({
       message: `Records fetched for ${dateParam || "today"}`,
       data: {
@@ -294,6 +302,7 @@ exports.getToDayBook = async (req, res) => {
         soldBulkPhone,
         totalStockCount: totalSinglePhones + totalBulkPhones,
         totalStockAmount: totalSingleAmount + totalBulkAmount,
+        todayPersonsOfAccessories,
         totalAccessoriesProfit,
         totalAccesoriesTransactionLength,
         totalAccessoryTransactionAmount,

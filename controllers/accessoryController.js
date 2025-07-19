@@ -53,10 +53,6 @@ const createAccessory = async (req, res) => {
     });
     if (purchasePaymentType === "credit") {
 
-
-      // Use Person and CreditTransaction for receivables
-
-      // Find or create the person (customer) by name and number
       console.log("entityData", person);
       if (!person) {
         person = await Person.create({
@@ -515,6 +511,47 @@ const handleAddAcessoryStockById = async (req, res) => {
     });
   }
 };
+const getAccessoriesPersonRecord = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const accessories = await Accessory.find({ userId }).populate("personId", "name _id number");
+    if (!accessories || accessories.length === 0) {
+      return res.status(404).json({ message: "No accessories found for this person" });
+    }
+
+    res.status(200).json(accessories);
+  } catch (error) {
+    console.error("Error fetching accessories for person:", error);
+    res.status(500).json({ message: "Failed to fetch accessories", error });
+  }
+}
+const deleteAccessoryById = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    // Validate accessory ID
+    if (!id) {
+      return res.status(400).json({ message: "Accessory ID is required" });
+    }
+
+    // Find and delete the accessory
+    const accessory = await Accessory.findOneAndDelete({ _id: id, userId });
+    if (!accessory) {
+      return res.status(404).json({ message: "Accessory not found or unauthorized" });
+    }
+
+    // Optionally, delete related transactions
+    await AccessoryTransaction.deleteMany({ accessoryId: id, userId });
+
+    res.status(200).json({ message: "Accessory and related transactions deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting accessory:", error);
+    res.status(500).json({ message: "Failed to delete accessory", error });
+  }
+};
+
 module.exports = {
   createAccessory,
   getAllAccessories,
@@ -523,4 +560,6 @@ module.exports = {
   deleteAccessory,
   getAccessoriesData,
   handleAddAcessoryStockById,
+  getAccessoriesPersonRecord,
+  deleteAccessoryById,
 };
