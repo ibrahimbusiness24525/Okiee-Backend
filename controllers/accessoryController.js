@@ -168,7 +168,7 @@ const createAccessory = async (req, res) => {
       perPiecePrice,
       totalPrice,
       personId: entityData._id || person._id, // Use the person ID from the created or found person
-
+      type: "purchase", // Set type to 'purchase'
 
     });
 
@@ -361,8 +361,9 @@ const sellMultipleAccessories = async (req, res) => {
         quantity,
         perPiecePrice,
         totalPrice,
-        transactionType: "sale",
-        totalProfit: (Number(perPiecePrice) - Number(accessory.perPiecePrice)) * Number(quantity),
+        // transactionType: "sale",
+        type: "sale", // Set type to 'sale'
+        profit: (Number(perPiecePrice) - Number(accessory.perPiecePrice)) * Number(quantity),
         personId: entityData._id || person._id, // Use the person ID from the created or found person
       });
 
@@ -514,13 +515,30 @@ const handleAddAcessoryStockById = async (req, res) => {
 const getAccessoriesPersonRecord = async (req, res) => {
   try {
     const userId = req.user.id;
-
-    const accessories = await Accessory.find({ userId }).populate("personId", "name _id number");
-    if (!accessories || accessories.length === 0) {
-      return res.status(404).json({ message: "No accessories found for this person" });
-    }
-
-    res.status(200).json(accessories);
+    const records = await AccessoryTransaction.find({ userId, type: "sale" })
+      .populate("accessoryId", "accessoryName");
+    // Map records to include accessoryName at the top level
+    const result = records.map(record => ({
+      ...record.toObject(),
+      accessoryName: record.accessoryId?.accessoryName || null,
+    }));
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Error fetching accessories for person:", error);
+    res.status(500).json({ message: "Failed to fetch accessories", error });
+  }
+}
+const getAccessoriesPersonPurchaseRecord = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const records = await AccessoryTransaction.find({ userId, type: "purchase" })
+      .populate("accessoryId", "accessoryName");
+    // Map records to include accessoryName at the top level
+    const result = records.map(record => ({
+      ...record.toObject(),
+      accessoryName: record.accessoryId?.accessoryName || null,
+    }));
+    res.status(200).json(result);
   } catch (error) {
     console.error("Error fetching accessories for person:", error);
     res.status(500).json({ message: "Failed to fetch accessories", error });
@@ -535,8 +553,6 @@ const deleteAccessoryById = async (req, res) => {
     if (!id) {
       return res.status(400).json({ message: "Accessory ID is required" });
     }
-
-    // Find and delete the accessory
     const accessory = await Accessory.findOneAndDelete({ _id: id, userId });
     if (!accessory) {
       return res.status(404).json({ message: "Accessory not found or unauthorized" });
@@ -562,4 +578,5 @@ module.exports = {
   handleAddAcessoryStockById,
   getAccessoriesPersonRecord,
   deleteAccessoryById,
+  getAccessoriesPersonPurchaseRecord
 };

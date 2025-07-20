@@ -8,6 +8,7 @@ const {
   handleAddAcessoryStockById,
   getAccessoriesPersonRecord,
   deleteAccessoryById,
+  getAccessoriesPersonPurchaseRecord,
 } = require("../controllers/accessoryController");
 const { decoderMiddleware } = require("../services/authServices");
 const { getAccessoriesData } = require("../controllers/accessoryController");
@@ -24,6 +25,7 @@ router.get("/data", getAccessoriesData)
 router.delete("/:id", deleteAccessory);
 router.post("/:id", handleAddAcessoryStockById);
 router.get("/accessoryRecord", getAccessoriesPersonRecord);
+router.get("/accessoryRecord/purchase", getAccessoriesPersonPurchaseRecord);
 router.delete("/:id", deleteAccessoryById);
 
 module.exports = router;

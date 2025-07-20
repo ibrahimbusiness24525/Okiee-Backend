@@ -67,8 +67,16 @@ const accessoryTransactionSchema = mongoose.Schema({
         ref: "Person",
         required: true,
     },
-
-
+    profit: {
+        type: Number,
+        required: false,
+        default: 0,
+    },
+    type: {
+        type: String,
+        enum: ["purchase", "sale"],
+        required: true,
+    }
 
 }, {
     timestamps: true // ✅ This adds createdAt and updatedAt
