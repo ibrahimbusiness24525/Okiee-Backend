@@ -44,15 +44,15 @@ const createAccessory = async (req, res) => {
     }
 
     const totalPrice = quantity * perPiecePrice;
-
-    let person = await Person.findOne({
-      ...(!entityData.number && { _id: entityData._id }),
-      // name: personData,
-      ...(entityData.number && { number: entityData.number }),
-      userId: req.user.id,
-    });
-    if (purchasePaymentType === "credit") {
-
+let person;
+if (purchasePaymentType === "credit") {
+  
+  person = await Person.findOne({
+  ...(!entityData.number && { _id: entityData._id }),
+  // name: personData,
+  ...(entityData.number && { number: entityData.number }),
+  userId: req.user.id,
+});
       console.log("entityData", person);
       if (!person) {
         person = await Person.create({

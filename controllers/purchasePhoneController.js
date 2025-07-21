@@ -3276,7 +3276,6 @@ exports.deleteSoldPhone = async (req, res) => {
       .json({ message: "Internal server error", error: error.message });
   }
 };
-
 exports.getDetailByImeiNumber = async (req, res) => {
   try {
     let { imei } = req.params;
