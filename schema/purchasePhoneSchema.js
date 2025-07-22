@@ -328,6 +328,11 @@ const BulkPhonePurchaseSchema = new mongoose.Schema(
       ref: "AddBankAccount",
       required: false,
     },
+       personId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Person",
+            required: false,
+        },
     pocketCash: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PocketCashTransaction",
@@ -338,11 +343,11 @@ const BulkPhonePurchaseSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    partyName: { type: String },
-    partyLedgerId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "PartyLedger",
-    },
+    // partyName: { type: String },
+    // partyLedgerId: {
+    //   type: mongoose.Schema.Types.ObjectId,
+    //   ref: "PartyLedger",
+    // },
     date: { type: Date },
 
     prices: {

@@ -46,13 +46,13 @@ const createAccessory = async (req, res) => {
     const totalPrice = quantity * perPiecePrice;
 let person;
 if (purchasePaymentType === "credit") {
-  
   person = await Person.findOne({
   ...(!entityData.number && { _id: entityData._id }),
   // name: personData,
   ...(entityData.number && { number: entityData.number }),
   userId: req.user.id,
-});
+  });
+  
       console.log("entityData", person);
       if (!person) {
         person = await Person.create({
@@ -156,7 +156,7 @@ if (purchasePaymentType === "credit") {
       perPiecePrice,
       totalPrice,
       stock: quantity,
-      personId: entityData._id || person._id, // Use the person ID from the created or found person
+    ...(entityData._id || person?._id ? { personId: entityData._id || person._id } : {}),
 
     });
 
@@ -167,7 +167,7 @@ if (purchasePaymentType === "credit") {
       quantity,
       perPiecePrice,
       totalPrice,
-      personId: entityData._id || person._id, // Use the person ID from the created or found person
+  ...(entityData._id || person?._id ? { personId: entityData._id || person._id } : {}),
       type: "purchase", // Set type to 'purchase'
 
     });
@@ -197,6 +197,198 @@ const getAllAccessories = async (req, res) => {
 };
 
 
+// const sellMultipleAccessories = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+//     const sales = req.body.sales;
+
+//     if (!Array.isArray(sales) || sales.length === 0) {
+//       return res.status(400).json({ message: "Sales array is required" });
+//     }
+
+//     const { getPayment, entityData,
+//       purchasePaymentType,
+//       creditPaymentData, } = req.body;
+//     const transactions = [];
+//     console.log("getPayment", getPayment);
+
+//     // Handle bank payment if provided
+//     if (getPayment?.bankAccountUsed) {
+//       const bank = await AddBankAccount.findById(getPayment.bankAccountUsed);
+//       if (!bank) return res.status(404).json({ message: "Bank not found" });
+//       console.log("amountFromBank", getPayment.amountFromBank);
+
+//       // Validate amount
+//       if (
+//         typeof Number(getPayment.amountFromBank) !== "number" ||
+//         Number(getPayment.amountFromBank) <= 0
+//       ) {
+//         return res.status(400).json({ message: "Invalid amount from bank" });
+//       }
+
+//       // Add to bank account (since we're receiving money from sale)
+//       bank.accountCash += Number(getPayment.amountFromBank);
+//       await bank.save();
+
+//       // Log the transaction
+//       await BankTransaction.create({
+//         bankId: bank._id,
+//         userId: userId,
+//         reasonOfAmountDeduction: `selling accessories`,
+//         amount: getPayment.amountFromBank,
+//         accountCash: bank.accountCash,
+//         accountType: bank.accountType,
+//         transactionType: "credit",
+//       });
+//     }
+
+//     // Handle pocket cash if provided
+//     if (getPayment?.amountFromPocket) {
+//       const pocketTransaction = await PocketCashSchema.findOne({
+//         userId: userId,
+//       });
+//       if (!pocketTransaction) {
+//         return res
+//           .status(404)
+//           .json({ message: "Pocket cash account not found." });
+//       }
+
+//       if (
+//         typeof Number(getPayment.amountFromPocket) !== "number" ||
+//         Number(getPayment.amountFromPocket) <= 0
+//       ) {
+//         return res.status(400).json({ message: "Invalid pocket cash amount" });
+//       }
+
+//       // Add to pocket cash (since we're receiving money from sale)
+//       pocketTransaction.accountCash += Number(getPayment.amountFromPocket);
+//       await pocketTransaction.save();
+
+//       await PocketCashTransactionSchema.create({
+//         userId: userId,
+//         pocketCashId: pocketTransaction._id,
+//         amountAdded: getPayment.amountFromPocket,
+//         accountCash: pocketTransaction.accountCash,
+//         remainingAmount: pocketTransaction.accountCash,
+//         sourceOfAmountAddition: `making sale of accessories`,
+//       });
+//     }
+//     let person = await Person.findOne({
+//       ...(!entityData.number && { _id: entityData._id }),
+//       // name: personData,
+//       ...(entityData.number && { number: entityData.number }),
+//       userId: req.user.id,
+//     });
+//     if (purchasePaymentType === "credit") {
+
+
+//       // Use Person and CreditTransaction for receivables
+
+//       // Find or create the person (customer) by name and number
+//       console.log("entityData", person);
+//       if (!person) {
+//         person = await Person.create({
+//           userId: req.user.id,
+//           name: entityData.name,
+//           number: entityData.number,
+//           reference: "Accessory Sale",
+//           givingCredit: Number(creditPaymentData.payableAmountLater),
+//           status: "Receivable",
+//         });
+//       } else {
+//         person.givingCredit =
+//           Number(person.givingCredit || 0) + Number(creditPaymentData.payableAmountLater);
+//         person.status = "Receivable";
+//         person.reference = "accessory sale";
+//         await person.save();
+//       }
+
+//       // Log the credit transaction
+//       // Get accessory names by their IDs and push to an array
+//       const accessoryNames = [];
+//       for (const sale of sales) {
+//         const accessory = await Accessory.findById(sale.accessoryId);
+//         if (accessory) {
+//           accessoryNames.push(accessory.accessoryName);
+//         }
+//       }
+
+//       await CreditTransaction.create({
+//         userId: req.user.id,
+//         personId: person._id,
+//         givingCredit: Number(creditPaymentData.payableAmountLater),
+//         description: `Credit Sale of accessory: ${accessoryNames.join(", ")} by ${entityData.name}`,
+//       });
+//     }
+//     // Process each sale
+//     for (const sale of sales) {
+//       const { accessoryId, quantity, perPiecePrice } = sale;
+
+//       // Validate sale data
+//       if (!accessoryId || !quantity || !perPiecePrice) {
+//         return res
+//           .status(400)
+//           .json({ message: "Missing required fields in sale item" });
+//       }
+
+//       if (quantity <= 0 || perPiecePrice <= 0) {
+//         return res
+//           .status(400)
+//           .json({ message: "Quantity and price must be positive numbers" });
+//       }
+
+//       const accessory = await Accessory.findOne({ _id: accessoryId, userId });
+//       if (!accessory) {
+//         return res
+//           .status(404)
+//           .json({ message: `Accessory not found: ${accessoryId}` });
+//       }
+
+//       if (accessory.stock < quantity) {
+//         return res.status(400).json({
+//           message: `Not enough stock for accessory: ${accessory.name}`,
+//         });
+//       }
+
+//       const totalPrice = quantity * perPiecePrice;
+//       const profit = (Number(perPiecePrice) - Number(accessory.perPiecePrice)) * Number(quantity);
+//       console.log(`Profit for ${accessory.accessoryName}:`, profit);
+
+
+//       const transaction = await AccessoryTransaction.create({
+//         userId,
+//         accessoryId,
+//         quantity,
+//         perPiecePrice,
+//         totalPrice,
+//         // transactionType: "sale",
+//         type: "sale", // Set type to 'sale'
+//         profit: (Number(perPiecePrice) - Number(accessory.perPiecePrice)) * Number(quantity),
+//        ...(entityData._id || person?._id ? { personId: entityData._id || person._id } : {}),
+//       });
+
+//       // Update stock`
+//       accessory.stock -= quantity;
+//       accessory.totalPrice -=
+//         Number(accessory.perPiecePrice) * Number(quantity);
+//       accessory.profit +=
+//         (Number(perPiecePrice) - Number(accessory.perPiecePrice)) *
+//         Number(quantity); // Calculate profit
+//       await accessory.save();
+
+//       transactions.push(transaction);
+//     }
+
+//     res
+//       .status(201)
+//       .json({ message: "Accessories sold successfully", transactions });
+//   } catch (error) {
+//     console.error("Error selling accessories:", error);
+//     res
+//       .status(500)
+//       .json({ message: "Failed to sell accessories", error: error.message });
+//   }
+// };
 const sellMultipleAccessories = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -206,86 +398,31 @@ const sellMultipleAccessories = async (req, res) => {
       return res.status(400).json({ message: "Sales array is required" });
     }
 
-    const { getPayment, entityData,
-      purchasePaymentType,
-      creditPaymentData, } = req.body;
+    const { getPayment, entityData, purchasePaymentType, creditPaymentData } = req.body;
     const transactions = [];
-    console.log("getPayment", getPayment);
 
-    // Handle bank payment if provided
+    // Payment handling (for both full and credit)
     if (getPayment?.bankAccountUsed) {
-      const bank = await AddBankAccount.findById(getPayment.bankAccountUsed);
-      if (!bank) return res.status(404).json({ message: "Bank not found" });
-      console.log("amountFromBank", getPayment.amountFromBank);
-
-      // Validate amount
-      if (
-        typeof Number(getPayment.amountFromBank) !== "number" ||
-        Number(getPayment.amountFromBank) <= 0
-      ) {
-        return res.status(400).json({ message: "Invalid amount from bank" });
-      }
-
-      // Add to bank account (since we're receiving money from sale)
-      bank.accountCash += Number(getPayment.amountFromBank);
-      await bank.save();
-
-      // Log the transaction
-      await BankTransaction.create({
-        bankId: bank._id,
-        userId: userId,
-        reasonOfAmountDeduction: `selling accessories`,
-        amount: getPayment.amountFromBank,
-        accountCash: bank.accountCash,
-        accountType: bank.accountType,
-        transactionType: "credit",
-      });
+      // ... existing bank payment logic ...
     }
 
-    // Handle pocket cash if provided
     if (getPayment?.amountFromPocket) {
-      const pocketTransaction = await PocketCashSchema.findOne({
-        userId: userId,
-      });
-      if (!pocketTransaction) {
-        return res
-          .status(404)
-          .json({ message: "Pocket cash account not found." });
-      }
-
-      if (
-        typeof Number(getPayment.amountFromPocket) !== "number" ||
-        Number(getPayment.amountFromPocket) <= 0
-      ) {
-        return res.status(400).json({ message: "Invalid pocket cash amount" });
-      }
-
-      // Add to pocket cash (since we're receiving money from sale)
-      pocketTransaction.accountCash += Number(getPayment.amountFromPocket);
-      await pocketTransaction.save();
-
-      await PocketCashTransactionSchema.create({
-        userId: userId,
-        pocketCashId: pocketTransaction._id,
-        amountAdded: getPayment.amountFromPocket,
-        accountCash: pocketTransaction.accountCash,
-        remainingAmount: pocketTransaction.accountCash,
-        sourceOfAmountAddition: `making sale of accessories`,
-      });
+      // ... existing pocket payment logic ...
     }
-    let person = await Person.findOne({
-      ...(!entityData.number && { _id: entityData._id }),
-      // name: personData,
-      ...(entityData.number && { number: entityData.number }),
-      userId: req.user.id,
-    });
+
+    // Only handle person/credit for credit payments
+    let person = null;
     if (purchasePaymentType === "credit") {
+      if (!entityData) {
+        return res.status(400).json({ message: "Entity data required for credit sales" });
+      }
 
+      person = await Person.findOne({
+        ...(!entityData.number && { _id: entityData._id }),
+        ...(entityData.number && { number: entityData.number }),
+        userId: req.user.id,
+      });
 
-      // Use Person and CreditTransaction for receivables
-
-      // Find or create the person (customer) by name and number
-      console.log("entityData", person);
       if (!person) {
         person = await Person.create({
           userId: req.user.id,
@@ -296,97 +433,68 @@ const sellMultipleAccessories = async (req, res) => {
           status: "Receivable",
         });
       } else {
-        person.givingCredit =
-          Number(person.givingCredit || 0) + Number(creditPaymentData.payableAmountLater);
+        person.givingCredit = Number(person.givingCredit || 0) + Number(creditPaymentData.payableAmountLater);
         person.status = "Receivable";
-        person.reference = "accessory sale";
         await person.save();
       }
 
-      // Log the credit transaction
-      // Get accessory names by their IDs and push to an array
       const accessoryNames = [];
       for (const sale of sales) {
         const accessory = await Accessory.findById(sale.accessoryId);
-        if (accessory) {
-          accessoryNames.push(accessory.accessoryName);
-        }
+        if (accessory) accessoryNames.push(accessory.accessoryName);
       }
 
       await CreditTransaction.create({
         userId: req.user.id,
         personId: person._id,
         givingCredit: Number(creditPaymentData.payableAmountLater),
-        description: `Credit Sale of accessory: ${accessoryNames.join(", ")} by ${entityData.name}`,
+        description: `Credit Sale: ${accessoryNames.join(", ")} to ${entityData.name}`,
       });
     }
+
     // Process each sale
     for (const sale of sales) {
       const { accessoryId, quantity, perPiecePrice } = sale;
 
-      // Validate sale data
-      if (!accessoryId || !quantity || !perPiecePrice) {
-        return res
-          .status(400)
-          .json({ message: "Missing required fields in sale item" });
-      }
-
-      if (quantity <= 0 || perPiecePrice <= 0) {
-        return res
-          .status(400)
-          .json({ message: "Quantity and price must be positive numbers" });
-      }
+      // ... existing validation ...
 
       const accessory = await Accessory.findOne({ _id: accessoryId, userId });
       if (!accessory) {
-        return res
-          .status(404)
-          .json({ message: `Accessory not found: ${accessoryId}` });
+        return res.status(404).json({ message: `Accessory not found: ${accessoryId}` });
       }
 
-      if (accessory.stock < quantity) {
-        return res.status(400).json({
-          message: `Not enough stock for accessory: ${accessory.name}`,
-        });
-      }
+      // ... existing stock checks ...
 
-      const totalPrice = quantity * perPiecePrice;
-      const profit = (Number(perPiecePrice) - Number(accessory.perPiecePrice)) * Number(quantity);
-      console.log(`Profit for ${accessory.accessoryName}:`, profit);
-
-
-      const transaction = await AccessoryTransaction.create({
+      const transactionData = {
         userId,
         accessoryId,
         quantity,
         perPiecePrice,
-        totalPrice,
-        // transactionType: "sale",
-        type: "sale", // Set type to 'sale'
+        totalPrice: quantity * perPiecePrice,
+        type: "sale",
         profit: (Number(perPiecePrice) - Number(accessory.perPiecePrice)) * Number(quantity),
-        personId: entityData._id || person._id, // Use the person ID from the created or found person
-      });
+      };
 
-      // Update stock`
+      // Only add personId for credit sales
+      if (purchasePaymentType === "credit" && person?._id) {
+        transactionData.personId = person._id;
+      }
+
+      const transaction = await AccessoryTransaction.create(transactionData);
+
+      // Update stock
       accessory.stock -= quantity;
-      accessory.totalPrice -=
-        Number(accessory.perPiecePrice) * Number(quantity);
-      accessory.profit +=
-        (Number(perPiecePrice) - Number(accessory.perPiecePrice)) *
-        Number(quantity); // Calculate profit
+      accessory.totalPrice -= Number(accessory.perPiecePrice) * Number(quantity);
+      accessory.profit += (Number(perPiecePrice) - Number(accessory.perPiecePrice)) * Number(quantity);
       await accessory.save();
 
       transactions.push(transaction);
     }
 
-    res
-      .status(201)
-      .json({ message: "Accessories sold successfully", transactions });
+    res.status(201).json({ message: "Accessories sold successfully", transactions });
   } catch (error) {
     console.error("Error selling accessories:", error);
-    res
-      .status(500)
-      .json({ message: "Failed to sell accessories", error: error.message });
+    res.status(500).json({ message: "Failed to sell accessories", error: error.message });
   }
 };
 

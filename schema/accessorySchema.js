@@ -65,7 +65,7 @@ const accessoryTransactionSchema = mongoose.Schema({
     personId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Person",
-        required: true,
+        required: false,
     },
     profit: {
         type: Number,

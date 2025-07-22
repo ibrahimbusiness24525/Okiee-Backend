@@ -964,7 +964,7 @@ exports.addBulkPhones = async (req, res) => {
     console.log("Incoming Request Body:", req.body);
 
     const {
-      partyName,
+      // partyName,
       date,
       companyName,
       modelName,
@@ -976,18 +976,55 @@ exports.addBulkPhones = async (req, res) => {
       purchasePaymentStatus,
       purchasePaymentType,
       creditPaymentData = {},
+      entityData = {},
     } = req.body;
-
-    if (purchasePaymentType === "credit") {
-      const total =
-        Number(creditPaymentData.payableAmountNow) +
-        Number(creditPaymentData.payableAmountLater);
-      if (total !== Number(prices.buyingPrice)) {
-        return res.status(400).json({
-          message: "Invalid data: payable amount should equal buying price",
+    let person;
+    console.log("Received Data:", req.body);
+    
+if (purchasePaymentType === "credit") {
+  person = await Person.findOne({
+  ...(!entityData.number && { _id: entityData._id }),
+  // name: personData,
+  ...(entityData.number && { number: entityData.number }),
+  userId: req.user.id,
+  });
+  
+      console.log("entityData", person);
+      if (!person) {
+        person = await Person.create({
+          userId: req.user.id,
+          name: entityData.name,
+          number: entityData.number,
+          reference: "Bulk Category Purchase",
+          takingCredit: Number(creditPaymentData.payableAmountLater),
+          status: "Payable",
         });
+      } else {
+        person.takingCredit =
+          Number(person.takingCredit || 0) + Number(creditPaymentData.payableAmountLater);
+        person.status = "Payable";
+        person.reference = "Bulk Category Purchase";
+        await person.save();
       }
+
+      // Log the credit transaction
+      await CreditTransaction.create({
+        userId: req.user.id,
+        personId: person._id,
+        givingCredit: Number(creditPaymentData.payableAmountLater),
+        description: `Credit purchase of Bulk Category of bulk category purchase by ${entityData.name}`,
+      });
     }
+    // if (purchasePaymentType === "credit") {
+    //   const total =
+    //     Number(creditPaymentData.payableAmountNow) +
+    //     Number(creditPaymentData.payableAmountLater);
+    //   if (total !== Number(prices.buyingPrice)) {
+    //     return res.status(400).json({
+    //       message: "Invalid data: payable amount should equal buying price",
+    //     });
+    //   }
+    // }
 
     if (!ramSimDetails || !Array.isArray(ramSimDetails)) {
       return res
@@ -995,18 +1032,19 @@ exports.addBulkPhones = async (req, res) => {
         .json({ message: "Invalid data: ramSimDetails must be an array" });
     }
 
-    const party = await PartyLedger.findOne({ partyName }).select("_id").exec();
-    if (!party)
-      return res
-        .status(404)
-        .json({ success: false, message: "Party not found" });
+    // const party = await PartyLedger.findOne({ partyName }).select("_id").exec();
+    // if (!party)
+    //   return res
+    //     .status(404)
+    //     .json({ success: false, message: "Party not found" });
 
     const bulkPhonePurchase = new BulkPhonePurchase({
-      partyLedgerId: party._id,
+      // partyLedgerId: party._id,
       userId: req.user.id,
-      partyName,
+      // partyName,
       date,
       companyName,
+      ...(entityData._id || person?._id ? { personId: entityData._id || person._id } : {}),
       modelName,
       prices,
       purchasePaymentType,
@@ -1959,6 +1997,7 @@ exports.getAllSales = async (req, res) => {
 
     const responseData = bulkSales.map((sale) => ({
       type: "Bulk Phone",
+      id: sale._id,
       buyingPrice: sale.bulkPhonePurchaseId?.prices?.buyingPrice || null,
       profit: sale.profit || 0,
       salePrice: sale.salePrice,
