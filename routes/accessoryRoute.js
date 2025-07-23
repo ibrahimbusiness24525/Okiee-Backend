@@ -21,7 +21,7 @@ router.post("/create", createAccessory);
 router.get("/", getAllAccessories);
 router.post("/sell", sellMultipleAccessories);
 router.get("/transactions", getAllTransactions);
-router.get("/data", getAccessoriesData)
+router.get("/data", getAccessoriesData);
 router.delete("/:id", deleteAccessory);
 router.post("/:id", handleAddAcessoryStockById);
 router.get("/accessoryRecord", getAccessoriesPersonRecord);
