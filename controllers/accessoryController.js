@@ -16,45 +16,265 @@ const {
 } = require("../schema/PocketCashSchema");
 
 // CREATE a new accessory
+// const createAccessory = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+//     const {
+//       accessoryName,
+//       quantity,
+//       perPiecePrice,
+//       givePayment,
+//       entityData,
+//       purchasePaymentType,
+//       creditPaymentData,
+//     } = req.body;
+
+//     if (!accessoryName || !quantity || !perPiecePrice || !purchasePaymentType) {
+//       return res.status(400).json({
+//         message:
+//           "Accessory name, quantity, price, and payment type are required",
+//       });
+//     }
+
+//     if (
+//       isNaN(quantity) ||
+//       isNaN(perPiecePrice) ||
+//       quantity <= 0 ||
+//       perPiecePrice <= 0
+//     ) {
+//       return res
+//         .status(400)
+//         .json({ message: "Quantity and price must be positive numbers" });
+//     }
+
+//     const totalPrice = quantity * perPiecePrice;
+//     let person;
+//     person = await Person.findOne({
+//       ...(!entityData.number && { _id: entityData._id }),
+
+//       ...(entityData.number && { number: entityData.number }),
+//       userId: req.user.id,
+//     });
+//     if (purchasePaymentType === "credit") {
+//       console.log("entityData", person);
+//       if (!person) {
+//         person = await Person.create({
+//           userId: req.user.id,
+//           name: entityData.name,
+//           number: entityData.number,
+//           reference: "Accessory Purchase",
+//           takingCredit: Number(creditPaymentData.payableAmountLater),
+//           status: "Payable",
+//         });
+//       } else {
+//         person.takingCredit =
+//           Number(person.takingCredit || 0) +
+//           Number(creditPaymentData.payableAmountLater);
+//         person.status = "Payable";
+//         person.reference = "accessory Purchase";
+//         await person.save();
+//       }
+
+//       await CreditTransaction.create({
+//         userId: req.user.id,
+//         personId: person._id,
+//         givingCredit: Number(creditPaymentData.payableAmountLater),
+//         description: `Credit purchase of accessory: ${accessoryName} by ${entityData.name}`,
+//       });
+//     }
+//     console.log("quantity", quantity, "perPiecePrice", perPiecePrice);
+
+//     if (purchasePaymentType === "full-payment") {
+//       if (!person) {
+//         const newPerson = await Person.create({
+//           userId: req.user.id,
+//           name: entityData.name,
+//           number: entityData.number,
+//           reference: "Accessory Purchase",
+//           takingCredit: 0,
+//           status: "Settled",
+//         });
+//         await newPerson.save();
+//         await CreditTransaction.create({
+//           userId: req.user.id,
+//           personId: newPerson._id,
+//           givingCredit: 0,
+//           description: `Full payment purchase of accessory:
+//           ${accessoryName} by ${entityData.name || newPerson.name}
+//            of quantity ${quantity}
+//             and price ${perPiecePrice} each. Total price: ${totalPrice}
+//            `,
+//         });
+//       } else {
+//         await CreditTransaction.create({
+//           userId: req.user.id,
+//           personId: person._id,
+//           givingCredit: 0,
+//           description: `Full payment purchase of accessory:
+//           ${accessoryName} by ${entityData.name || person.name}
+//            of quantity ${quantity}
+//             and price ${perPiecePrice} each. Total price: ${totalPrice}
+//            `,
+//         });
+//       }
+//     }
+
+//     if (givePayment?.bankAccountUsed) {
+//       const bank = await AddBankAccount.findById(givePayment.bankAccountUsed);
+//       if (!bank) return res.status(404).json({ message: "Bank not found" });
+
+//       const amountToDeduct =
+//         purchasePaymentType === "full-payment"
+//           ? totalPrice
+//           : Number(creditPaymentData.payableAmountNow);
+
+//       if (
+//         isNaN(amountToDeduct) ||
+//         amountToDeduct <= 0 ||
+//         amountToDeduct > bank.accountCash
+//       ) {
+//         return res
+//           .status(400)
+//           .json({ message: "Invalid or insufficient bank amount" });
+//       }
+
+//       bank.accountCash -= amountToDeduct;
+//       await bank.save();
+
+//       await BankTransaction.create({
+//         bankId: bank._id,
+//         userId,
+//         reasonOfAmountDeduction: `Purchasing accessory: ${accessoryName}`,
+//         amount: amountToDeduct,
+//         accountCash: bank.accountCash,
+//         accountType: bank.accountType,
+//       });
+
+//       if (givePayment?.amountFromPocket) {
+//         const pocketTransaction = await PocketCashSchema.findOne({ userId });
+//         if (!pocketTransaction) {
+//           return res
+//             .status(404)
+//             .json({ message: "Pocket cash account not found." });
+//         }
+
+//         const amountToDeduct =
+//           purchasePaymentType === "full-payment"
+//             ? totalPrice
+//             : Number(creditPaymentData.payableAmountNow);
+
+//         if (
+//           isNaN(amountToDeduct) ||
+//           amountToDeduct <= 0 ||
+//           amountToDeduct > pocketTransaction.accountCash
+//         ) {
+//           return res
+//             .status(400)
+//             .json({ message: "Invalid or insufficient pocket cash" });
+//         }
+
+//         pocketTransaction.accountCash -= amountToDeduct;
+//         await pocketTransaction.save();
+
+//         await PocketCashTransactionSchema.create({
+//           userId,
+//           pocketCashId: pocketTransaction._id,
+//           amountDeducted: amountToDeduct,
+//           accountCash: pocketTransaction.accountCash,
+//           remainingAmount: pocketTransaction.accountCash,
+//           reasonOfAmountDeduction: `Purchasing accessory: ${accessoryName}`,
+//         });
+//       }
+//     }
+
+//     const newAccessory = await Accessory.create({
+//       userId,
+//       accessoryName,
+//       quantity,
+//       perPiecePrice,
+//       totalPrice,
+//       stock: quantity,
+//       ...(entityData._id || person?._id
+//         ? { personId: entityData._id || person._id }
+//         : {}),
+//     });
+
+//     await AccessoryTransaction.create({
+//       userId,
+//       accessoryId: newAccessory._id,
+//       quantity,
+//       perPiecePrice,
+//       totalPrice,
+//       ...(entityData._id || person?._id
+//         ? { personId: entityData._id || person._id }
+//         : {}),
+//       type: "purchase", // Set type to 'purchase'
+//     });
+
+//     res.status(201).json({
+//       message: "Accessory created successfully",
+//       accessory: newAccessory,
+//     });
+//   } catch (error) {
+//     console.error("Error creating accessory:", error);
+//     res.status(500).json({
+//       message: "Failed to create accessory",
+//       error: error.message,
+//     });
+//   }
+// };
 const createAccessory = async (req, res) => {
   try {
     const userId = req.user.id;
     const {
-      accessoryName,
-      quantity,
-      perPiecePrice,
+      accessories, // Array of {accessoryName, quantity, perPiecePrice}
       givePayment,
       entityData,
       purchasePaymentType,
       creditPaymentData,
     } = req.body;
 
-    if (!accessoryName || !quantity || !perPiecePrice || !purchasePaymentType) {
-      return res.status(400).json({
-        message:
-          "Accessory name, quantity, price, and payment type are required",
-      });
+    // Validate inputs
+    if (!Array.isArray(accessories) || accessories.length === 0) {
+      return res.status(400).json({ message: "Accessories array is required" });
     }
 
-    if (
-      isNaN(quantity) ||
-      isNaN(perPiecePrice) ||
-      quantity <= 0 ||
-      perPiecePrice <= 0
-    ) {
-      return res
-        .status(400)
-        .json({ message: "Quantity and price must be positive numbers" });
+    // Validate each accessory
+    for (const accessory of accessories) {
+      if (
+        !accessory.accessoryName ||
+        !accessory.quantity ||
+        !accessory.perPiecePrice
+      ) {
+        return res.status(400).json({
+          message: "Each accessory must have name, quantity, and price",
+        });
+      }
+      if (
+        isNaN(accessory.quantity) ||
+        isNaN(accessory.perPiecePrice) ||
+        accessory.quantity <= 0 ||
+        accessory.perPiecePrice <= 0
+      ) {
+        return res.status(400).json({
+          message:
+            "Quantity and price must be positive numbers for all accessories",
+        });
+      }
     }
 
-    const totalPrice = quantity * perPiecePrice;
+    // Calculate total amount
+    const totalAmount = accessories.reduce((sum, acc) => {
+      return sum + acc.quantity * acc.perPiecePrice;
+    }, 0);
+
     let person;
     person = await Person.findOne({
       ...(!entityData.number && { _id: entityData._id }),
-      // name: personData,
       ...(entityData.number && { number: entityData.number }),
       userId: req.user.id,
     });
+
     if (purchasePaymentType === "credit") {
       console.log("entityData", person);
       if (!person) {
@@ -71,19 +291,23 @@ const createAccessory = async (req, res) => {
           Number(person.takingCredit || 0) +
           Number(creditPaymentData.payableAmountLater);
         person.status = "Payable";
-        person.reference = "accessory Purchase";
+        person.reference = "Accessory Purchase";
         await person.save();
       }
 
-      // Log the credit transaction
       await CreditTransaction.create({
         userId: req.user.id,
         personId: person._id,
-        givingCredit: Number(creditPaymentData.payableAmountLater),
-        description: `Credit purchase of accessory: ${accessoryName} by ${entityData.name}`,
+        takingCredit: Number(creditPaymentData.payableAmountLater), // Changed to takingCredit
+        description: `Credit purchase of accessories by ${
+          entityData.name
+        } of amount ${creditPaymentData.payableAmountLater} for ${accessories
+          .map((acc) => acc.accessoryName)
+          .join(", ")} of per piece price ${accessories
+          .map((acc) => acc.perPiecePrice)
+          .join(", ")} and total amount ${totalAmount}`,
       });
     }
-    console.log("quantity", quantity, "perPiecePrice", perPiecePrice);
 
     if (purchasePaymentType === "full-payment") {
       if (!person) {
@@ -95,48 +319,46 @@ const createAccessory = async (req, res) => {
           takingCredit: 0,
           status: "Settled",
         });
-        await newPerson.save();
         await CreditTransaction.create({
           userId: req.user.id,
           personId: newPerson._id,
-          givingCredit: 0,
-          description: `Full payment purchase of accessory: 
-          ${accessoryName} by ${entityData.name || newPerson.name}
-           of quantity ${quantity}
-            and price ${perPiecePrice} each. Total price: ${totalPrice}
-           `,
+          takingCredit: 0,
+          description: `Full payment purchase of accessories by ${
+            entityData.name || newPerson.name
+          } for ${accessories
+            .map((acc) => acc.accessoryName)
+            .join(", ")} of per piece price ${accessories
+            .map((acc) => acc.perPiecePrice)
+            .join(", ")} and total amount ${totalAmount}`,
         });
       } else {
         await CreditTransaction.create({
           userId: req.user.id,
           personId: person._id,
-          givingCredit: 0,
-          description: `Full payment purchase of accessory: 
-          ${accessoryName} by ${entityData.name || person.name}
-           of quantity ${quantity}
-            and price ${perPiecePrice} each. Total price: ${totalPrice}
-           `,
+          takingCredit: 0,
+          description: `Full payment purchase of accessories by ${
+            entityData.name || person.name
+          } for ${accessories
+            .map((acc) => acc.accessoryName)
+            .join(", ")} of per piece price ${accessories
+            .map((acc) => acc.perPiecePrice)
+            .join(", ")} and total amount ${totalAmount}`,
         });
       }
     }
-    // Bank payment
+
+    // Process payments
     if (givePayment?.bankAccountUsed) {
       const bank = await AddBankAccount.findById(givePayment.bankAccountUsed);
       if (!bank) return res.status(404).json({ message: "Bank not found" });
 
-      const amountToDeduct =
-        purchasePaymentType === "full-payment"
-          ? totalPrice
-          : Number(creditPaymentData.payableAmountNow);
+      const amountToDeduct = givePayment?.amountFromBank;
+      // purchasePaymentType === "full-payment"
+      //   ? totalAmount
+      //   : Number(creditPaymentData?.payableAmountNow) || 0;
 
-      if (
-        isNaN(amountToDeduct) ||
-        amountToDeduct <= 0 ||
-        amountToDeduct > bank.accountCash
-      ) {
-        return res
-          .status(400)
-          .json({ message: "Invalid or insufficient bank amount" });
+      if (amountToDeduct > bank.accountCash) {
+        return res.status(400).json({ message: "Insufficient bank balance" });
       }
 
       bank.accountCash -= amountToDeduct;
@@ -145,89 +367,88 @@ const createAccessory = async (req, res) => {
       await BankTransaction.create({
         bankId: bank._id,
         userId,
-        reasonOfAmountDeduction: `Purchasing accessory: ${accessoryName}`,
+        reasonOfAmountDeduction: `Purchasing ${accessories.length} accessories`,
         amount: amountToDeduct,
         accountCash: bank.accountCash,
         accountType: bank.accountType,
       });
-
-      // Pocket payment
-      if (givePayment?.amountFromPocket) {
-        const pocketTransaction = await PocketCashSchema.findOne({ userId });
-        if (!pocketTransaction) {
-          return res
-            .status(404)
-            .json({ message: "Pocket cash account not found." });
-        }
-
-        const amountToDeduct =
-          purchasePaymentType === "full-payment"
-            ? totalPrice
-            : Number(creditPaymentData.payableAmountNow);
-
-        if (
-          isNaN(amountToDeduct) ||
-          amountToDeduct <= 0 ||
-          amountToDeduct > pocketTransaction.accountCash
-        ) {
-          return res
-            .status(400)
-            .json({ message: "Invalid or insufficient pocket cash" });
-        }
-
-        pocketTransaction.accountCash -= amountToDeduct;
-        await pocketTransaction.save();
-
-        await PocketCashTransactionSchema.create({
-          userId,
-          pocketCashId: pocketTransaction._id,
-          amountDeducted: amountToDeduct,
-          accountCash: pocketTransaction.accountCash,
-          remainingAmount: pocketTransaction.accountCash,
-          reasonOfAmountDeduction: `Purchasing accessory: ${accessoryName}`,
-        });
-      }
     }
 
-    // Create the new accessory
-    const newAccessory = await Accessory.create({
-      userId,
-      accessoryName,
-      quantity,
-      perPiecePrice,
-      totalPrice,
-      stock: quantity,
-      ...(entityData._id || person?._id
-        ? { personId: entityData._id || person._id }
-        : {}),
-    });
+    // Process pocket payment if exists
+    if (givePayment?.amountFromPocket) {
+      const pocket = await PocketCashSchema.findOne({ userId });
+      if (!pocket) {
+        return res
+          .status(404)
+          .json({ message: "Pocket cash account not found" });
+      }
 
-    // Log accessory transaction
+      const amountToDeduct = givePayment?.amountFromPocket;
+      // purchasePaymentType === "full-payment"
+      //   ? totalAmount - (givePayment?.bankAccountUsed ? amountToDeduct : 0)
+      //   : Number(creditPaymentData?.payableAmountNow) || 0;
+
+      if (amountToDeduct > pocket.accountCash) {
+        return res.status(400).json({ message: "Insufficient pocket cash" });
+      }
+
+      pocket.accountCash -= amountToDeduct;
+      await pocket.save();
+
+      await PocketCashTransactionSchema.create({
+        userId,
+        pocketCashId: pocket._id,
+        amountDeducted: amountToDeduct,
+        accountCash: pocket.accountCash,
+        reasonOfAmountDeduction: `Purchasing ${accessories.length} accessories`,
+      });
+    }
+
+    // Create all accessories
+    const createdAccessories = await Promise.all(
+      accessories.map((acc) =>
+        Accessory.create({
+          userId,
+          accessoryName: acc.accessoryName,
+          quantity: acc.quantity,
+          perPiecePrice: acc.perPiecePrice,
+          totalPrice: acc.quantity * acc.perPiecePrice,
+          stock: acc.quantity,
+          ...(person?._id ? { personId: person._id } : {}),
+        })
+      )
+    );
+
+    // Create a single transaction record for all accessories
     await AccessoryTransaction.create({
       userId,
-      accessoryId: newAccessory._id,
-      quantity,
-      perPiecePrice,
-      totalPrice,
-      ...(entityData._id || person?._id
-        ? { personId: entityData._id || person._id }
-        : {}),
-      type: "purchase", // Set type to 'purchase'
+      type: "purchase",
+      quantity: accessories.reduce((sum, acc) => sum + acc.quantity, 0),
+      perPiecePrice:
+        totalAmount / accessories.reduce((sum, acc) => sum + acc.quantity, 0),
+      totalPrice: totalAmount,
+      ...(person?._id ? { personId: person._id } : {}),
+      accessories: createdAccessories.map((acc) => ({
+        accessoryId: acc._id,
+        accessoryName: acc.accessoryName,
+        quantity: acc.quantity,
+        perPiecePrice: acc.perPiecePrice,
+      })),
     });
 
     res.status(201).json({
-      message: "Accessory created successfully",
-      accessory: newAccessory,
+      message: `${accessories.length} accessories purchased successfully`,
+      accessories: createdAccessories,
+      totalAmount,
     });
   } catch (error) {
-    console.error("Error creating accessory:", error);
+    console.error("Error purchasing accessories:", error);
     res.status(500).json({
-      message: "Failed to create accessory",
+      message: "Failed to purchase accessories",
       error: error.message,
     });
   }
 };
-
 // GET all accessories for the user
 const getAllAccessories = async (req, res) => {
   try {
@@ -431,6 +652,184 @@ const getAllAccessories = async (req, res) => {
 //       .json({ message: "Failed to sell accessories", error: error.message });
 //   }
 // };
+
+// const sellMultipleAccessories = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+//     const sales = req.body.sales;
+
+//     if (!Array.isArray(sales) || sales.length === 0) {
+//       return res.status(400).json({ message: "Sales array is required" });
+//     }
+
+//     const { getPayment, entityData, purchasePaymentType, creditPaymentData } =
+//       req.body;
+//     const transactions = [];
+
+//     // Payment handling (for both full and credit)
+//     if (getPayment?.bankAccountUsed) {
+//       // ... existing bank payment logic ...
+//     }
+
+//     if (getPayment?.amountFromPocket) {
+//       // ... existing pocket payment logic ...
+//     }
+
+//     const accessoryNames = [];
+//     const accessoryData = [];
+//     for (const sale of sales) {
+//       const accessory = await Accessory.findById(sale.accessoryId);
+//       if (accessory) accessoryNames.push(accessory.accessoryName);
+//       accessoryData.push({
+//         accessoryId: sale.accessoryId,
+//         quantity: sale.quantity,
+//         perPiecePrice: sale.perPiecePrice,
+//       });
+//     }
+
+//     // Only handle person/credit for credit payments
+//     let person = null;
+//     person = await Person.findOne({
+//       ...(!entityData.number &&
+//         entityData._id &&
+//         entityData._id !== "" && { _id: entityData._id }),
+//       ...(entityData.number && { number: entityData.number }),
+//       userId: req.user.id,
+//     });
+//     if (purchasePaymentType === "credit") {
+//       if (!entityData) {
+//         return res
+//           .status(400)
+//           .json({ message: "Entity data required for credit sales" });
+//       }
+
+//       if (!person) {
+//         person = await Person.create({
+//           userId: req.user.id,
+//           name: entityData.name,
+//           number: entityData.number,
+//           reference: "Accessory Sale",
+//           givingCredit: Number(creditPaymentData.payableAmountLater),
+//           status: "Receivable",
+//         });
+//       } else {
+//         person.givingCredit =
+//           Number(person.givingCredit || 0) +
+//           Number(creditPaymentData.payableAmountLater);
+//         person.status = "Receivable";
+//         await person.save();
+//       }
+
+//       await CreditTransaction.create({
+//         userId: req.user.id,
+//         personId: person._id,
+//         givingCredit: Number(creditPaymentData.payableAmountLater),
+//         description: `Credit Sale: ${accessoryNames.join(", ")} to ${
+//           entityData.name || person.name
+//         } of ${accessoryData
+//           .map(
+//             (item) => `quantity ${item.quantity} at ${item.perPiecePrice} each`
+//           )
+//           .join(", ")}
+//            and credit amount: ${creditPaymentData.payableAmountLater}
+//         `,
+//       });
+//     }
+//     if (purchasePaymentType === "full-payment") {
+//       if (entityData.name && !person) {
+//         const newPerson = await Person.create({
+//           userId: req.user.id,
+//           name: entityData.name,
+//           number: entityData.number,
+//           reference: "Accessory Sale",
+//           takingCredit: 0,
+//           status: "Settled",
+//         });
+//         await newPerson.save();
+//         await CreditTransaction.create({
+//           userId: req.user.id,
+//           personId: newPerson._id,
+//           givingCredit: 0,
+//           description: `Complete Payment of Sale: ${accessoryNames.join(
+//             ", "
+//           )} to ${entityData.name || person.name} of ${accessoryData
+//             .map(
+//               (item) =>
+//                 `quantity ${item.quantity} at ${item.perPiecePrice} each`
+//             )
+//             .join(", ")}
+//         `,
+//         });
+//       } else if (person) {
+//         await CreditTransaction.create({
+//           userId: req.user.id,
+//           personId: person._id,
+//           givingCredit: 0,
+//           description: `Complete Payment of Sale: ${accessoryNames.join(
+//             ", "
+//           )} from ${entityData.name || person.name} of ${accessoryData
+//             .map(
+//               (item) =>
+//                 `quantity ${item.quantity} at ${item.perPiecePrice} each`
+//             )
+//             .join(", ")}
+//         `,
+//         });
+//       } else {
+//         console.log("no required entityData for full payment sale");
+//       }
+//     }
+//     // Process each sale
+//     for (const sale of sales) {
+//       const { accessoryId, quantity, perPiecePrice } = sale;
+
+//       const accessory = await Accessory.findOne({ _id: accessoryId, userId });
+//       if (!accessory) {
+//         return res
+//           .status(404)
+//           .json({ message: `Accessory not found: ${accessoryId}` });
+//       }
+
+//       const transactionData = {
+//         userId,
+//         accessoryId,
+//         quantity,
+//         perPiecePrice,
+//         totalPrice: quantity * perPiecePrice,
+//         type: "sale",
+//         profit:
+//           (Number(perPiecePrice) - Number(accessory.perPiecePrice)) *
+//           Number(quantity),
+//       };
+
+//       if (purchasePaymentType === "credit" && person?._id) {
+//         transactionData.personId = person._id;
+//       }
+
+//       const transaction = await AccessoryTransaction.create(transactionData);
+
+//       // Update stock
+//       accessory.stock -= quantity;
+//       accessory.totalPrice -=
+//         Number(accessory.perPiecePrice) * Number(quantity);
+//       accessory.profit +=
+//         (Number(perPiecePrice) - Number(accessory.perPiecePrice)) *
+//         Number(quantity);
+//       await accessory.save();
+
+//       transactions.push(transaction);
+//     }
+
+//     res
+//       .status(201)
+//       .json({ message: "Accessories sold successfully", transactions });
+//   } catch (error) {
+//     console.error("Error selling accessories:", error);
+//     res
+//       .status(500)
+//       .json({ message: "Failed to sell accessories", error: error.message });
+//   }
+// };
 const sellMultipleAccessories = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -444,36 +843,113 @@ const sellMultipleAccessories = async (req, res) => {
       req.body;
     const transactions = [];
 
-    // Payment handling (for both full and credit)
+    // Validate and process payments
     if (getPayment?.bankAccountUsed) {
-      // ... existing bank payment logic ...
+      const bank = await AddBankAccount.findById(getPayment.bankAccountUsed);
+      if (!bank) {
+        return res.status(404).json({ message: "Bank account not found" });
+      }
+
+      const amountToDeduct =
+        purchasePaymentType === "full-payment"
+          ? sales.reduce(
+              (sum, sale) => sum + sale.quantity * sale.perPiecePrice,
+              0
+            )
+          : Number(creditPaymentData?.payableAmountNow) || 0;
+
+      if (amountToDeduct > bank.accountCash) {
+        return res.status(400).json({ message: "Insufficient bank balance" });
+      }
+
+      bank.accountCash -= amountToDeduct;
+      await bank.save();
+
+      await BankTransaction.create({
+        bankId: bank._id,
+        userId,
+        reasonOfAmountDeduction: `Sale of ${sales.length} accessories`,
+        amount: amountToDeduct,
+        accountCash: bank.accountCash,
+        accountType: bank.accountType,
+      });
     }
 
     if (getPayment?.amountFromPocket) {
-      // ... existing pocket payment logic ...
+      const pocket = await PocketCashSchema.findOne({ userId });
+      if (!pocket) {
+        return res
+          .status(404)
+          .json({ message: "Pocket cash account not found" });
+      }
+
+      const amountToDeduct =
+        purchasePaymentType === "full-payment"
+          ? sales.reduce(
+              (sum, sale) => sum + sale.quantity * sale.perPiecePrice,
+              0
+            ) - (getPayment?.bankAccountUsed ? amountToDeduct : 0)
+          : Number(creditPaymentData?.payableAmountNow) || 0;
+
+      if (amountToDeduct > pocket.accountCash) {
+        return res.status(400).json({ message: "Insufficient pocket cash" });
+      }
+
+      pocket.accountCash -= amountToDeduct;
+      await pocket.save();
+
+      await PocketCashTransactionSchema.create({
+        userId,
+        pocketCashId: pocket._id,
+        amountDeducted: amountToDeduct,
+        accountCash: pocket.accountCash,
+        reasonOfAmountDeduction: `Sale of ${sales.length} accessories`,
+      });
     }
 
     const accessoryNames = [];
     const accessoryData = [];
+    let totalQuantity = 0;
+    let totalPrice = 0;
+    let totalProfit = 0;
+
+    // Process accessories and calculate totals
     for (const sale of sales) {
       const accessory = await Accessory.findById(sale.accessoryId);
-      if (accessory) accessoryNames.push(accessory.accessoryName);
+      if (!accessory) {
+        return res
+          .status(404)
+          .json({ message: `Accessory not found: ${sale.accessoryId}` });
+      }
+      if (accessory.stock < sale.quantity) {
+        return res.status(400).json({
+          message: `Insufficient stock for ${accessory.accessoryName}. Available: ${accessory.stock}, Requested: ${sale.quantity}`,
+        });
+      }
+
+      accessoryNames.push(accessory.accessoryName);
       accessoryData.push({
         accessoryId: sale.accessoryId,
         quantity: sale.quantity,
         perPiecePrice: sale.perPiecePrice,
       });
+
+      const profit =
+        (Number(sale.perPiecePrice) - Number(accessory.perPiecePrice)) *
+        Number(sale.quantity);
+      totalQuantity += Number(sale.quantity);
+      totalPrice += Number(sale.quantity) * Number(sale.perPiecePrice);
+      totalProfit += profit;
     }
 
-    // Only handle person/credit for credit payments
+    // Handle person/credit logic
     let person = null;
     person = await Person.findOne({
-      ...(!entityData.number &&
-        entityData._id &&
-        entityData._id !== "" && { _id: entityData._id }),
+      ...(!entityData.number && entityData._id && { _id: entityData._id }),
       ...(entityData.number && { number: entityData.number }),
       userId: req.user.id,
     });
+
     if (purchasePaymentType === "credit") {
       if (!entityData) {
         return res
@@ -491,9 +967,7 @@ const sellMultipleAccessories = async (req, res) => {
           status: "Receivable",
         });
       } else {
-        person.givingCredit =
-          Number(person.givingCredit || 0) +
-          Number(creditPaymentData.payableAmountLater);
+        person.givingCredit += Number(creditPaymentData.payableAmountLater);
         person.status = "Receivable";
         await person.save();
       }
@@ -502,17 +976,14 @@ const sellMultipleAccessories = async (req, res) => {
         userId: req.user.id,
         personId: person._id,
         givingCredit: Number(creditPaymentData.payableAmountLater),
-        description: `Credit Sale: ${accessoryNames.join(", ")} to ${
-          entityData.name || person.name
-        } of ${accessoryData
-          .map(
-            (item) => `quantity ${item.quantity} at ${item.perPiecePrice} each`
-          )
-          .join(", ")}
-           and credit amount: ${creditPaymentData.payableAmountLater}
-        `,
+        description: `Credit Sale: ${accessoryNames.join(
+          ", "
+        )} | Total: ${totalPrice} | Credit: ${
+          creditPaymentData.payableAmountLater
+        }`,
       });
     }
+
     if (purchasePaymentType === "full-payment") {
       if (entityData.name && !person) {
         const newPerson = await Person.create({
@@ -520,7 +991,7 @@ const sellMultipleAccessories = async (req, res) => {
           name: entityData.name,
           number: entityData.number,
           reference: "Accessory Sale",
-          takingCredit: 0,
+          givingCredit: 0,
           status: "Settled",
         });
         await newPerson.save();
@@ -557,63 +1028,43 @@ const sellMultipleAccessories = async (req, res) => {
         console.log("no required entityData for full payment sale");
       }
     }
-    // Process each sale
+
+    // Create single transaction for all sales
+    const transaction = await AccessoryTransaction.create({
+      userId,
+      type: "sale",
+      quantity: totalQuantity,
+      perPiecePrice: totalPrice / totalQuantity,
+      totalPrice: totalPrice,
+      profit: totalProfit,
+      ...(person?._id && { personId: person._id }),
+      accessories: accessoryData,
+    });
+
+    // Update stock for all accessories
     for (const sale of sales) {
-      const { accessoryId, quantity, perPiecePrice } = sale;
-
-      // ... existing validation ...
-
-      const accessory = await Accessory.findOne({ _id: accessoryId, userId });
-      if (!accessory) {
-        return res
-          .status(404)
-          .json({ message: `Accessory not found: ${accessoryId}` });
-      }
-
-      // ... existing stock checks ...
-
-      const transactionData = {
-        userId,
-        accessoryId,
-        quantity,
-        perPiecePrice,
-        totalPrice: quantity * perPiecePrice,
-        type: "sale",
-        profit:
-          (Number(perPiecePrice) - Number(accessory.perPiecePrice)) *
-          Number(quantity),
-      };
-
-      // Only add personId for credit sales
-      if (purchasePaymentType === "credit" && person?._id) {
-        transactionData.personId = person._id;
-      }
-
-      const transaction = await AccessoryTransaction.create(transactionData);
-
-      // Update stock
-      accessory.stock -= quantity;
+      const accessory = await Accessory.findById(sale.accessoryId);
+      accessory.stock -= sale.quantity;
       accessory.totalPrice -=
-        Number(accessory.perPiecePrice) * Number(quantity);
+        Number(accessory.perPiecePrice) * Number(sale.quantity);
       accessory.profit +=
-        (Number(perPiecePrice) - Number(accessory.perPiecePrice)) *
-        Number(quantity);
+        (Number(sale.perPiecePrice) - Number(accessory.perPiecePrice)) *
+        Number(sale.quantity);
       await accessory.save();
-
-      transactions.push(transaction);
     }
 
-    res
-      .status(201)
-      .json({ message: "Accessories sold successfully", transactions });
+    res.status(201).json({
+      message: "Accessories sold successfully",
+      transaction,
+    });
   } catch (error) {
     console.error("Error selling accessories:", error);
-    res
-      .status(500)
-      .json({ message: "Failed to sell accessories", error: error.message });
+    res.status(500).json({
+      message: "Failed to sell accessories",
+      error: error.message,
+    });
   }
 };
-
 // GET all transactions for the user
 const getAllTransactions = async (req, res) => {
   try {
