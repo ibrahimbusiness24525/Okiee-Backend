@@ -353,9 +353,6 @@ const createAccessory = async (req, res) => {
       if (!bank) return res.status(404).json({ message: "Bank not found" });
 
       const amountToDeduct = givePayment?.amountFromBank;
-      // purchasePaymentType === "full-payment"
-      //   ? totalAmount
-      //   : Number(creditPaymentData?.payableAmountNow) || 0;
 
       if (amountToDeduct > bank.accountCash) {
         return res.status(400).json({ message: "Insufficient bank balance" });
@@ -423,6 +420,11 @@ const createAccessory = async (req, res) => {
     await AccessoryTransaction.create({
       userId,
       type: "purchase",
+      accessoriesList: accessories.map((acc) => ({
+        name: acc.accessoryName,
+        quantity: acc.quantity,
+        perPiecePrice: acc.perPiecePrice,
+      })),
       quantity: accessories.reduce((sum, acc) => sum + acc.quantity, 0),
       perPiecePrice:
         totalAmount / accessories.reduce((sum, acc) => sum + acc.quantity, 0),
@@ -842,34 +844,24 @@ const sellMultipleAccessories = async (req, res) => {
     const { getPayment, entityData, purchasePaymentType, creditPaymentData } =
       req.body;
     const transactions = [];
+    console.log(getPayment, "getPayment");
 
-    // Validate and process payments
     if (getPayment?.bankAccountUsed) {
-      const bank = await AddBankAccount.findById(getPayment.bankAccountUsed);
+      const bank = await AddBankAccount.findById(getPayment?.bankAccountUsed);
       if (!bank) {
         return res.status(404).json({ message: "Bank account not found" });
       }
 
-      const amountToDeduct =
-        purchasePaymentType === "full-payment"
-          ? sales.reduce(
-              (sum, sale) => sum + sale.quantity * sale.perPiecePrice,
-              0
-            )
-          : Number(creditPaymentData?.payableAmountNow) || 0;
+      const amountToAdd = getPayment?.amountFromBank || 0;
 
-      if (amountToDeduct > bank.accountCash) {
-        return res.status(400).json({ message: "Insufficient bank balance" });
-      }
-
-      bank.accountCash -= amountToDeduct;
+      bank.accountCash += Number(amountToAdd);
       await bank.save();
 
       await BankTransaction.create({
         bankId: bank._id,
         userId,
-        reasonOfAmountDeduction: `Sale of ${sales.length} accessories`,
-        amount: amountToDeduct,
+        sourceOfAmountAddition: `Sale of ${sales.length} accessories`,
+        amount: Number(amountToAdd),
         accountCash: bank.accountCash,
         accountType: bank.accountType,
       });
@@ -883,27 +875,17 @@ const sellMultipleAccessories = async (req, res) => {
           .json({ message: "Pocket cash account not found" });
       }
 
-      const amountToDeduct =
-        purchasePaymentType === "full-payment"
-          ? sales.reduce(
-              (sum, sale) => sum + sale.quantity * sale.perPiecePrice,
-              0
-            ) - (getPayment?.bankAccountUsed ? amountToDeduct : 0)
-          : Number(creditPaymentData?.payableAmountNow) || 0;
+      const amountToAdd = getPayment?.amountFromPocket || 0;
 
-      if (amountToDeduct > pocket.accountCash) {
-        return res.status(400).json({ message: "Insufficient pocket cash" });
-      }
-
-      pocket.accountCash -= amountToDeduct;
+      pocket.accountCash += Number(amountToAdd);
       await pocket.save();
 
       await PocketCashTransactionSchema.create({
         userId,
         pocketCashId: pocket._id,
-        amountDeducted: amountToDeduct,
+        amountAdded: Number(amountToAdd),
         accountCash: pocket.accountCash,
-        reasonOfAmountDeduction: `Sale of ${sales.length} accessories`,
+        reasonOfAmountAddition: `Sale of ${sales.length} accessories`,
       });
     }
 
@@ -913,7 +895,6 @@ const sellMultipleAccessories = async (req, res) => {
     let totalPrice = 0;
     let totalProfit = 0;
 
-    // Process accessories and calculate totals
     for (const sale of sales) {
       const accessory = await Accessory.findById(sale.accessoryId);
       if (!accessory) {
@@ -1033,6 +1014,11 @@ const sellMultipleAccessories = async (req, res) => {
     const transaction = await AccessoryTransaction.create({
       userId,
       type: "sale",
+      accessoriesList: accessoryData.map((item) => ({
+        name: item.accessoryId,
+        quantity: item.quantity,
+        perPiecePrice: item.perPiecePrice,
+      })),
       quantity: totalQuantity,
       perPiecePrice: totalPrice / totalQuantity,
       totalPrice: totalPrice,
@@ -1223,6 +1209,7 @@ const getAccessoriesPersonRecord = async (req, res) => {
       return {
         _id: record._id,
         userId: record.userId,
+        accessoriesList: record.accessoriesList,
         accessoryId: record.accessoryId?._id || null,
         accessoryName: record.accessoryId?.accessoryName || null,
         quantity: record.quantity,
@@ -1288,6 +1275,7 @@ const getAccessoriesPersonPurchaseRecord = async (req, res) => {
       const flatRecord = {
         _id: record._id,
         userId: record.userId,
+        accessoryList: record.accessoriesList || [],
         accessoryId: record.accessoryId?._id || null,
         accessoryName: record.accessoryId?.accessoryName || null,
         quantity: record.quantity,

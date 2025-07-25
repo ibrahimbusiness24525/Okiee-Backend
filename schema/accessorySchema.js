@@ -54,6 +54,22 @@ const accessoryTransactionSchema = mongoose.Schema(
       ref: "Accessory",
       required: false,
     },
+    accessoriesList: [
+      {
+        name: {
+          type: String,
+          required: false,
+        },
+        quantity: {
+          type: Number,
+          required: false,
+        },
+        perPiecePrice: {
+          type: Number,
+          required: false,
+        },
+      },
+    ],
     quantity: {
       type: Number,
       required: true,
