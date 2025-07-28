@@ -212,3 +212,17 @@ exports.getAllPersonsNameAndId = async (req, res) => {
     res.status(500).json({ message: "Error fetching persons", error });
   }
 }
+
+exports.deletePerson = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    
+    const person = await Person.findOneAndDelete({ _id: id, userId });
+    if (!person) return res.status(404).json({ message: "Person not found" });
+
+    res.status(200).json({ message: "Person deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Error deleting person", error });
+  }
+}

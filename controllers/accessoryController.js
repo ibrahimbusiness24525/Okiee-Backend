@@ -925,11 +925,13 @@ const sellMultipleAccessories = async (req, res) => {
 
     // Handle person/credit logic
     let person = null;
-    person = await Person.findOne({
+if(entityData.number || entityData._id) {
+      person = await Person.findOne({
       ...(!entityData.number && entityData._id && { _id: entityData._id }),
       ...(entityData.number && { number: entityData.number }),
       userId: req.user.id,
     });
+}
 
     if (purchasePaymentType === "credit") {
       if (!entityData) {

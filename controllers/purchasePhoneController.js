@@ -1293,7 +1293,9 @@ exports.getBulkPhone = async (req, res) => {
           path: "imeiNumbers",
           model: "Imei",
         },
-      })
+      }).
+      populate("personId", "name number") // Populate person details
+      .sort({ date: -1 }) // Sort by date, most recent first
       .lean();
 
     const updatedPurchases = bulkPhonePurchases.map((purchase) => {
@@ -1739,12 +1741,14 @@ exports.sellPhonesFromBulk = async (req, res) => {
     console.log("check for entityData", entityData);
 
     let person = null;
-    person = await Person.findOne({
+  if( entityData._id || entityData.number) {
+      person = await Person.findOne({
       ...(!entityData.number && entityData._id && { _id: entityData._id }),
       ...(entityData.number && { number: entityData.number }),
-      userId: req.user.id,
+     userId: req.user.id 
     });
-
+  }
+console.log("person found:", person);
     if (sellingPaymentType === "Credit") {
       if (!entityData) {
         return res

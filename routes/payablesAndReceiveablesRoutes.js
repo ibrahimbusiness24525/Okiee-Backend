@@ -24,5 +24,7 @@ router.get("/nameAndId",decoderMiddleware,  creditController.getAllPersonsNameAn
 // 5. Get detailed info of a specific person by ID
 router.get("/:id",decoderMiddleware,  creditController.getPersonDetail);
 
+router.delete("/:id",decoderMiddleware,  creditController.deletePerson);
+
 
 module.exports = router;
