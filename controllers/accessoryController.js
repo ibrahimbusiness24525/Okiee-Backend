@@ -840,7 +840,7 @@ const sellMultipleAccessories = async (req, res) => {
     if (!Array.isArray(sales) || sales.length === 0) {
       return res.status(400).json({ message: "Sales array is required" });
     }
-
+    console.log("sales", sales);
     const { getPayment, entityData, purchasePaymentType, creditPaymentData } =
       req.body;
     const transactions = [];
@@ -910,11 +910,12 @@ const sellMultipleAccessories = async (req, res) => {
 
       accessoryNames.push(accessory.accessoryName);
       accessoryData.push({
+        name: sale.name,
         accessoryId: sale.accessoryId,
         quantity: sale.quantity,
         perPiecePrice: sale.perPiecePrice,
       });
-
+      console.log("accessoryData", accessoryData);
       const profit =
         (Number(sale.perPiecePrice) - Number(accessory.perPiecePrice)) *
         Number(sale.quantity);
@@ -925,13 +926,13 @@ const sellMultipleAccessories = async (req, res) => {
 
     // Handle person/credit logic
     let person = null;
-if(entityData.number || entityData._id) {
+    if (entityData.number || entityData._id) {
       person = await Person.findOne({
-      ...(!entityData.number && entityData._id && { _id: entityData._id }),
-      ...(entityData.number && { number: entityData.number }),
-      userId: req.user.id,
-    });
-}
+        ...(!entityData.number && entityData._id && { _id: entityData._id }),
+        ...(entityData.number && { number: entityData.number }),
+        userId: req.user.id,
+      });
+    }
 
     if (purchasePaymentType === "credit") {
       if (!entityData) {
@@ -1017,7 +1018,7 @@ if(entityData.number || entityData._id) {
       userId,
       type: "sale",
       accessoriesList: accessoryData.map((item) => ({
-        name: item.accessoryId,
+        name: item.name,
         quantity: item.quantity,
         perPiecePrice: item.perPiecePrice,
       })),
@@ -1205,8 +1206,6 @@ const getAccessoriesPersonRecord = async (req, res) => {
         "personId",
         "name number reference givingCredit takingCredit status"
       );
-
-    // Flatten the structure to match table requirements
     const result = records.map((record) => {
       return {
         _id: record._id,

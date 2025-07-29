@@ -1,7 +1,16 @@
 // controllers/creditController.js
-const { AddBankAccount, BankTransaction } = require("../schema/BankAccountSchema");
-const { Person, CreditTransaction } = require("../schema/PayablesAndReceiveablesSchema");
-const { PocketCashSchema, PocketCashTransactionSchema } = require("../schema/PocketCashSchema");
+const {
+  AddBankAccount,
+  BankTransaction,
+} = require("../schema/BankAccountSchema");
+const {
+  Person,
+  CreditTransaction,
+} = require("../schema/PayablesAndReceiveablesSchema");
+const {
+  PocketCashSchema,
+  PocketCashTransactionSchema,
+} = require("../schema/PocketCashSchema");
 
 // 1. Create a Person
 exports.createPerson = async (req, res) => {
@@ -12,7 +21,9 @@ exports.createPerson = async (req, res) => {
     const newPerson = new Person({ userId, name, number, reference });
     await newPerson.save();
 
-    res.status(201).json({ message: "Person created successfully", person: newPerson });
+    res
+      .status(201)
+      .json({ message: "Person created successfully", person: newPerson });
   } catch (error) {
     res.status(500).json({ message: "Error creating person", error });
   }
@@ -23,7 +34,7 @@ exports.giveCredit = async (req, res) => {
   try {
     const { personId, amount, description, giveCredit } = req.body;
     const userId = req.user.id;
-    console.log("give credit", giveCredit)
+    console.log("give credit", giveCredit);
     if (giveCredit?.bankAccountUsed) {
       const bank = await AddBankAccount.findById(giveCredit?.bankAccountUsed);
       if (!bank) return res.status(404).json({ message: "Bank not found" });
@@ -43,13 +54,17 @@ exports.giveCredit = async (req, res) => {
     }
     console.log("giveCredit", giveCredit);
     if (giveCredit?.amountFromPocket) {
-      const pocketTransaction = await PocketCashSchema.findOne({ userId: req.user.id });
+      const pocketTransaction = await PocketCashSchema.findOne({
+        userId: req.user.id,
+      });
       if (!pocketTransaction) {
-        return res.status(404).json({ message: 'Pocket cash account not found.' });
+        return res
+          .status(404)
+          .json({ message: "Pocket cash account not found." });
       }
 
       if (giveCredit?.amountFromPocket > pocketTransaction.accountCash) {
-        return res.status(400).json({ message: 'Insufficient pocket cash' });
+        return res.status(400).json({ message: "Insufficient pocket cash" });
       }
 
       pocketTransaction.accountCash -= Number(giveCredit?.amountFromPocket);
@@ -63,7 +78,6 @@ exports.giveCredit = async (req, res) => {
         remainingAmount: pocketTransaction.accountCash,
         reasonOfAmountDeduction: `give credit to person: ${personId}, amount: ${amount}`,
       });
-
     }
     const person = await Person.findOne({ _id: personId, userId });
     if (!person) return res.status(404).json({ message: "Person not found" });
@@ -82,14 +96,24 @@ exports.giveCredit = async (req, res) => {
       }
     }
 
-    const status = updatedTaking > 0 ? "Payable" : (updatedGiving > 0 ? "Receivable" : "Settled");
+    const status =
+      updatedTaking > 0
+        ? "Payable"
+        : updatedGiving > 0
+        ? "Receivable"
+        : "Settled";
 
     person.givingCredit = updatedGiving;
     person.takingCredit = updatedTaking;
     person.status = status;
     await person.save();
 
-    await CreditTransaction.create({ userId, personId, givingCredit: amount, description });
+    await CreditTransaction.create({
+      userId,
+      personId,
+      givingCredit: amount,
+      description,
+    });
 
     res.status(200).json({ message: "Credit given successfully", person });
   } catch (error) {
@@ -121,13 +145,17 @@ exports.takeCredit = async (req, res) => {
     }
     console.log("giveCredit", takeCredit);
     if (takeCredit?.amountFromPocket) {
-      const pocketTransaction = await PocketCashSchema.findOne({ userId: req.user.id });
+      const pocketTransaction = await PocketCashSchema.findOne({
+        userId: req.user.id,
+      });
       if (!pocketTransaction) {
-        return res.status(404).json({ message: 'Pocket cash account not found.' });
+        return res
+          .status(404)
+          .json({ message: "Pocket cash account not found." });
       }
 
       if (takeCredit?.amountFromPocket > pocketTransaction.accountCash) {
-        return res.status(400).json({ message: 'Insufficient pocket cash' });
+        return res.status(400).json({ message: "Insufficient pocket cash" });
       }
 
       pocketTransaction.accountCash += Number(takeCredit?.amountFromPocket);
@@ -141,7 +169,6 @@ exports.takeCredit = async (req, res) => {
         remainingAmount: pocketTransaction.accountCash,
         reasonOfAmountDeduction: `take credit from person: ${personId}, amount: ${amount}`,
       });
-
     }
 
     const person = await Person.findOne({ _id: personId, userId });
@@ -161,14 +188,24 @@ exports.takeCredit = async (req, res) => {
       }
     }
 
-    const status = updatedTaking > 0 ? "Payable" : (updatedGiving > 0 ? "Receivable" : "Settled");
+    const status =
+      updatedTaking > 0
+        ? "Payable"
+        : updatedGiving > 0
+        ? "Receivable"
+        : "Settled";
 
     person.givingCredit = updatedGiving;
     person.takingCredit = updatedTaking;
     person.status = status;
     await person.save();
 
-    await CreditTransaction.create({ userId, personId, takingCredit: amount, description });
+    await CreditTransaction.create({
+      userId,
+      personId,
+      takingCredit: amount,
+      description,
+    });
 
     res.status(200).json({ message: "Credit taken successfully", person });
   } catch (error) {
@@ -180,7 +217,10 @@ exports.takeCredit = async (req, res) => {
 exports.getAllPersons = async (req, res) => {
   try {
     const userId = req.user.id;
-    const persons = await Person.find({ userId }).sort({ createdAt: -1 });
+
+    const persons = await Person.find({ userId }).sort({
+      createdAt: -1,
+    });
     res.status(200).json(persons);
   } catch (error) {
     res.status(500).json({ message: "Error fetching persons", error });
@@ -196,7 +236,10 @@ exports.getPersonDetail = async (req, res) => {
     const person = await Person.findOne({ _id: id, userId });
     if (!person) return res.status(404).json({ message: "Person not found" });
 
-    const transactions = await CreditTransaction.find({ personId: id, userId }).sort({ createdAt: -1 });
+    const transactions = await CreditTransaction.find({
+      personId: id,
+      userId,
+    }).sort({ createdAt: -1 });
 
     res.status(200).json({ person, transactions });
   } catch (error) {
@@ -204,20 +247,22 @@ exports.getPersonDetail = async (req, res) => {
   }
 };
 exports.getAllPersonsNameAndId = async (req, res) => {
-  try{
+  try {
     const userId = req.user.id;
-    const persons = await Person.find({ userId }).select('name _id number').sort({ createdAt: -1 });
+    const persons = await Person.find({ userId })
+      .select("name _id number")
+      .sort({ createdAt: -1 });
     res.status(200).json(persons);
-    }catch(error) {
+  } catch (error) {
     res.status(500).json({ message: "Error fetching persons", error });
   }
-}
+};
 
 exports.deletePerson = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    
+
     const person = await Person.findOneAndDelete({ _id: id, userId });
     if (!person) return res.status(404).json({ message: "Person not found" });
 
@@ -225,4 +270,20 @@ exports.deletePerson = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Error deleting person", error });
   }
-}
+};
+exports.toggleFavouritePerson = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    const person = await Person.findOne({ _id: id, userId });
+    if (!person) return res.status(404).json({ message: "Person not found" });
+
+    person.favourite = !person.favourite;
+    await person.save();
+
+    res.status(200).json({ message: "Favourite status toggled", person });
+  } catch (error) {
+    res.status(500).json({ message: "Error toggling favourite status", error });
+  }
+};
