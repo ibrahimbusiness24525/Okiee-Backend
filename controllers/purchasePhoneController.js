@@ -1031,18 +1031,22 @@ exports.addBulkPhones = async (req, res) => {
           userId: req.user.id,
           personId: newPerson._id,
           takingCredit: 0,
-          description: `full payment of bulk category purchase by ${entityData.name || newPerson.name
-            } for ${modelName} of per piece price ${prices.buyingPrice
-            } and total amount ${prices.buyingPrice}`,
+          description: `full payment of bulk category purchase by ${
+            entityData.name || newPerson.name
+          } for ${modelName} of per piece price ${
+            prices.buyingPrice
+          } and total amount ${prices.buyingPrice}`,
         });
       } else {
         await CreditTransaction.create({
           userId: req.user.id,
           personId: person._id,
           takingCredit: 0,
-          description: `full payment of bulk category purchase by ${entityData.name || person.name
-            } for ${modelName} of per piece price ${prices.buyingPrice
-            } and total amount ${prices.buyingPrice}`,
+          description: `full payment of bulk category purchase by ${
+            entityData.name || person.name
+          } for ${modelName} of per piece price ${
+            prices.buyingPrice
+          } and total amount ${prices.buyingPrice}`,
         });
       }
     }
@@ -1293,8 +1297,8 @@ exports.getBulkPhone = async (req, res) => {
           path: "imeiNumbers",
           model: "Imei",
         },
-      }).
-      populate("personId", "name number") // Populate person details
+      })
+      .populate("personId", "name number") // Populate person details
       .sort({ date: -1 }) // Sort by date, most recent first
       .lean();
 
@@ -1741,14 +1745,14 @@ exports.sellPhonesFromBulk = async (req, res) => {
     console.log("check for entityData", entityData);
 
     let person = null;
-  if( entityData._id || entityData.number) {
+    if (entityData._id || entityData.number) {
       person = await Person.findOne({
-      ...(!entityData.number && entityData._id && { _id: entityData._id }),
-      ...(entityData.number && { number: entityData.number }),
-     userId: req.user.id 
-    });
-  }
-console.log("person found:", person);
+        ...(!entityData.number && entityData._id && { _id: entityData._id }),
+        ...(entityData.number && { number: entityData.number }),
+        userId: req.user.id,
+      });
+    }
+    console.log("person found:", person);
     if (sellingPaymentType === "Credit") {
       if (!entityData) {
         return res
@@ -1775,8 +1779,9 @@ console.log("person found:", person);
         userId: req.user.id,
         personId: person._id,
         givingCredit: Number(payableAmountLater),
-        description: `Credit Sale: ${imeiNumbers.length} phones sold to ${entityData.name || person.name
-          } || Credit: ${payableAmountLater}`,
+        description: `Credit Sale: ${imeiNumbers.length} phones sold to ${
+          entityData.name || person.name
+        } || Credit: ${payableAmountLater}`,
       });
     }
 
@@ -1795,24 +1800,27 @@ console.log("person found:", person);
           userId: req.user.id,
           personId: newPerson._id,
           givingCredit: 0,
-          description: `Complete Payment of bulk category Sale:  ${imeiNumbers.length
-            } phones sold to ${entityData.name || person.name
-            } || Credit: ${payableAmountLater}`,
+          description: `Complete Payment of bulk category Sale:  ${
+            imeiNumbers.length
+          } phones sold to ${
+            entityData.name || person.name
+          } || Credit: ${payableAmountLater}`,
         });
       } else if (person) {
         await CreditTransaction.create({
           userId: req.user.id,
           personId: person._id,
           givingCredit: 0,
-          description: `Complete Payment of bulk category Sale:  ${imeiNumbers.length
-            } phones sold to ${entityData.name || person.name
-            }  || Credit: ${payableAmountLater}`,
+          description: `Complete Payment of bulk category Sale:  ${
+            imeiNumbers.length
+          } phones sold to ${
+            entityData.name || person.name
+          }  || Credit: ${payableAmountLater}`,
         });
       } else {
         console.log("no required entityData for full payment sale");
       }
     }
-
 
     // Collect all IMEI records being sold
     const imeiRecords = [];
@@ -3442,9 +3450,9 @@ exports.getDetailByImeiNumber = async (req, res) => {
     let imeiList = Array.isArray(imei)
       ? imei
       : imei
-        .split(",")
-        .map((i) => i.trim())
-        .filter(Boolean);
+          .split(",")
+          .map((i) => i.trim())
+          .filter(Boolean);
 
     const results = [];
 

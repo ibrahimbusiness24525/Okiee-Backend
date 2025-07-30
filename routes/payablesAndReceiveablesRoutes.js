@@ -30,4 +30,6 @@ router.delete("/:id", decoderMiddleware, creditController.deletePerson);
 
 router.patch("/:id", decoderMiddleware, creditController.toggleFavouritePerson);
 
+router.put("/update/:id", decoderMiddleware, creditController.updatePerson);
+
 module.exports = router;
