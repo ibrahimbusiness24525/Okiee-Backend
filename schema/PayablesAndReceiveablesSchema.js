@@ -29,6 +29,7 @@ const creditTransactionSchema = mongoose.Schema(
     takingCredit: { type: Number, default: 0 },
     givingCredit: { type: Number, default: 0 },
     description: { type: String, default: "" },
+    balanceAmount: { type: Number, default: 0, required: false },
   },
   { timestamps: true }
 );

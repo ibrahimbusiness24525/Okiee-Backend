@@ -982,14 +982,13 @@ exports.addBulkPhones = async (req, res) => {
     let person;
     console.log("Received Data:", req.body);
 
+    person = await Person.findOne({
+      ...(!entityData.number && { _id: entityData._id }),
+      // name: personData,
+      ...(entityData.number && { number: entityData.number }),
+      userId: req.user.id,
+    });
     if (purchasePaymentType === "credit") {
-      person = await Person.findOne({
-        ...(!entityData.number && { _id: entityData._id }),
-        // name: personData,
-        ...(entityData.number && { number: entityData.number }),
-        userId: req.user.id,
-      });
-
       console.log("entityData", person);
       if (!person) {
         person = await Person.create({
@@ -999,12 +998,16 @@ exports.addBulkPhones = async (req, res) => {
           reference: "Bulk Category Purchase",
           takingCredit: Number(creditPaymentData.payableAmountLater),
           status: "Payable",
+          balanceAmount: Number(creditPaymentData.payableAmountLater),
         });
       } else {
         person.takingCredit =
           Number(person.takingCredit || 0) +
           Number(creditPaymentData.payableAmountLater);
         person.status = "Payable";
+        person.balanceAmount =
+          Number(person.balanceAmount || 0) +
+          Number(creditPaymentData.payableAmountLater);
         person.reference = "Bulk Category Purchase";
         await person.save();
       }
@@ -1013,7 +1016,8 @@ exports.addBulkPhones = async (req, res) => {
       await CreditTransaction.create({
         userId: req.user.id,
         personId: person._id,
-        givingCredit: Number(creditPaymentData.payableAmountLater),
+        takingCredit: Number(creditPaymentData.payableAmountLater),
+        balanceAmount: Number(creditPaymentData.payableAmountLater),
         description: `Credit purchase of Bulk Category of bulk category purchase by ${entityData.name}`,
       });
     }
@@ -1025,6 +1029,7 @@ exports.addBulkPhones = async (req, res) => {
           number: entityData.number,
           reference: "bulk category Purchase",
           takingCredit: 0,
+          balanceAmount: 0,
           status: "Settled",
         });
         await CreditTransaction.create({
@@ -1036,6 +1041,7 @@ exports.addBulkPhones = async (req, res) => {
           } for ${modelName} of per piece price ${
             prices.buyingPrice
           } and total amount ${prices.buyingPrice}`,
+          balanceAmount: 0,
         });
       } else {
         await CreditTransaction.create({
@@ -1047,6 +1053,7 @@ exports.addBulkPhones = async (req, res) => {
           } for ${modelName} of per piece price ${
             prices.buyingPrice
           } and total amount ${prices.buyingPrice}`,
+          balanceAmount: 0,
         });
       }
     }
@@ -1754,12 +1761,6 @@ exports.sellPhonesFromBulk = async (req, res) => {
     }
     console.log("person found:", person);
     if (sellingPaymentType === "Credit") {
-      if (!entityData) {
-        return res
-          .status(400)
-          .json({ message: "Entity data required for credit sales" });
-      }
-
       if (!person) {
         person = await Person.create({
           userId: req.user.id,
@@ -1768,10 +1769,12 @@ exports.sellPhonesFromBulk = async (req, res) => {
           reference: "bulk category Sale",
           givingCredit: Number(payableAmountLater),
           status: "Receivable",
+          balanceAmount: Number(payableAmountLater),
         });
       } else {
         person.givingCredit += Number(payableAmountLater);
         person.status = "Receivable";
+        person.balanceAmount += Number(payableAmountLater);
         await person.save();
       }
 
@@ -1782,11 +1785,12 @@ exports.sellPhonesFromBulk = async (req, res) => {
         description: `Credit Sale: ${imeiNumbers.length} phones sold to ${
           entityData.name || person.name
         } || Credit: ${payableAmountLater}`,
+        balanceAmount: person.balanceAmount,
       });
     }
 
     if (sellingPaymentType === "Full Payment") {
-      if (entityData.name && !person) {
+      if (!person) {
         const newPerson = await Person.create({
           userId: req.user.id,
           name: entityData.name,
@@ -1794,6 +1798,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
           reference: "bulk category Sale",
           givingCredit: 0,
           status: "Settled",
+          balanceAmount: 0,
         });
         await newPerson.save();
         await CreditTransaction.create({
@@ -1802,9 +1807,8 @@ exports.sellPhonesFromBulk = async (req, res) => {
           givingCredit: 0,
           description: `Complete Payment of bulk category Sale:  ${
             imeiNumbers.length
-          } phones sold to ${
-            entityData.name || person.name
-          } || Credit: ${payableAmountLater}`,
+          } phones sold to ${entityData.name || person.name} `,
+          balanceAmount: 0,
         });
       } else if (person) {
         await CreditTransaction.create({
@@ -1813,9 +1817,8 @@ exports.sellPhonesFromBulk = async (req, res) => {
           givingCredit: 0,
           description: `Complete Payment of bulk category Sale:  ${
             imeiNumbers.length
-          } phones sold to ${
-            entityData.name || person.name
-          }  || Credit: ${payableAmountLater}`,
+          } phones sold to ${entityData.name || person.name}  `,
+          balanceAmount: 0,
         });
       } else {
         console.log("no required entityData for full payment sale");
@@ -2105,27 +2108,74 @@ exports.getAllSales = async (req, res) => {
   try {
     const bulkSales = await SoldPhone.find({
       userId: req.user.id,
-      bulkPhonePurchaseId: { $exists: true }, // Only get bulk phone sales
     })
       .populate({
         path: "bulkPhonePurchaseId",
-        select: "prices.buyingPrice", // nly get prices field from bulk purchase
+        populate: {
+          path: "ramSimDetails",
+          populate: {
+            path: "imeiNumbers",
+            model: "Imei",
+          },
+        },
       })
-      .select(
-        "salePrice sellingPaymentType warranty dateSold profit purchasePrice"
-      ) // Only select these fields
+      .populate("bankAccountUsed")
+      .populate("pocketCash")
       .sort({ dateSold: -1 });
 
     const responseData = bulkSales.map((sale) => ({
       type: "Bulk Phone",
       id: sale._id,
-      buyingPrice: sale.bulkPhonePurchaseId?.prices?.buyingPrice || null,
-      profit: sale.profit || 0,
+      // Sale details
       salePrice: sale.salePrice,
-      purchasePrice: sale.purchasePrice || 0,
+      totalInvoice: sale.totalInvoice,
       sellingPaymentType: sale.sellingPaymentType,
+      profit: sale.profit || 0,
       warranty: sale.warranty,
       dateSold: sale.dateSold,
+      customerName: sale.customerName,
+      customerNumber: sale.customerNumber,
+      invoiceNumber: sale.invoiceNumber,
+      dispatch: sale.dispatch,
+      // Payment details
+      bankAccountUsed: sale.bankAccountUsed,
+      pocketCash: sale.pocketCash,
+      // Bulk purchase details
+      bulkPurchase: {
+        id: sale.bulkPhonePurchaseId?._id,
+        date: sale.bulkPhonePurchaseId?.date,
+        purchasePaymentStatus: sale.bulkPhonePurchaseId?.purchasePaymentStatus,
+        purchasePaymentType: sale.bulkPhonePurchaseId?.purchasePaymentType,
+        prices: sale.bulkPhonePurchaseId?.prices,
+        creditPaymentData: sale.bulkPhonePurchaseId?.creditPaymentData,
+        status: sale.bulkPhonePurchaseId?.status,
+        ramSimDetails: sale.bulkPhonePurchaseId?.ramSimDetails?.map(
+          (ramSim) => ({
+            id: ramSim._id,
+            companyName: ramSim.companyName,
+            modelName: ramSim.modelName,
+            ramMemory: ramSim.ramMemory,
+            simOption: ramSim.simOption,
+            priceOfOne: ramSim.priceOfOne,
+            imeiNumbers: ramSim.imeiNumbers?.map((imei) => ({
+              id: imei._id,
+              imei1: imei.imei1,
+              imei2: imei.imei2,
+              color: imei.color,
+              batteryHealth: imei.batteryHealth,
+              isDispatched: imei.isDispatched,
+            })),
+          })
+        ),
+        dispatch: sale.bulkPhonePurchaseId?.dispatch,
+      },
+      // Accessories
+      accessories: sale.accessories,
+      // IMEI details
+      imei1: sale.imei1,
+      imei2: sale.imei2,
+      createdAt: sale.createdAt,
+      updatedAt: sale.updatedAt,
     }));
 
     res.status(200).json({
