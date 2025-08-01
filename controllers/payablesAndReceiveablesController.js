@@ -235,6 +235,7 @@ exports.getPersonDetail = async (req, res) => {
 
     const person = await Person.findOne({ _id: id, userId });
     if (!person) return res.status(404).json({ message: "Person not found" });
+    
 
     const transactions = await CreditTransaction.find({
       personId: id,
