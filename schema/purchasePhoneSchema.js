@@ -28,7 +28,7 @@ const PurchasePhoneSchema = new mongoose.Schema(
     modelName: { type: String, required: true },
     date: { type: Date, required: true },
     batteryHealth: { type: String, required: false },
-    cnic: { type: String, required: true },
+    cnic: { type: String, required: false },
     accessories: {
       box: { type: Boolean, default: false, required: false },
       charger: { type: Boolean, default: false, required: false },
@@ -328,11 +328,11 @@ const BulkPhonePurchaseSchema = new mongoose.Schema(
       ref: "AddBankAccount",
       required: false,
     },
-       personId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Person",
-            required: false,
-        },
+    personId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Person",
+      required: false,
+    },
     pocketCash: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PocketCashTransaction",

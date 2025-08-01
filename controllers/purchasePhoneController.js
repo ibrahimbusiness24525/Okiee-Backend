@@ -3574,3 +3574,77 @@ exports.getDetailByImeiNumber = async (req, res) => {
     return res.status(500).json({ error: "Internal server error." });
   }
 };
+exports.returnSingleSoldToPurchase = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { newBuyingPrice, remainingWarranty } = req.body;
+
+    console.log(
+      "Returning single sold phone to purchase:",
+      id,
+      userId,
+      newBuyingPrice,
+      remainingWarranty
+    );
+    if (!userId) {
+      return res.status(404).json({ message: "Authenticate please" });
+    }
+    // Only handle SingleSoldPhone
+    const singleSoldPhone = await SingleSoldPhone.findById(id);
+    if (!singleSoldPhone) {
+      return res
+        .status(404)
+        .json({ message: "Single sold phone record not found" });
+    }
+    console.log("Single sold phone record found:", singleSoldPhone);
+
+    // Create a new PurchasePhone record from SingleSoldPhone
+    const purchasePhone = new PurchasePhone({
+      userId,
+      shopid: singleSoldPhone.shopid,
+      name: singleSoldPhone.name,
+      mobileNumber: singleSoldPhone.mobileNumber,
+      fatherName: singleSoldPhone.fatherName,
+      cnic:
+        singleSoldPhone.cnicNumber ||
+        singleSoldPhone.customerCnic ||
+        singleSoldPhone.cnic ||
+        "", // Fix: ensure cnic is set
+      companyName: singleSoldPhone.companyName,
+      modelName: singleSoldPhone.modelName,
+      date: singleSoldPhone.purchaseDate,
+      phoneCondition: singleSoldPhone.phoneCondition,
+      warranty: remainingWarranty || singleSoldPhone.warranty,
+      specifications: singleSoldPhone.specifications,
+      ramMemory: singleSoldPhone.ramMemory,
+      color: singleSoldPhone.color,
+      imei1: singleSoldPhone.imei1,
+      imei2: singleSoldPhone.imei2,
+      phonePicture: singleSoldPhone.phonePicture,
+      personPicture: singleSoldPhone.personPicture,
+      accessories: singleSoldPhone.accessories,
+      price: {
+        purchasePrice: Number(newBuyingPrice) || singleSoldPhone.purchasePrice,
+        finalPrice: singleSoldPhone.finalPrice,
+        demandPrice: singleSoldPhone.demandPrice,
+      },
+      isApprovedFromEgadgets: singleSoldPhone.isApprovedFromEgadgets,
+      eGadgetStatusPicture: singleSoldPhone.eGadgetStatusPicture,
+      invoiceNumber: singleSoldPhone.invoiceNumber,
+    });
+    await purchasePhone.save();
+
+    // Delete the sold phone record
+    await SingleSoldPhone.findByIdAndDelete(id);
+    return res.status(200).json({
+      message: "Single sold phone record returned to purchase successfully",
+      purchasePhone,
+    });
+  } catch (error) {
+    console.error("Error returning sold phone to purchase:", error);
+    return res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
+  }
+};
