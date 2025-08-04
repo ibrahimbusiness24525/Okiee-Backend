@@ -988,6 +988,7 @@ exports.addBulkPhones = async (req, res) => {
       ...(entityData.number && { number: entityData.number }),
       userId: req.user.id,
     });
+    const takingCredit = person.takingCredit;
     if (purchasePaymentType === "credit") {
       console.log("entityData", person);
       if (!person) {
@@ -998,26 +999,24 @@ exports.addBulkPhones = async (req, res) => {
           reference: "Bulk Category Purchase",
           takingCredit: Number(creditPaymentData.payableAmountLater),
           status: "Payable",
-          balanceAmount: Number(creditPaymentData.payableAmountLater),
         });
       } else {
         person.takingCredit =
           Number(person.takingCredit || 0) +
           Number(creditPaymentData.payableAmountLater);
         person.status = "Payable";
-        person.balanceAmount =
-          Number(person.balanceAmount || 0) +
-          Number(creditPaymentData.payableAmountLater);
+
+        Number(creditPaymentData.payableAmountLater);
         person.reference = "Bulk Category Purchase";
         await person.save();
       }
-
       // Log the credit transaction
       await CreditTransaction.create({
         userId: req.user.id,
         personId: person._id,
+        balanceAmount:
+          Number(takingCredit) + Number(creditPaymentData.payableAmountLater),
         takingCredit: Number(creditPaymentData.payableAmountLater),
-        balanceAmount: Number(creditPaymentData.payableAmountLater),
         description: `Credit purchase of Bulk Category of bulk category purchase by ${entityData.name}`,
       });
     }
@@ -1029,31 +1028,30 @@ exports.addBulkPhones = async (req, res) => {
           number: entityData.number,
           reference: "bulk category Purchase",
           takingCredit: 0,
-          balanceAmount: 0,
           status: "Settled",
         });
         await CreditTransaction.create({
           userId: req.user.id,
           personId: newPerson._id,
           takingCredit: 0,
+          balanceAmount: 0,
           description: `full payment of bulk category purchase by ${
             entityData.name || newPerson.name
           } for ${modelName} of per piece price ${
             prices.buyingPrice
           } and total amount ${prices.buyingPrice}`,
-          balanceAmount: 0,
         });
       } else {
         await CreditTransaction.create({
           userId: req.user.id,
           personId: person._id,
           takingCredit: 0,
+          balanceAmount: Number(person.takingCredit),
           description: `full payment of bulk category purchase by ${
             entityData.name || person.name
           } for ${modelName} of per piece price ${
             prices.buyingPrice
           } and total amount ${prices.buyingPrice}`,
-          balanceAmount: 0,
         });
       }
     }
@@ -1769,12 +1767,10 @@ exports.sellPhonesFromBulk = async (req, res) => {
           reference: "bulk category Sale",
           givingCredit: Number(payableAmountLater),
           status: "Receivable",
-          balanceAmount: Number(payableAmountLater),
         });
       } else {
         person.givingCredit += Number(payableAmountLater);
         person.status = "Receivable";
-        person.balanceAmount += Number(payableAmountLater);
         await person.save();
       }
 
@@ -1782,10 +1778,10 @@ exports.sellPhonesFromBulk = async (req, res) => {
         userId: req.user.id,
         personId: person._id,
         givingCredit: Number(payableAmountLater),
+        balanceAmount: Number(person.givingCredit) + Number(payableAmountLater),
         description: `Credit Sale: ${imeiNumbers.length} phones sold to ${
           entityData.name || person.name
         } || Credit: ${payableAmountLater}`,
-        balanceAmount: person.balanceAmount,
       });
     }
 
@@ -1798,27 +1794,26 @@ exports.sellPhonesFromBulk = async (req, res) => {
           reference: "bulk category Sale",
           givingCredit: 0,
           status: "Settled",
-          balanceAmount: 0,
         });
         await newPerson.save();
         await CreditTransaction.create({
           userId: req.user.id,
           personId: newPerson._id,
           givingCredit: 0,
+          balanceAmount: 0,
           description: `Complete Payment of bulk category Sale:  ${
             imeiNumbers.length
           } phones sold to ${entityData.name || person.name} `,
-          balanceAmount: 0,
         });
       } else if (person) {
         await CreditTransaction.create({
           userId: req.user.id,
           personId: person._id,
+          balanceAmount: Number(person.givingCredit),
           givingCredit: 0,
           description: `Complete Payment of bulk category Sale:  ${
             imeiNumbers.length
           } phones sold to ${entityData.name || person.name}  `,
-          balanceAmount: 0,
         });
       } else {
         console.log("no required entityData for full payment sale");

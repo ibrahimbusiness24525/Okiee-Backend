@@ -306,6 +306,9 @@ const createAccessory = async (req, res) => {
           .join(", ")} of per piece price ${accessories
           .map((acc) => acc.perPiecePrice)
           .join(", ")} and total amount ${totalAmount}`,
+        balanceAmount:
+          Number(person.takingCredit) +
+          Number(creditPaymentData.payableAmountLater),
       });
     }
 
@@ -323,6 +326,7 @@ const createAccessory = async (req, res) => {
           userId: req.user.id,
           personId: newPerson._id,
           takingCredit: 0,
+          balanceAmount: 0,
           description: `Full payment purchase of accessories by ${
             entityData.name || newPerson.name
           } for ${accessories
@@ -336,6 +340,7 @@ const createAccessory = async (req, res) => {
           userId: req.user.id,
           personId: person._id,
           takingCredit: 0,
+          balanceAmount: Number(person.takingCredit),
           description: `Full payment purchase of accessories by ${
             entityData.name || person.name
           } for ${accessories
@@ -959,6 +964,9 @@ const sellMultipleAccessories = async (req, res) => {
       await CreditTransaction.create({
         userId: req.user.id,
         personId: person._id,
+        balanceAmount:
+          Number(person.givingCredit) +
+          Number(creditPaymentData.payableAmountLater),
         givingCredit: Number(creditPaymentData.payableAmountLater),
         description: `Credit Sale: ${accessoryNames.join(
           ", "
@@ -983,6 +991,7 @@ const sellMultipleAccessories = async (req, res) => {
           userId: req.user.id,
           personId: newPerson._id,
           givingCredit: 0,
+          balanceAmount: 0,
           description: `Complete Payment of Sale: ${accessoryNames.join(
             ", "
           )} to ${entityData.name || person.name} of ${accessoryData
@@ -998,6 +1007,7 @@ const sellMultipleAccessories = async (req, res) => {
           userId: req.user.id,
           personId: person._id,
           givingCredit: 0,
+          balanceAmount: Number(person.givingCredit),
           description: `Complete Payment of Sale: ${accessoryNames.join(
             ", "
           )} from ${entityData.name || person.name} of ${accessoryData
