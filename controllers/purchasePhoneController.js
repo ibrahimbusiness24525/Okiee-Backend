@@ -1677,6 +1677,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
       bankAccountUsed,
       pocketCash,
       accountCash,
+      imeisWithPrices,
       bulkPhonePurchaseId,
       imeiNumbers,
       salePrice,
@@ -1848,31 +1849,90 @@ exports.sellPhonesFromBulk = async (req, res) => {
     }
     // Calculate total buying price for the sold IMEIs
     let totalBuyingPrice = 0;
-    for (const imeiRecord of imeiRecords) {
-      // Find the ramSim that contains this IMEI
-      const ramSim = bulkPhonePurchase.ramSimDetails.find((rs) =>
+    let profitDetails = [];
+    totalBuyingPrice = 0;
+    let totalSellingPrice = 0;
+   
+    if(imeisWithPrices && imeisWithPrices.length > 0) {
+      // If imeisWithPrices is provided, use it to calculate total buying price
+      // imeisWithPrices is an array of objects: [{ imei: "IMEI1", priceOfOne: 123 }, ...]
+      // But your example is an object: { imei: sellingPrice, ... }
+      // We'll assume you want to use the keys as IMEI and values as selling price
+      // So, for each IMEI, find its buying price, and calculate profit
+
+
+      for (const [imeiKey, sellingPrice] of Object.entries(imeisWithPrices)) {
+        // Find the IMEI record in imeiRecords
+        const imeiRecord = imeiRecords.find(
+          (rec) => rec.imei1 === imeiKey || rec.imei2 === imeiKey
+        );
+        let buyingPrice = 0;
+        if (imeiRecord) {
+          // Find the ramSim that contains this IMEI
+          const ramSim = bulkPhonePurchase.ramSimDetails.find((rs) =>
         rs.imeiNumbers.some(
           (ir) => ir._id.toString() === imeiRecord._id.toString()
         )
-      );
-      if (ramSim && ramSim.priceOfOne) {
-        totalBuyingPrice += Number(ramSim.priceOfOne);
-      } else if (
+          );
+          if (ramSim && ramSim.priceOfOne) {
+        buyingPrice = Number(ramSim.priceOfOne);
+          } else if (
         bulkPhonePurchase.prices &&
         bulkPhonePurchase.prices.buyingPrice
-      ) {
-        // fallback to overall bulk buying price (divided by total IMEIs if needed)
-        totalBuyingPrice +=
+          ) {
+        buyingPrice =
           Number(bulkPhonePurchase.prices.buyingPrice) /
           (bulkPhonePurchase.ramSimDetails.reduce(
             (sum, rs) => sum + (rs.imeiNumbers ? rs.imeiNumbers.length : 0),
             0
           ) || 1);
+          }
+        }
+        totalBuyingPrice += buyingPrice;
+        totalSellingPrice += Number(sellingPrice);
+        profitDetails.push({
+          imei: imeiKey,
+          sellingPrice: Number(sellingPrice),
+          buyingPrice,
+          profit: Number(sellingPrice) - buyingPrice,
+        });
       }
+      // Optionally, you can log or return profitDetails for each IMEI
+      // The totalProfit below will now be based on totalSellingPrice - totalBuyingPrice
+      // totalProfit = totalSellingPrice - totalBuyingPrice;
     }
+    // for (const imeiRecord of imeiRecords) {
+    //   // Find the ramSim that contains this IMEI
+    //   const ramSim = bulkPhonePurchase.ramSimDetails.find((rs) =>
+    //     rs.imeiNumbers.some(
+    //       (ir) => ir._id.toString() === imeiRecord._id.toString()
+    //     )
+    //   );
+    //   if (ramSim && ramSim.priceOfOne) {
+    //     totalBuyingPrice += Number(ramSim.priceOfOne);
+    //   } else if (
+    //     bulkPhonePurchase.prices &&
+    //     bulkPhonePurchase.prices.buyingPrice
+    //   ) {
+    //     // fallback to overall bulk buying price (divided by total IMEIs if needed)
+    //     totalBuyingPrice +=
+    //       Number(bulkPhonePurchase.prices.buyingPrice) /
+    //       (bulkPhonePurchase.ramSimDetails.reduce(
+    //         (sum, rs) => sum + (rs.imeiNumbers ? rs.imeiNumbers.length : 0),
+    //         0
+    //       ) || 1);
+    //   }
+    // }
 
     // Calculate total profit
-    const totalProfit = Number(salePrice) - totalBuyingPrice;
+
+
+    const totalProfit = profitDetails.reduce(
+      (acc, detail) => acc + detail.profit,
+      0
+    );
+    // const totalProfit = Number(salePrice) - totalBuyingPrice;
+
     // )
     // *
     //  imeiNumbers.length;
