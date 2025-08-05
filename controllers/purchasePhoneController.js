@@ -1035,11 +1035,9 @@ exports.addBulkPhones = async (req, res) => {
           personId: newPerson._id,
           takingCredit: 0,
           balanceAmount: 0,
-          description: `full payment of bulk category purchase by ${
-            entityData.name || newPerson.name
-          } for ${modelName} of per piece price ${
-            prices.buyingPrice
-          } and total amount ${prices.buyingPrice}`,
+          description: `full payment of bulk category purchase by ${entityData.name || newPerson.name
+            } for ${modelName} of per piece price ${prices.buyingPrice
+            } and total amount ${prices.buyingPrice}`,
         });
       } else {
         await CreditTransaction.create({
@@ -1047,11 +1045,9 @@ exports.addBulkPhones = async (req, res) => {
           personId: person._id,
           takingCredit: 0,
           balanceAmount: Number(person.takingCredit),
-          description: `full payment of bulk category purchase by ${
-            entityData.name || person.name
-          } for ${modelName} of per piece price ${
-            prices.buyingPrice
-          } and total amount ${prices.buyingPrice}`,
+          description: `full payment of bulk category purchase by ${entityData.name || person.name
+            } for ${modelName} of per piece price ${prices.buyingPrice
+            } and total amount ${prices.buyingPrice}`,
         });
       }
     }
@@ -1780,9 +1776,8 @@ exports.sellPhonesFromBulk = async (req, res) => {
         personId: person._id,
         givingCredit: Number(payableAmountLater),
         balanceAmount: Number(person.givingCredit) + Number(payableAmountLater),
-        description: `Credit Sale: ${imeiNumbers.length} phones sold to ${
-          entityData.name || person.name
-        } || Credit: ${payableAmountLater}`,
+        description: `Credit Sale: ${imeiNumbers.length} phones sold to ${entityData.name || person.name
+          } || Credit: ${payableAmountLater}`,
       });
     }
 
@@ -1802,9 +1797,8 @@ exports.sellPhonesFromBulk = async (req, res) => {
           personId: newPerson._id,
           givingCredit: 0,
           balanceAmount: 0,
-          description: `Complete Payment of bulk category Sale:  ${
-            imeiNumbers.length
-          } phones sold to ${entityData.name || person.name} `,
+          description: `Complete Payment of bulk category Sale:  ${imeiNumbers.length
+            } phones sold to ${entityData.name || person.name} `,
         });
       } else if (person) {
         await CreditTransaction.create({
@@ -1812,9 +1806,8 @@ exports.sellPhonesFromBulk = async (req, res) => {
           personId: person._id,
           balanceAmount: Number(person.givingCredit),
           givingCredit: 0,
-          description: `Complete Payment of bulk category Sale:  ${
-            imeiNumbers.length
-          } phones sold to ${entityData.name || person.name}  `,
+          description: `Complete Payment of bulk category Sale:  ${imeiNumbers.length
+            } phones sold to ${entityData.name || person.name}  `,
         });
       } else {
         console.log("no required entityData for full payment sale");
@@ -1852,15 +1845,14 @@ exports.sellPhonesFromBulk = async (req, res) => {
     let profitDetails = [];
     totalBuyingPrice = 0;
     let totalSellingPrice = 0;
-   
-    if(imeisWithPrices && imeisWithPrices.length > 0) {
-      // If imeisWithPrices is provided, use it to calculate total buying price
-      // imeisWithPrices is an array of objects: [{ imei: "IMEI1", priceOfOne: 123 }, ...]
-      // But your example is an object: { imei: sellingPrice, ... }
-      // We'll assume you want to use the keys as IMEI and values as selling price
-      // So, for each IMEI, find its buying price, and calculate profit
 
-
+    console.log("req.body", req.body);
+    if (
+      imeisWithPrices &&
+      typeof imeisWithPrices === "object" &&
+      Object.keys(imeisWithPrices).length > 0
+    ) {
+      // If imeisWithPrices is provided as an object, use it to calculate total buying price
       for (const [imeiKey, sellingPrice] of Object.entries(imeisWithPrices)) {
         // Find the IMEI record in imeiRecords
         const imeiRecord = imeiRecords.find(
@@ -1870,22 +1862,22 @@ exports.sellPhonesFromBulk = async (req, res) => {
         if (imeiRecord) {
           // Find the ramSim that contains this IMEI
           const ramSim = bulkPhonePurchase.ramSimDetails.find((rs) =>
-        rs.imeiNumbers.some(
-          (ir) => ir._id.toString() === imeiRecord._id.toString()
-        )
+            rs.imeiNumbers.some(
+              (ir) => ir._id.toString() === imeiRecord._id.toString()
+            )
           );
           if (ramSim && ramSim.priceOfOne) {
-        buyingPrice = Number(ramSim.priceOfOne);
+            buyingPrice = Number(ramSim.priceOfOne);
           } else if (
-        bulkPhonePurchase.prices &&
-        bulkPhonePurchase.prices.buyingPrice
+            bulkPhonePurchase.prices &&
+            bulkPhonePurchase.prices.buyingPrice
           ) {
-        buyingPrice =
-          Number(bulkPhonePurchase.prices.buyingPrice) /
-          (bulkPhonePurchase.ramSimDetails.reduce(
-            (sum, rs) => sum + (rs.imeiNumbers ? rs.imeiNumbers.length : 0),
-            0
-          ) || 1);
+            buyingPrice =
+              Number(bulkPhonePurchase.prices.buyingPrice) /
+              (bulkPhonePurchase.ramSimDetails.reduce(
+                (sum, rs) => sum + (rs.imeiNumbers ? rs.imeiNumbers.length : 0),
+                0
+              ) || 1);
           }
         }
         totalBuyingPrice += buyingPrice;
@@ -1926,11 +1918,16 @@ exports.sellPhonesFromBulk = async (req, res) => {
 
     // Calculate total profit
 
+    console.log("Total Buying Price:", totalBuyingPrice);
+    console.log("Total Selling Price:", totalSellingPrice);
+    console.log("Profit Details:", profitDetails);
+
 
     const totalProfit = profitDetails.reduce(
       (acc, detail) => acc + detail.profit,
       0
     );
+    console.log("Total Profit:", totalProfit);
     // const totalProfit = Number(salePrice) - totalBuyingPrice;
 
     // )
@@ -3555,9 +3552,9 @@ exports.getDetailByImeiNumber = async (req, res) => {
     let imeiList = Array.isArray(imei)
       ? imei
       : imei
-          .split(",")
-          .map((i) => i.trim())
-          .filter(Boolean);
+        .split(",")
+        .map((i) => i.trim())
+        .filter(Boolean);
 
     const results = [];
 
