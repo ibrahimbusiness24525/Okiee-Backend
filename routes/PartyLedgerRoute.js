@@ -3,6 +3,7 @@ const PartyLedger = require("../schema/PartyLedgerSchema");
 const { decoderMiddleware } = require("../services/authServices");
 const ModelValidator = require("../validators/ModelValidator");
 const express = require('express');
+const { deleteTransaction } = require("../controllers/payablesAndReceiveablesController");
 
 const router = express.Router();
 
@@ -37,5 +38,11 @@ router.get(
     decoderMiddleware,
     getPartyDetailById
 )
+
+router.delete(
+  "/credit-transaction/:id",
+  decoderMiddleware,
+  deleteTransaction
+);
 
 module.exports = router;

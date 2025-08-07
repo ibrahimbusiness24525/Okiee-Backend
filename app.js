@@ -20,6 +20,7 @@ const pocketCashRouter = require("./routes/PocketCashRoute.js")
 const entityShopLedgerRouter = require("./routes/ShopLedgerRoute.js")
 const CompanyRouter = require("./routes/CompanyRoutes.js")
 const BalanceSheetRouter = require("./routes/balanceSheetRoutes.js")
+const creditTransaction = require("./routes/payablesAndReceiveablesRoutes.js")
 // import rateLimit from 'express-rate-limit';
 
 // const limiter = rateLimit({

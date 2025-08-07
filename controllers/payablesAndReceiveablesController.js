@@ -247,6 +247,32 @@ exports.getPersonDetail = async (req, res) => {
     res.status(500).json({ message: "Error fetching person detail", error });
   }
 };
+
+exports.deleteTransaction = async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (!id) return res.status(400).json({ message: "Transaction ID is required" });
+    
+    const transaction = await CreditTransaction.findOne({ 
+      _id: id, 
+      userId: req.user.id // Fixed: use req.user.id
+    });
+
+    if (!transaction) {
+      return res.status(404).json({ message: "Transaction not found" });
+    }
+
+    await CreditTransaction.findOneAndDelete({
+      _id: id,
+      userId: req.user.id
+    });
+    
+    res.status(200).json({ message: "Transaction deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting transaction:", error);
+    res.status(500).json({ message: "Error deleting transaction", error: error.message });
+  }
+};
 exports.getAllPersonsNameAndId = async (req, res) => {
   try {
     const userId = req.user.id;

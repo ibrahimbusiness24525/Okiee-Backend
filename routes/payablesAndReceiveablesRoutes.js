@@ -29,7 +29,13 @@ router.get("/:id", decoderMiddleware, creditController.getPersonDetail);
 router.delete("/:id", decoderMiddleware, creditController.deletePerson);
 
 router.patch("/:id", decoderMiddleware, creditController.toggleFavouritePerson);
+router.delete(
+  "/credit-transaction/:id",
+  decoderMiddleware,
+  creditController.deleteTransaction
+);
 
 router.put("/update/:id", decoderMiddleware, creditController.updatePerson);
+
 
 module.exports = router;
