@@ -39,10 +39,6 @@ router.get(
     getPartyDetailById
 )
 
-router.delete(
-  "/credit-transaction/:id",
-  decoderMiddleware,
-  deleteTransaction
-);
+
 
 module.exports = router;

@@ -37,5 +37,11 @@ router.delete(
 
 router.put("/update/:id", decoderMiddleware, creditController.updatePerson);
 
+router.delete(
+  "/delete-transaction/:id",
+  decoderMiddleware,
+  creditController.deleteTransaction
+);
+
 
 module.exports = router;

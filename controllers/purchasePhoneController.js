@@ -1755,6 +1755,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
       });
     }
     console.log("person found:", person);
+
     if (sellingPaymentType === "Credit") {
       if (!person) {
         person = await Person.create({
@@ -1781,26 +1782,9 @@ exports.sellPhonesFromBulk = async (req, res) => {
       });
     }
 
+    // Do NOT create a new entity if sellingPaymentType is "Full Payment"
     if (sellingPaymentType === "Full Payment") {
-      if (!person) {
-        const newPerson = await Person.create({
-          userId: req.user.id,
-          name: entityData.name,
-          number: entityData.number,
-          reference: "bulk category Sale",
-          givingCredit: 0,
-          status: "Settled",
-        });
-        await newPerson.save();
-        await CreditTransaction.create({
-          userId: req.user.id,
-          personId: newPerson._id,
-          givingCredit: 0,
-          balanceAmount: 0,
-          description: `Complete Payment of bulk category Sale:  ${imeiNumbers.length
-            } phones sold to ${entityData.name || person.name} `,
-        });
-      } else if (person) {
+      if (person) {
         await CreditTransaction.create({
           userId: req.user.id,
           personId: person._id,
@@ -1810,7 +1794,8 @@ exports.sellPhonesFromBulk = async (req, res) => {
             } phones sold to ${entityData.name || person.name}  `,
         });
       } else {
-        console.log("no required entityData for full payment sale");
+        // Do not create a new Person entity, just log or skip
+        console.log("No existing entity found for full payment sale, not creating new entity.");
       }
     }
 
@@ -1893,28 +1878,6 @@ exports.sellPhonesFromBulk = async (req, res) => {
       // The totalProfit below will now be based on totalSellingPrice - totalBuyingPrice
       // totalProfit = totalSellingPrice - totalBuyingPrice;
     }
-    // for (const imeiRecord of imeiRecords) {
-    //   // Find the ramSim that contains this IMEI
-    //   const ramSim = bulkPhonePurchase.ramSimDetails.find((rs) =>
-    //     rs.imeiNumbers.some(
-    //       (ir) => ir._id.toString() === imeiRecord._id.toString()
-    //     )
-    //   );
-    //   if (ramSim && ramSim.priceOfOne) {
-    //     totalBuyingPrice += Number(ramSim.priceOfOne);
-    //   } else if (
-    //     bulkPhonePurchase.prices &&
-    //     bulkPhonePurchase.prices.buyingPrice
-    //   ) {
-    //     // fallback to overall bulk buying price (divided by total IMEIs if needed)
-    //     totalBuyingPrice +=
-    //       Number(bulkPhonePurchase.prices.buyingPrice) /
-    //       (bulkPhonePurchase.ramSimDetails.reduce(
-    //         (sum, rs) => sum + (rs.imeiNumbers ? rs.imeiNumbers.length : 0),
-    //         0
-    //       ) || 1);
-    //   }
-    // }
 
     // Calculate total profit
 
@@ -1922,17 +1885,11 @@ exports.sellPhonesFromBulk = async (req, res) => {
     console.log("Total Selling Price:", totalSellingPrice);
     console.log("Profit Details:", profitDetails);
 
-
     const totalProfit = profitDetails.reduce(
       (acc, detail) => acc + detail.profit,
       0
     );
     console.log("Total Profit:", totalProfit);
-    // const totalProfit = Number(salePrice) - totalBuyingPrice;
-
-    // )
-    // *
-    //  imeiNumbers.length;
 
     // Create a single SoldPhone record for all IMEIs
     const soldPhone = new SoldPhone({

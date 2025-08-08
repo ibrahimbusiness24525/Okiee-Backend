@@ -301,7 +301,7 @@ exports.getToDayBook = async (req, res) => {
         soldSinglePhone,
         soldBulkPhone,
         totalStockCount: totalSinglePhones + totalBulkPhones,
-        totalStockAmount: totalSingleAmount + totalBulkAmount,
+        totalStockAmount: totalSingleAmount + totalBulkAmount + Number(totalAccessoryTransactionAmount),
         todayPersonsOfAccessories,
         totalAccessoriesProfit,
         totalAccesoriesTransactionLength,
