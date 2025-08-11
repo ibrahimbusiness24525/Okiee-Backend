@@ -1299,7 +1299,7 @@ exports.getBulkPhone = async (req, res) => {
           model: "Imei",
         },
       })
-      .populate("personId", "name number") // Populate person details
+      .populate("personId", "name number givingCredit takingCredit") // Populate person details
       .sort({ date: -1 }) // Sort by date, most recent first
       .lean();
 
@@ -1692,12 +1692,32 @@ exports.sellPhonesFromBulk = async (req, res) => {
       payableAmountLaterDate,
       exchangePhoneDetail,
     } = req.body;
-
+    if (!bulkPhonePurchaseId) {
+      return res.status(400).json({
+        message: "Bulk Phone Purchase ID is required.",
+      });
+    }
+    if (sellingPaymentType === "Credit" && !payableAmountNow && !payableAmountLater && !payableAmountLaterDate) {
+      return res.status(400).json({
+        message: "fill all credit data fields",
+      });
+    }
+    if (entityData && !entityData._id && !entityData.number) {
+      return res.status(400).json({
+        message: "Either Entity ID or Number must be provided.",
+      });
+    }
     // Validation
     if (!salePrice || !warranty) {
       return res
         .status(400)
         .json({ message: "Sale price and warranty are required" });
+    }
+
+    if (!dateSold) {
+      return res.status(400).json({
+        message: "Date Sold is required."
+      });
     }
 
     if (
@@ -1709,7 +1729,11 @@ exports.sellPhonesFromBulk = async (req, res) => {
         .status(400)
         .json({ message: "At least one IMEI must be provided" });
     }
-
+    if (accessories.length === 1 && accessories[0].quantity === 0 && !accessories[0].name && !accessories[0].price) {
+      return res.status(400).json({
+        message: "Accessory name and price must be provided if quantity is 0.",
+      });
+    }
     // Find the bulk phone purchase
     const bulkPhonePurchase = await BulkPhonePurchase.findById(
       bulkPhonePurchaseId
