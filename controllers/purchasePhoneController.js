@@ -1299,7 +1299,7 @@ exports.getBulkPhone = async (req, res) => {
           model: "Imei",
         },
       })
-      .populate("personId", "name number givingCredit takingCredit") // Populate person details
+      .populate("personId", "name number givingCredit takingCreditw") // Populate person details
       .sort({ date: -1 }) // Sort by date, most recent first
       .lean();
 
@@ -1769,6 +1769,30 @@ exports.sellPhonesFromBulk = async (req, res) => {
       });
     }
     console.log("check for entityData", entityData);
+    const bulkPurchase = await BulkPhonePurchase.findById(bulkPhonePurchaseId)
+      .populate({
+        path: "ramSimDetails",
+        populate: { path: "imeiNumbers" }
+      });
+
+    if (!bulkPurchase) throw new Error("Bulk purchase not found");
+
+    const phonesToBeSold = [];
+
+    bulkPurchase.ramSimDetails.forEach(ramSim => {
+      ramSim.imeiNumbers.forEach(imeiDoc => {
+        if (imeiNumbers.includes(imeiDoc.imei1) || imeiNumbers.includes(imeiDoc.imei2)) {
+          phonesToBeSold.push({
+            color: imeiDoc.color || "not mentioned",
+            batteryHealth: imeiDoc.batteryHealth || "not mentioned",
+            modelName: ramSim.modelName,
+            companyName: ramSim.companyName,
+            ramMemory: ramSim.ramMemory,
+            priceOfOne: ramSim.priceOfOne
+          });
+        }
+      });
+    });
 
     let person = null;
     if (entityData._id || entityData.number) {
@@ -1802,7 +1826,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
         givingCredit: Number(payableAmountLater),
         balanceAmount: Number(person.givingCredit) + Number(payableAmountLater),
         description: `Credit Sale: ${imeiNumbers.length} phones sold to ${entityData.name || person.name
-          } || Credit: ${payableAmountLater}`,
+          } || Credit: ${payableAmountLater} || Model: ${phonesToBeSold.map(phone => phone.modelName).join(", ")} || Company: ${phonesToBeSold.map(phone => phone.companyName).join(", ")} || Battery Health: ${phonesToBeSold.map(phone => phone.batteryHealth).join(", ")} || Color: ${phonesToBeSold.map(phone => phone.color).join(", ")}`,
       });
     }
 
@@ -1815,7 +1839,8 @@ exports.sellPhonesFromBulk = async (req, res) => {
           balanceAmount: Number(person.givingCredit),
           givingCredit: 0,
           description: `Complete Payment of bulk category Sale:  ${imeiNumbers.length
-            } phones sold to ${entityData.name || person.name}  `,
+            } phones sold to  ${entityData.name || person.name
+            }  || Model: ${phonesToBeSold.map(phone => phone.modelName).join(", ")} || Company: ${phonesToBeSold.map(phone => phone.companyName).join(", ")} || Battery Health: ${phonesToBeSold.map(phone => phone.batteryHealth).join(", ")} || Color: ${phonesToBeSold.map(phone => phone.color).join(", ")}`,
         });
       } else {
         // Do not create a new Person entity, just log or skip
@@ -2337,11 +2362,23 @@ exports.payBulkPurchaseCreditAmount = async (req, res) => {
 // Dispatch a single purchase phone
 exports.dispatchSinglePurchase = async (req, res) => {
   try {
-    const { shopName, receiverName } = req.body;
+    const { shopName, receiverName, warranty, purchasePrice } = req.body;
     const purchasePhoneId = req.params.id;
     const userId = req.user.id;
 
-    await PurchasePhone.findByIdAndUpdate(purchasePhoneId, { dispatch: true });
+    await PurchasePhone.findByIdAndUpdate(
+      purchasePhoneId,
+      {
+        dispatch: true,
+        ...(warranty && {
+          $set: { "warranty": warranty }
+        }),
+        ...(purchasePrice && {
+          $set: { "price.purchasePrice": purchasePrice }
+        })
+      },
+      { new: true }
+    );
 
     const dispatchEntry = await Dispatch.create({
       userId,
