@@ -127,3 +127,17 @@ exports.getPocketCashTransactions = async (req, res) => {
     return res.status(500).json({ message: "Server error", error });
   }
 };
+
+exports.deletePocketCashTransaction = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const transaction = await PocketCashTransactionSchema.findOneAndDelete({ _id: id, userId });
+    if (!transaction) return res.status(404).json({ success: false, message: "Transaction not found or not authorized" });
+
+    res.status(200).json({ success: true, message: "Transaction deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

@@ -1802,6 +1802,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
         userId: req.user.id,
       });
     }
+    const currentGiveCreditAmount = person ? person.givingCredit : 0;
     console.log("person found:", person);
 
     if (sellingPaymentType === "Credit") {
@@ -1824,7 +1825,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
         userId: req.user.id,
         personId: person._id,
         givingCredit: Number(payableAmountLater),
-        balanceAmount: Number(person.givingCredit) + Number(payableAmountLater),
+        balanceAmount: currentGiveCreditAmount + Number(payableAmountLater),
         description: `Credit Sale: ${imeiNumbers.length} phones sold to ${entityData.name || person.name
           } || Credit: ${payableAmountLater} || Model: ${phonesToBeSold.map(phone => phone.modelName).join(", ")} || Company: ${phonesToBeSold.map(phone => phone.companyName).join(", ")} || Battery Health: ${phonesToBeSold.map(phone => phone.batteryHealth).join(", ")} || Color: ${phonesToBeSold.map(phone => phone.color).join(", ")}`,
       });
