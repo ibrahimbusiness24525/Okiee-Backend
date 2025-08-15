@@ -183,10 +183,30 @@ exports.deleteBankTransaction = async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.user.id;
+        if (!userId) {
+            return res.status(401).json({ message: "Authenticate please" });
+        }
 
-        const transaction = await BankTransaction.findOneAndDelete({ _id: id, userId });
+        const transaction = await BankTransaction.findOne({ _id: id, userId });
+        const bankId = transaction.bankId;
         if (!transaction) return res.status(404).json({ success: false, message: "Transaction not found or not authorized" });
+        const bank = await AddBankAccount.findOne({ _id: bankId, userId });
+        if (!bank) return res.status(404).json({ success: false, message: "Bank account not found or not authorized" });
+        console.log("Bank account found:", bank);
+        console.log("transaction", transaction);
 
+        // if (transaction.accountCash < 0) {
+        //     console.log("Transaction cashOut:", transaction.cashOut);
+        //     bank.accountCash += transaction.cashOut;
+        //     await bank.save();
+        // }
+        // if (transaction.accountCash > 0) {
+        //     console.log("Transaction cashIn:", transaction.cashIn);
+        //     bank.accountCash -= transaction.cashIn;
+        //     await bank.save();
+        // }
+
+        await BankTransaction.deleteOne({ _id: id, userId });
         res.status(200).json({ success: true, message: "Transaction deleted successfully" });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

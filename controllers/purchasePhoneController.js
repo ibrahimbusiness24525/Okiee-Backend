@@ -152,6 +152,7 @@ exports.addPurchasePhone = async (req, res) => {
         number: imei1,
         userId: req.user.id,
       });
+      // const takingCredit = person.takingCredit || 0;
 
       if (!person) {
         person = await Person.create({
@@ -174,7 +175,9 @@ exports.addPurchasePhone = async (req, res) => {
       await CreditTransaction.create({
         userId: req.user.id,
         personId: person._id,
-        givingCredit: Number(payableAmountLater),
+        // balanceAmount:
+        //   Number(takingCredit) + Number(payableAmountLater),
+        takingCredit: Number(payableAmountLater),
         description: `Credit purchase of phone: ${companyName} ${modelName}`,
       });
     }
@@ -488,6 +491,7 @@ exports.sellSinglePhone = async (req, res) => {
         number: customerNumber,
         userId: req.user.id,
       });
+      const currentGiveCreditAmount = person ? person.givingCredit : 0;
 
       if (!person) {
         person = await Person.create({
@@ -509,6 +513,7 @@ exports.sellSinglePhone = async (req, res) => {
       await CreditTransaction.create({
         userId: req.user.id,
         personId: person._id,
+        balanceAmount: currentGiveCreditAmount + Number(payableAmountLater),
         givingCredit: Number(payableAmountLater),
         description: `Credit sale of phone: ${purchasedPhone.companyName} ${purchasedPhone.modelName}`,
       });

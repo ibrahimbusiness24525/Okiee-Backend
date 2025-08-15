@@ -100,8 +100,8 @@ exports.giveCredit = async (req, res) => {
       updatedTaking > 0
         ? "Payable"
         : updatedGiving > 0
-        ? "Receivable"
-        : "Settled";
+          ? "Receivable"
+          : "Settled";
 
     person.givingCredit = updatedGiving;
     person.takingCredit = updatedTaking;
@@ -192,8 +192,8 @@ exports.takeCredit = async (req, res) => {
       updatedTaking > 0
         ? "Payable"
         : updatedGiving > 0
-        ? "Receivable"
-        : "Settled";
+          ? "Receivable"
+          : "Settled";
 
     person.givingCredit = updatedGiving;
     person.takingCredit = updatedTaking;
@@ -235,7 +235,7 @@ exports.getPersonDetail = async (req, res) => {
 
     const person = await Person.findOne({ _id: id, userId });
     if (!person) return res.status(404).json({ message: "Person not found" });
-    
+
 
     const transactions = await CreditTransaction.find({
       personId: id,
@@ -252,9 +252,9 @@ exports.deleteTransaction = async (req, res) => {
   try {
     const id = req.params.id;
     if (!id) return res.status(400).json({ message: "Transaction ID is required" });
-    
-    const transaction = await CreditTransaction.findOne({ 
-      _id: id, 
+
+    const transaction = await CreditTransaction.findOne({
+      _id: id,
       userId: req.user.id // Fixed: use req.user.id
     });
 
@@ -262,11 +262,37 @@ exports.deleteTransaction = async (req, res) => {
       return res.status(404).json({ message: "Transaction not found" });
     }
 
+
+
+    const givingCredit = transaction.givingCredit;
+    const takingCredit = transaction.takingCredit;
+
+    const person = await Person.findOne({ _id: transaction.personId, userId: req.user.id });
+
+    if (!person) {
+      res.status(404).json({ message: "Person not found" });
+      return
+    }
+
+    if (takingCredit) {
+      await Person.findOneAndUpdate(
+        { _id: transaction.personId, userId: req.user.id },
+        { $inc: { takingCredit: -takingCredit } },
+        { new: true }
+      );
+    }
+    if (givingCredit) {
+      await Person.findOneAndUpdate(
+        { _id: transaction.personId, userId: req.user.id },
+        { $inc: { givingCredit: -givingCredit } },
+        { new: true }
+      );
+    }
     await CreditTransaction.findOneAndDelete({
       _id: id,
       userId: req.user.id
     });
-    
+    await person.save();
     res.status(200).json({ message: "Transaction deleted successfully" });
   } catch (error) {
     console.error("Error deletingg transaction:", error);
