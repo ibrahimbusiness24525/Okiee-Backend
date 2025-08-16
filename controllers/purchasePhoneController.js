@@ -137,6 +137,14 @@ exports.addPurchasePhone = async (req, res) => {
         sourceOfAmountAddition: "Payment for purchase",
       });
     }
+    console.log("req", req.body);
+    let person = await Person.findOne({
+      name: name,
+      number: Number(mobileNumber), // ✅ correct
+      userId: req.user.id,
+    });
+    console.log("Person found:", person);
+    const takingCredit = person ? person.takingCredit : 0;
     if (paymentType === "credit") {
       console.log("====================================");
       console.log("Payment Type:", paymentType);
@@ -147,21 +155,23 @@ exports.addPurchasePhone = async (req, res) => {
       // Use Person and CreditTransaction for receivables
 
       // Find or create the person (customer) by name and number
-      let person = await Person.findOne({
-        name: name,
-        number: imei1,
-        userId: req.user.id,
-      });
-      // const takingCredit = person.takingCredit || 0;
 
       if (!person) {
         person = await Person.create({
           userId: req.user.id,
           name: name,
-          number: imei1,
+          number: Number(mobileNumber),
           reference: "Phone Purchase",
           takingCredit: Number(payableAmountLater),
           status: "Payable",
+        });
+        await CreditTransaction.create({
+          userId: req.user.id,
+          personId: person._id,
+          balanceAmount:
+            Number(payableAmountLater),
+          takingCredit: Number(payableAmountLater),
+          description: `Credit purchase of phone: ${companyName} ${modelName}`,
         });
       } else {
         person.takingCredit =
@@ -169,17 +179,17 @@ exports.addPurchasePhone = async (req, res) => {
         person.status = "Payable";
         person.reference = "Phone Purchase";
         await person.save();
+        await CreditTransaction.create({
+          userId: req.user.id,
+          personId: person._id,
+          balanceAmount:
+            Number(takingCredit) + Number(payableAmountLater),
+          takingCredit: Number(payableAmountLater),
+          description: `Credit purchase of phone: ${companyName} ${modelName}`,
+        });
       }
 
       // Log the credit transaction
-      await CreditTransaction.create({
-        userId: req.user.id,
-        personId: person._id,
-        // balanceAmount:
-        //   Number(takingCredit) + Number(payableAmountLater),
-        takingCredit: Number(payableAmountLater),
-        description: `Credit purchase of phone: ${companyName} ${modelName}`,
-      });
     }
     // Save to database
     const savedPhone = await purchasePhone.save();
@@ -332,7 +342,7 @@ exports.sellSinglePhone = async (req, res) => {
       await BankTransaction.create({
         bankId: bank._id,
         userId: req.user.id,
-        sourceOfAmountAddition: `sale of mobile of company name: ${purchasedPhone.companyName} and model name: ${purchasedPhone.modelName}`,
+        sourceOfAmountAddition: `sale of mobile payment company name: ${purchasedPhone.companyName} and model name: ${purchasedPhone.modelName}`,
         accountCash: accountCash,
         accountType: bank.accountType,
       });
@@ -360,7 +370,7 @@ exports.sellSinglePhone = async (req, res) => {
         amountDeducted: pocketCash,
         accountCash: pocketTransaction.accountCash, // ✅ add this line
         remainingAmount: pocketTransaction.accountCash,
-        reasonOfAmountDeduction: `sale of mobile from company: ${purchasedPhone.companyName}, model: ${purchasedPhone.modelName}`,
+        reasonOfAmountDeduction: `sale of mobile payment from company: ${purchasedPhone.companyName}, model: ${purchasedPhone.modelName}`,
         sourceOfAmountAddition: "Payment for mobile sale",
       });
     }

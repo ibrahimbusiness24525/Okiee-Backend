@@ -195,16 +195,17 @@ exports.deleteBankTransaction = async (req, res) => {
         console.log("Bank account found:", bank);
         console.log("transaction", transaction);
 
-        // if (transaction.accountCash < 0) {
-        //     console.log("Transaction cashOut:", transaction.cashOut);
-        //     bank.accountCash += transaction.cashOut;
-        //     await bank.save();
-        // }
-        // if (transaction.accountCash > 0) {
-        //     console.log("Transaction cashIn:", transaction.cashIn);
-        //     bank.accountCash -= transaction.cashIn;
-        //     await bank.save();
-        // }
+        if (transaction.reasonOfAmountDeduction) {
+            console.log("Deducting cash from bank account", transaction.accountCash);
+            bank.accountCash += transaction.accountCash;
+            await bank.save();
+        }
+
+        if (transaction.sourceOfAmountAddition) {
+            console.log("Adding cash to bank account", transaction.accountCash);
+            bank.accountCash -= transaction.accountCash;
+            await bank.save();
+        }
 
         await BankTransaction.deleteOne({ _id: id, userId });
         res.status(200).json({ success: true, message: "Transaction deleted successfully" });
