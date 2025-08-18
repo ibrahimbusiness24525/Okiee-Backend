@@ -1955,7 +1955,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
       0
     );
     console.log("Total Profit:", totalProfit);
-
+    console.log(req.body)
     // Create a single SoldPhone record for all IMEIs
     const soldPhone = new SoldPhone({
       bulkPhonePurchaseId,
@@ -2178,6 +2178,93 @@ exports.sellPhonesFromBulk = async (req, res) => {
 //     });
 //   }
 // };
+// exports.getAllSales = async (req, res) => {
+//   try {
+//     const bulkSales = await SoldPhone.find({
+//       userId: req.user.id,
+//     })
+//       .populate({
+//         path: "bulkPhonePurchaseId",
+//         populate: {
+//           path: "ramSimDetails",
+//           populate: {
+//             path: "imeiNumbers",
+//             model: "Imei",
+//           },
+//         },
+//       })
+//       .populate("bankAccountUsed")
+//       .populate("pocketCash")
+//       .sort({ dateSold: -1 });
+
+//     const responseData = bulkSales.map((sale) => ({
+//       type: "Bulk Phone",
+//       id: sale._id,
+//       // Sale details
+//       salePrice: sale.salePrice,
+//       totalInvoice: sale.totalInvoice,
+//       sellingPaymentType: sale.sellingPaymentType,
+//       profit: sale.profit || 0,
+//       warranty: sale.warranty,
+//       dateSold: sale.dateSold,
+//       customerName: sale.customerName,
+//       customerNumber: sale.customerNumber,
+//       invoiceNumber: sale.invoiceNumber,
+//       dispatch: sale.dispatch,
+//       // Payment details
+//       bankAccountUsed: sale.bankAccountUsed,
+//       pocketCash: sale.pocketCash,
+//       // Bulk purchase details
+//       bulkPurchase: {
+//         id: sale.bulkPhonePurchaseId?._id,
+//         date: sale.bulkPhonePurchaseId?.date,
+//         purchasePaymentStatus: sale.bulkPhonePurchaseId?.purchasePaymentStatus,
+//         purchasePaymentType: sale.bulkPhonePurchaseId?.purchasePaymentType,
+//         prices: sale.bulkPhonePurchaseId?.prices,
+//         creditPaymentData: sale.bulkPhonePurchaseId?.creditPaymentData,
+//         status: sale.bulkPhonePurchaseId?.status,
+//         ramSimDetails: sale.bulkPhonePurchaseId?.ramSimDetails?.map(
+//           (ramSim) => ({
+//             id: ramSim._id,
+//             companyName: ramSim.companyName,
+//             modelName: ramSim.modelName,
+//             ramMemory: ramSim.ramMemory,
+//             simOption: ramSim.simOption,
+//             priceOfOne: ramSim.priceOfOne,
+//             imeiNumbers: ramSim.imeiNumbers?.map((imei) => ({
+//               id: imei._id,
+//               imei1: imei.imei1,
+//               imei2: imei.imei2,
+//               color: imei.color,
+//               batteryHealth: imei.batteryHealth,
+//               isDispatched: imei.isDispatched,
+//             })),
+//           })
+//         ),
+//         dispatch: sale.bulkPhonePurchaseId?.dispatch,
+//       },
+//       // Accessories
+//       accessories: sale.accessories,
+//       // IMEI details
+//       imei1: sale.imei1,
+//       imei2: sale.imei2,
+//       createdAt: sale.createdAt,
+//       updatedAt: sale.updatedAt,
+//     }));
+
+//     res.status(200).json({
+//       message: "Bulk phone sales retrieved successfully!",
+//       data: responseData,
+//       count: responseData.length,
+//     });
+//   } catch (error) {
+//     console.error("Error fetching bulk sales:", error);
+//     res.status(500).json({
+//       message: "Internal server error",
+//       error: error.message,
+//     });
+//   }
+// };
 exports.getAllSales = async (req, res) => {
   try {
     const bulkSales = await SoldPhone.find({
@@ -2214,40 +2301,44 @@ exports.getAllSales = async (req, res) => {
       // Payment details
       bankAccountUsed: sale.bankAccountUsed,
       pocketCash: sale.pocketCash,
-      // Bulk purchase details
-      bulkPurchase: {
-        id: sale.bulkPhonePurchaseId?._id,
-        date: sale.bulkPhonePurchaseId?.date,
-        purchasePaymentStatus: sale.bulkPhonePurchaseId?.purchasePaymentStatus,
-        purchasePaymentType: sale.bulkPhonePurchaseId?.purchasePaymentType,
-        prices: sale.bulkPhonePurchaseId?.prices,
-        creditPaymentData: sale.bulkPhonePurchaseId?.creditPaymentData,
-        status: sale.bulkPhonePurchaseId?.status,
-        ramSimDetails: sale.bulkPhonePurchaseId?.ramSimDetails?.map(
-          (ramSim) => ({
-            id: ramSim._id,
-            companyName: ramSim.companyName,
-            modelName: ramSim.modelName,
-            ramMemory: ramSim.ramMemory,
-            simOption: ramSim.simOption,
-            priceOfOne: ramSim.priceOfOne,
-            imeiNumbers: ramSim.imeiNumbers?.map((imei) => ({
-              id: imei._id,
-              imei1: imei.imei1,
-              imei2: imei.imei2,
-              color: imei.color,
-              batteryHealth: imei.batteryHealth,
-              isDispatched: imei.isDispatched,
-            })),
-          })
-        ),
-        dispatch: sale.bulkPhonePurchaseId?.dispatch,
-      },
+      // Bulk purchase details (only if available)
+      bulkPurchase: sale.bulkPhonePurchaseId
+        ? {
+          id: sale.bulkPhonePurchaseId._id,
+          date: sale.bulkPhonePurchaseId.date,
+          purchasePaymentStatus:
+            sale.bulkPhonePurchaseId.purchasePaymentStatus,
+          purchasePaymentType:
+            sale.bulkPhonePurchaseId.purchasePaymentType,
+          prices: sale.bulkPhonePurchaseId.prices,
+          creditPaymentData: sale.bulkPhonePurchaseId.creditPaymentData,
+          status: sale.bulkPhonePurchaseId.status,
+          ramSimDetails: sale.bulkPhonePurchaseId.ramSimDetails?.map(
+            (ramSim) => ({
+              id: ramSim._id,
+              companyName: ramSim.companyName,
+              modelName: ramSim.modelName,
+              ramMemory: ramSim.ramMemory,
+              simOption: ramSim.simOption,
+              priceOfOne: ramSim.priceOfOne,
+              imeiNumbers: ramSim.imeiNumbers?.map((imei) => ({
+                id: imei._id,
+                imei1: imei.imei1,
+                imei2: imei.imei2 || null,
+                color: imei.color,
+                batteryHealth: imei.batteryHealth,
+                isDispatched: imei.isDispatched,
+              })),
+            })
+          ),
+          dispatch: sale.bulkPhonePurchaseId.dispatch,
+        }
+        : null,
       // Accessories
-      accessories: sale.accessories,
+      accessories: sale.accessories || [],
       // IMEI details
-      imei1: sale.imei1,
-      imei2: sale.imei2,
+      imei1: Array.isArray(sale.imei1) ? sale.imei1 : [sale.imei1],
+      imei2: Array.isArray(sale.imei2) ? sale.imei2 : sale.imei2 || null,
       createdAt: sale.createdAt,
       updatedAt: sale.updatedAt,
     }));
@@ -2265,6 +2356,7 @@ exports.getAllSales = async (req, res) => {
     });
   }
 };
+
 exports.getSoldBulkPhoneDetailById = async (req, res) => {
   try {
     const { id } = req.params;
