@@ -2286,8 +2286,7 @@ exports.getAllSales = async (req, res) => {
 
     const responseData = bulkSales.map((sale) => ({
       type: "Bulk Phone",
-      id: sale._id,
-      // Sale details
+      _id: sale._id,
       salePrice: sale.salePrice,
       totalInvoice: sale.totalInvoice,
       sellingPaymentType: sale.sellingPaymentType,
@@ -2298,7 +2297,6 @@ exports.getAllSales = async (req, res) => {
       customerNumber: sale.customerNumber,
       invoiceNumber: sale.invoiceNumber,
       dispatch: sale.dispatch,
-      // Payment details
       bankAccountUsed: sale.bankAccountUsed,
       pocketCash: sale.pocketCash,
       // Bulk purchase details (only if available)
