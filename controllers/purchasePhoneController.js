@@ -600,19 +600,23 @@ exports.getSingleSoldPhoneById = async (req, res) => {
 exports.getBulkSoldPhoneById = async (req, res) => {
   const { id } = req.params;
   try {
-    const soldPhoneDetail = await SoldPhone.findById(id);
+    const soldPhoneDetail = await SoldPhone.findById(id)
+      .populate("bulkPhonePurchaseId") // populate bulk purchase
+      .populate("userId")              // populate user
+      .populate("bankAccountUsed")     // populate bank account
+      .populate("pocketCash");         // populate pocket cash transaction
+
     if (!soldPhoneDetail) {
       return res.status(404).json({ message: "Sold phone not found" });
     }
-    if (!req.user.id || !req.user) {
-      return res.status(404).json({ message: "Authenticate please" });
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: "Authenticate please" });
     }
+
     res.status(200).json({ success: true, soldPhoneDetail });
   } catch (error) {
     console.error("Error getting detail:", error);
-    res
-      .status(500)
-      .json({ message: "Internal server error", error: error.message });
+    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
 
@@ -733,13 +737,15 @@ exports.getAllPurchasePhones = async (req, res) => {
     const purchasePhones = await PurchasePhone.find({
       userId: req.user.id,
     }).populate("soldDetails");
-    console.log("Tis is userIdd", req.user.id);
     // Fetch all bulk purchased phones with RAM and IMEI details
     const bulkPhones = await BulkPhonePurchase.find({
       userId: req.user.id,
     }).populate({
       path: "ramSimDetails",
       populate: { path: "imeiNumbers" },
+    }).populate({
+      path: "personId",
+      model: "Person", s
     });
 
     // Calculate total quantity of mobiles from bulk phones
@@ -1956,9 +1962,11 @@ exports.sellPhonesFromBulk = async (req, res) => {
     );
     console.log("Total Profit:", totalProfit);
     console.log(req.body)
+    const bulkPhonePurchaseData = await BulkPhonePurchase.findById(bulkPhonePurchaseId);
+    console.log("Bulk Phone Purchase Data:", bulkPhonePurchaseData);
     // Create a single SoldPhone record for all IMEIs
     const soldPhone = new SoldPhone({
-      bulkPhonePurchaseId,
+      bulkPhonePurchaseId: bulkPhonePurchaseData._id,
       imei1: imei1List, // Array of all IMEI1s
       imei2: imei2List.length > 0 ? imei2List : null, // Array of all IMEI2s or null
       salePrice,
