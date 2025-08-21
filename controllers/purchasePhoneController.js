@@ -601,10 +601,35 @@ exports.getBulkSoldPhoneById = async (req, res) => {
   const { id } = req.params;
   try {
     const soldPhoneDetail = await SoldPhone.findById(id)
-      .populate("bulkPhonePurchaseId") // populate bulk purchase
-      .populate("userId")              // populate user
-      .populate("bankAccountUsed")     // populate bank account
-      .populate("pocketCash");         // populate pocket cash transaction
+      .populate({
+        path: "bulkPhonePurchaseId",
+        populate: [
+          {
+            path: "ramSimDetails",
+            populate: [
+              {
+                path: "imeiNumbers",
+                model: "Imei"
+              }
+            ]
+          },
+          {
+            path: "personId",
+            model: "Person"
+          },
+          {
+            path: "bankAccountUsed",
+            model: "AddBankAccount"
+          },
+          {
+            path: "pocketCash",
+            model: "PocketCashTransaction"
+          }
+        ]
+      })
+      .populate("userId", "name email username role")
+      .populate("bankAccountUsed")
+      .populate("pocketCash");
 
     if (!soldPhoneDetail) {
       return res.status(404).json({ message: "Sold phone not found" });
@@ -745,7 +770,7 @@ exports.getAllPurchasePhones = async (req, res) => {
       populate: { path: "imeiNumbers" },
     }).populate({
       path: "personId",
-      model: "Person", s
+      model: "Person", 
     });
 
     // Calculate total quantity of mobiles from bulk phones
@@ -1320,7 +1345,9 @@ exports.getBulkPhone = async (req, res) => {
           model: "Imei",
         },
       })
-      .populate("personId", "name number givingCredit takingCreditw") // Populate person details
+      .populate("personId", "name number givingCredit takingCredit") // Populate person details
+      .populate("bankAccountUsed", "bankName accountNumber") // Populate bank account details
+      .populate("pocketCash", "amount description") // Populate pocket cash details
       .sort({ date: -1 }) // Sort by date, most recent first
       .lean();
 
@@ -1334,10 +1361,72 @@ exports.getBulkPhone = async (req, res) => {
         creditAmount > 0 ? buyingPrice + creditAmount : buyingPrice
       );
 
+      // Calculate comprehensive phone details
+      let totalPhones = 0;
+      let dispatchedPhones = 0;
+      let availablePhones = 0;
+      let soldPhones = 0;
+
+      if (purchase.ramSimDetails && purchase.ramSimDetails.length > 0) {
+        purchase.ramSimDetails.forEach((ramSim) => {
+          if (ramSim.imeiNumbers && ramSim.imeiNumbers.length > 0) {
+            totalPhones += ramSim.imeiNumbers.length;
+            ramSim.imeiNumbers.forEach((imei) => {
+              if (imei.isDispatched) {
+                dispatchedPhones++;
+              } else {
+                availablePhones++;
+              }
+            });
+          }
+        });
+      }
+
+      // Calculate financial summary
+      const totalBuyingPrice = Number(purchase?.prices?.buyingPrice || 0);
+      const totalDealerPrice = Number(purchase?.prices?.dealerPrice || 0);
+      const totalLifting = Number(purchase?.prices?.lifting || 0);
+      const totalPromo = Number(purchase?.prices?.promo || 0);
+      const totalActivation = Number(purchase?.prices?.activation || 0);
+
       return {
         ...purchase,
         dispatch: purchase.dispatch ?? false,
         actualBuyingPrice,
+        // Phone statistics
+        phoneStatistics: {
+          totalPhones,
+          dispatchedPhones,
+          availablePhones,
+          soldPhones,
+        },
+        // Financial summary
+        financialSummary: {
+          totalBuyingPrice,
+          totalDealerPrice,
+          totalLifting,
+          totalPromo,
+          totalActivation,
+          creditAmount,
+          actualBuyingPrice,
+        },
+        // Enhanced phone details
+        phoneDetails: purchase.ramSimDetails?.map(ramSim => ({
+          companyName: ramSim.companyName,
+          modelName: ramSim.modelName,
+          ramMemory: ramSim.ramMemory,
+          simOption: ramSim.simOption,
+          priceOfOne: ramSim.priceOfOne,
+          batteryHealth: ramSim.batteryHealth,
+          imeiCount: ramSim.imeiNumbers?.length || 0,
+          imeiDetails: ramSim.imeiNumbers?.map(imei => ({
+            imei1: imei.imei1,
+            imei2: imei.imei2,
+            batteryHealth: imei.batteryHealth,
+            color: imei.color,
+            isDispatched: imei.isDispatched,
+          })) || []
+        })) || []
       };
     });
 
