@@ -34,6 +34,11 @@ exports.giveCredit = async (req, res) => {
   try {
     const { personId, amount, description, giveCredit } = req.body;
     const userId = req.user.id;
+    
+    // Fetch person details first to get the name for descriptions
+    const person = await Person.findOne({ _id: personId, userId });
+    if (!person) return res.status(404).json({ message: "Person not found" });
+    
     console.log("give credit", giveCredit);
     if (giveCredit?.bankAccountUsed) {
       const bank = await AddBankAccount.findById(giveCredit?.bankAccountUsed);
@@ -47,7 +52,7 @@ exports.giveCredit = async (req, res) => {
       await BankTransaction.create({
         bankId: bank._id,
         userId: req.user.id,
-        reasonOfAmountDeduction: `give credit to person: ${personId}, amount: ${amount}`,
+        reasonOfAmountDeduction: `give credit to person: ${person.name}, amount: ${amount}`,
         accountCash: amount,
         accountType: bank.accountType,
       });
@@ -76,11 +81,9 @@ exports.giveCredit = async (req, res) => {
         amountDeducted: giveCredit?.amountFromPocket,
         accountCash: pocketTransaction.accountCash, // ✅ add this line
         remainingAmount: pocketTransaction.accountCash,
-        reasonOfAmountDeduction: `give credit to person: ${personId}, amount: ${amount}`,
+        reasonOfAmountDeduction: `give credit to person: ${person.name}, amount: ${amount}`,
       });
     }
-    const person = await Person.findOne({ _id: personId, userId });
-    if (!person) return res.status(404).json({ message: "Person not found" });
 
     let updatedGiving = person.givingCredit + amount;
     let updatedTaking = person.takingCredit;
@@ -126,6 +129,11 @@ exports.takeCredit = async (req, res) => {
   try {
     const { personId, amount, description, takeCredit } = req.body;
     const userId = req.user.id;
+    
+    // Fetch person details first to get the name for descriptions
+    const person = await Person.findOne({ _id: personId, userId });
+    if (!person) return res.status(404).json({ message: "Person not found" });
+    
     if (takeCredit?.bankAccountUsed) {
       const bank = await AddBankAccount.findById(takeCredit?.bankAccountUsed);
       if (!bank) return res.status(404).json({ message: "Bank not found" });
@@ -138,7 +146,7 @@ exports.takeCredit = async (req, res) => {
       await BankTransaction.create({
         bankId: bank._id,
         userId: req.user.id,
-        reasonOfAmountDeduction: `take credit from person: ${personId}, amount: ${amount}`,
+        reasonOfAmountDeduction: `take credit from person: ${person.name}, amount: ${amount}`,
         accountCash: amount,
         accountType: bank.accountType,
       });
@@ -167,12 +175,9 @@ exports.takeCredit = async (req, res) => {
         amountDeducted: takeCredit?.amountFromPocket,
         accountCash: pocketTransaction.accountCash, // ✅ add this line
         remainingAmount: pocketTransaction.accountCash,
-        reasonOfAmountDeduction: `take credit from person: ${personId}, amount: ${amount}`,
+        reasonOfAmountDeduction: `take credit from person: ${person.name}, amount: ${amount}`,
       });
     }
-
-    const person = await Person.findOne({ _id: personId, userId });
-    if (!person) return res.status(404).json({ message: "Person not found" });
 
     let updatedTaking = person.takingCredit + amount;
     let updatedGiving = person.givingCredit;

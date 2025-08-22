@@ -1028,6 +1028,19 @@ exports.addBulkPhones = async (req, res) => {
     let person;
     console.log("Received Data:", req.body);
 
+    // Calculate total IMEI count for better descriptions
+    const totalImeiCount = ramSimDetails?.reduce((total, ramSim) => {
+      return total + (ramSim.imeiNumbers?.length || 0);
+    }, 0) || 0;
+
+    // Get companyName and modelName from ramSimDetails if not present at top level
+    const firstRamSim = ramSimDetails?.[0];
+    const effectiveCompanyName = companyName || firstRamSim?.companyName || 'Unknown Company';
+    const effectiveModelName = modelName || firstRamSim?.modelName || 'Unknown Model';
+
+    // Create a comprehensive phone summary for descriptions
+    const phoneSummary = `${effectiveCompanyName} ${effectiveModelName} (${totalImeiCount} IMEIs)`;
+
     person = await Person.findOne({
       ...(!entityData.number && { _id: entityData._id }),
       // name: personData,
@@ -1042,7 +1055,7 @@ exports.addBulkPhones = async (req, res) => {
           userId: req.user.id,
           name: entityData.name,
           number: entityData.number,
-          reference: "Bulk Category Purchase",
+          reference: `Bulk Purchase: ${phoneSummary}`,
           takingCredit: Number(creditPaymentData.payableAmountLater),
           status: "Payable",
         });
@@ -1053,7 +1066,7 @@ exports.addBulkPhones = async (req, res) => {
         person.status = "Payable";
 
         Number(creditPaymentData.payableAmountLater);
-        person.reference = "Bulk Category Purchase";
+        person.reference = `Bulk Purchase: ${phoneSummary}`;
         await person.save();
       }
       // Log the credit transaction
@@ -1063,7 +1076,7 @@ exports.addBulkPhones = async (req, res) => {
         balanceAmount:
           Number(takingCredit) + Number(creditPaymentData.payableAmountLater),
         takingCredit: Number(creditPaymentData.payableAmountLater),
-        description: `Credit purchase of Bulk Category of bulk category purchase by ${entityData.name}`,
+        description: `Credit purchase of ${phoneSummary} by ${entityData.name} - Amount: ${creditPaymentData.payableAmountLater}`,
       });
     }
     if (purchasePaymentType === "full-payment") {
@@ -1072,7 +1085,7 @@ exports.addBulkPhones = async (req, res) => {
           userId: req.user.id,
           name: entityData.name,
           number: entityData.number,
-          reference: "bulk category Purchase",
+          reference: `Bulk Purchase: ${phoneSummary}`,
           takingCredit: 0,
           status: "Settled",
         });
@@ -1081,9 +1094,7 @@ exports.addBulkPhones = async (req, res) => {
           personId: newPerson._id,
           takingCredit: 0,
           balanceAmount: 0,
-          description: `full payment of bulk category purchase by ${entityData.name || newPerson.name
-            } for ${modelName} of per piece price ${prices.buyingPrice
-            } and total amount ${prices.buyingPrice}`,
+          description: `Full payment of ${phoneSummary} by ${entityData.name || newPerson.name} - Per piece: ${prices.buyingPrice}, Total: ${prices.buyingPrice}`,
         });
       } else {
         await CreditTransaction.create({
@@ -1091,9 +1102,7 @@ exports.addBulkPhones = async (req, res) => {
           personId: person._id,
           takingCredit: 0,
           balanceAmount: Number(person.takingCredit),
-          description: `full payment of bulk category purchase by ${entityData.name || person.name
-            } for ${modelName} of per piece price ${prices.buyingPrice
-            } and total amount ${prices.buyingPrice}`,
+          description: `Full payment of ${phoneSummary} by ${entityData.name || person.name} - Per piece: ${prices.buyingPrice}, Total: ${prices.buyingPrice}`,
         });
       }
     }
@@ -1148,7 +1157,7 @@ exports.addBulkPhones = async (req, res) => {
       await BankTransaction.create({
         bankId: bank._id,
         userId: req.user.id,
-        reasonOfAmountDeduction: `Purchase of bulk mobie`,
+        reasonOfAmountDeduction: `Purchase of ${phoneSummary}`,
         accountCash: Number(amountFromBank),
         accountType: bank.accountType,
       });
@@ -1176,8 +1185,8 @@ exports.addBulkPhones = async (req, res) => {
         amountDeducted: amountFromPocket,
         accountCash: pocketTransaction.accountCash, // ✅ add this line
         remainingAmount: pocketTransaction.accountCash,
-        reasonOfAmountDeduction: `Purchase of bulk mobile`,
-        sourceOfAmountAddition: "Payment for purchase",
+        reasonOfAmountDeduction: `Purchase of ${phoneSummary}`,
+        sourceOfAmountAddition: `Payment for purchase of ${phoneSummary}`,
       });
     }
     if (purchasePaymentType === "credit") {
