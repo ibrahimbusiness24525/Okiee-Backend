@@ -3449,7 +3449,7 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
 exports.soldAnyPhone = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { imeis, bankAccountUsed, accountCash, pocketCash, ...phoneDetails } =
+    const { imeis, bankAccountUsed, accountCash, pocketCash,entityData ,sellingPaymentType,payableAmountLater,...phoneDetails } =
       req.body;
     const accessories = req.body.accessories || [];
 
@@ -3464,7 +3464,12 @@ exports.soldAnyPhone = async (req, res) => {
       );
       return res.status(400).json({ error: "IMEI array is required." });
     }
-
+    if (entityData && !entityData._id && !entityData.number) {
+      return res.status(400).json({
+        message: "Either Entity ID or Number must be provided.",
+      });
+    }
+    
     const soldPhones = [];
     const notFoundImeis = [];
 
@@ -3483,15 +3488,16 @@ exports.soldAnyPhone = async (req, res) => {
         $or: [{ imei1: imei }, { imei2: imei }],
       });
 
+      
       if (purchasePhone) {
         purchasePhone.isSold = true;
         await purchasePhone.save();
-
         const soldPhone = new SingleSoldPhone({
           purchasePhoneId: purchasePhone._id,
           userId,
           dateSold: phoneDetails.saleDate,
           shopid: purchasePhone.shopid,
+          sellingPaymentType,
           name: purchasePhone.name,
           fatherName: purchasePhone.fatherName,
           companyName: purchasePhone.companyName,
@@ -3512,10 +3518,11 @@ exports.soldAnyPhone = async (req, res) => {
           demandPrice: purchasePhone.price?.demandPrice,
           isApprovedFromEgadgets: purchasePhone.isApprovedFromEgadgets,
           eGadgetStatusPicture: purchasePhone.eGadgetStatusPicture,
+          ...(sellingPaymentType === "Credit" && { payableAmountLater }),
           invoiceNumber: "INV-" + new Date().getTime(),
           ...phoneDetails, // Now filtered to exclude financial fields
         });
-
+        
         await soldPhone.save();
         // Delete the phone from single purchase collection
         await PurchasePhone.findByIdAndDelete(purchasePhone._id);
@@ -3547,6 +3554,8 @@ exports.soldAnyPhone = async (req, res) => {
               ramMemory: ramSim.ramMemory,
               simOption: ramSim.simOption,
               priceOfOne: ramSim.priceOfOne,
+              sellingPaymentType,
+              ...(sellingPaymentType === "Credit" && { payableAmountLater }),
               invoiceNumber: "INV-" + new Date().getTime(),
               ...phoneDetails, // Now filtered to exclude financial fields
             });
@@ -3673,6 +3682,60 @@ exports.soldAnyPhone = async (req, res) => {
         reasonOfAmountDeduction: `sale of mobile`,
         sourceOfAmountAddition: "Payment for mobile sale",
       });
+    }
+    let person = null;
+    if (entityData._id || entityData.number) {
+      person = await Person.findOne({
+        ...(!entityData.number && entityData._id && { _id: entityData._id }),
+        ...(entityData.number && { number: entityData.number }),
+        userId: req.user.id,
+      });
+    }
+    const currentGiveCreditAmount = person ? person.givingCredit : 0;
+    console.log("person found:", person);
+
+    if (sellingPaymentType === "Credit") {
+      if (!person) {
+        person = await Person.create({
+          userId: req.user.id,
+          name: entityData.name,
+          number: entityData.number,
+          reference: "phone Sale",
+          givingCredit: Number(payableAmountLater),
+          status: "Receivable",
+        });
+      } else {
+        person.givingCredit += Number(payableAmountLater);
+        person.status = "Receivable";
+        await person.save();
+      }
+
+      await CreditTransaction.create({
+        userId: req.user.id,
+        personId: person._id,
+        givingCredit: Number(payableAmountLater),
+        balanceAmount: currentGiveCreditAmount + Number(payableAmountLater),
+        description: `Credit Sale: ${imeis.length} phones sold to ${entityData.name || person.name
+          } || Credit: ${payableAmountLater} || Model: ${soldPhones.map(phone => phone.soldPhone?.modelName || phone.soldPhone?.name || 'N/A').join(", ")} || Company: ${soldPhones.map(phone => phone.soldPhone?.companyName || 'N/A').join(", ")} || Color: ${soldPhones.map(phone => phone.soldPhone?.color || 'N/A').join(", ")}`,
+      });
+    }
+
+    // Do NOT create a new entity if sellingPaymentType is "Full Payment"
+    if (sellingPaymentType === "Full Payment") {
+      if (person) {
+        await CreditTransaction.create({
+          userId: req.user.id,
+          personId: person._id,
+          balanceAmount: Number(person.givingCredit),
+          givingCredit: 0,
+          description: `Complete Payment of phone Sale:  ${imeis.length
+            } phones sold to  ${entityData.name || person.name
+            }  || Model: ${soldPhones.map(phone => phone.soldPhone?.modelName || phone.soldPhone?.name || 'N/A').join(", ")} || Company: ${soldPhones.map(phone => phone.soldPhone?.companyName || 'N/A').join(", ")} || Color: ${soldPhones.map(phone => phone.soldPhone?.color || 'N/A').join(", ")}`,
+        });
+      } else {
+        // Do not create a new Person entity, just log or skip
+        console.log("No existing entity found for full payment sale, not creating new entity.");
+      }
     }
 
     return res.status(200).json({
