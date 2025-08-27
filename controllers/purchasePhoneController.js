@@ -3446,10 +3446,13 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
 //       .json({ message: "Internal server error", error: error.message });
 //   }
 // };
+
 exports.soldAnyPhone = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { imeis, bankAccountUsed, accountCash, pocketCash,entityData ,sellingPaymentType,payableAmountLater,...phoneDetails } =
+    const { imeis, bankAccountUsed, accountCash, pocketCash,entityData ,sellingPaymentType,payableAmountLater,
+      imeiPrices,// Array of {imei: '', price: ''} objects
+      ...phoneDetails } =
       req.body;
     const accessories = req.body.accessories || [];
 
@@ -3472,6 +3475,16 @@ exports.soldAnyPhone = async (req, res) => {
     
     const soldPhones = [];
     const notFoundImeis = [];
+    
+    // Create a map of IMEI to price for quick lookup
+    const imeiToPriceMap = new Map();
+    if (imeiPrices && Array.isArray(imeiPrices)) {
+      imeiPrices.forEach(item => {
+        if (item.imei && item.price) {
+          imeiToPriceMap.set(item.imei, Number(item.price));
+        }
+      });
+    }
 
     // Get all bulk phones for this user (not just one)
     const bulkPhones = await BulkPhonePurchase.find({ userId }).populate({
@@ -3492,6 +3505,11 @@ exports.soldAnyPhone = async (req, res) => {
       if (purchasePhone) {
         purchasePhone.isSold = true;
         await purchasePhone.save();
+        // Calculate profit for single phone
+        const soldPrice = imeiToPriceMap.get(imei) || Number(phoneDetails.salePrice) || 0;
+        const purchasePrice = purchasePhone.price?.purchasePrice || 0;
+        const profit = soldPrice - purchasePrice;
+        
         const soldPhone = new SingleSoldPhone({
           purchasePhoneId: purchasePhone._id,
           userId,
@@ -3516,6 +3534,9 @@ exports.soldAnyPhone = async (req, res) => {
           purchasePrice: purchasePhone.price?.purchasePrice,
           finalPrice: purchasePhone.price?.finalPrice,
           demandPrice: purchasePhone.price?.demandPrice,
+          salePrice: soldPrice,
+          totalInvoice: soldPrice,
+          profit: profit,
           isApprovedFromEgadgets: purchasePhone.isApprovedFromEgadgets,
           eGadgetStatusPicture: purchasePhone.eGadgetStatusPicture,
           ...(sellingPaymentType === "Credit" && { payableAmountLater }),
@@ -3543,18 +3564,31 @@ exports.soldAnyPhone = async (req, res) => {
           if (imeiIndex !== -1) {
             const imeiDoc = ramSim.imeiNumbers[imeiIndex];
 
+            // Calculate profit for bulk phone
+            const soldPrice = imeiToPriceMap.get(imei) || Number(phoneDetails.salePrice) || 0;
+            const buyingPrice = Number(bulkPhone.prices?.buyingPrice) || 0;
+            const profit = soldPrice - buyingPrice;
+            
             const soldPhone = new SoldPhone({
               bulkPhonePurchaseId: bulkPhone._id,
               imei1: imeiDoc.imei1,
               imei2: imeiDoc.imei2,
               userId,
               dateSold: phoneDetails.saleDate,
-              companyName: bulkPhone.companyName,
-              modelName: bulkPhone.modelName,
+              companyName: ramSim.companyName || phoneDetails.companyName,
+              modelName: ramSim.modelName || phoneDetails.modelName,
+              color: imeiDoc.color || phoneDetails.color,
               ramMemory: ramSim.ramMemory,
               simOption: ramSim.simOption,
               priceOfOne: ramSim.priceOfOne,
+              purchasePrice: buyingPrice,
+              salePrice: soldPrice,
+              totalInvoice: soldPrice,
+              profit: profit,
               sellingPaymentType,
+              customerName: phoneDetails.customerName,
+              customerNumber: phoneDetails.customerNumber,
+              warranty: phoneDetails.warranty,
               ...(sellingPaymentType === "Credit" && { payableAmountLater }),
               invoiceNumber: "INV-" + new Date().getTime(),
               ...phoneDetails, // Now filtered to exclude financial fields
@@ -3693,6 +3727,39 @@ exports.soldAnyPhone = async (req, res) => {
     }
     const currentGiveCreditAmount = person ? person.givingCredit : 0;
     console.log("person found:", person);
+    
+    // Helper function to extract phone details for credit transaction description
+    const getPhoneDetailsForDescription = (soldPhones) => {
+      const models = soldPhones.map(phone => {
+        if (phone.type === 'single') {
+          return phone.soldPhone?.modelName || phone.soldPhone?.name || 'N/A';
+        } else {
+          return phone.soldPhone?.modelName || 'N/A';
+        }
+      });
+      
+      const companies = soldPhones.map(phone => {
+        if (phone.type === 'single') {
+          return phone.soldPhone?.companyName || 'N/A';
+        } else {
+          return phone.soldPhone?.companyName || 'N/A';
+        }
+      });
+      
+      const colors = soldPhones.map(phone => {
+        if (phone.type === 'single') {
+          return phone.soldPhone?.color || 'N/A';
+        } else {
+          return phone.soldPhone?.color || 'N/A';
+        }
+      });
+      
+      return {
+        models: models.join(", "),
+        companies: companies.join(", "),
+        colors: colors.join(", ")
+      };
+    };
 
     if (sellingPaymentType === "Credit") {
       if (!person) {
@@ -3716,7 +3783,7 @@ exports.soldAnyPhone = async (req, res) => {
         givingCredit: Number(payableAmountLater),
         balanceAmount: currentGiveCreditAmount + Number(payableAmountLater),
         description: `Credit Sale: ${imeis.length} phones sold to ${entityData.name || person.name
-          } || Credit: ${payableAmountLater} || Model: ${soldPhones.map(phone => phone.soldPhone?.modelName || phone.soldPhone?.name || 'N/A').join(", ")} || Company: ${soldPhones.map(phone => phone.soldPhone?.companyName || 'N/A').join(", ")} || Color: ${soldPhones.map(phone => phone.soldPhone?.color || 'N/A').join(", ")}`,
+          } || Credit: ${payableAmountLater} || Model: ${getPhoneDetailsForDescription(soldPhones).models} || Company: ${getPhoneDetailsForDescription(soldPhones).companies} || Color: ${getPhoneDetailsForDescription(soldPhones).colors}`,
       });
     }
 
@@ -3730,7 +3797,7 @@ exports.soldAnyPhone = async (req, res) => {
           givingCredit: 0,
           description: `Complete Payment of phone Sale:  ${imeis.length
             } phones sold to  ${entityData.name || person.name
-            }  || Model: ${soldPhones.map(phone => phone.soldPhone?.modelName || phone.soldPhone?.name || 'N/A').join(", ")} || Company: ${soldPhones.map(phone => phone.soldPhone?.companyName || 'N/A').join(", ")} || Color: ${soldPhones.map(phone => phone.soldPhone?.color || 'N/A').join(", ")}`,
+            }  || Model: ${getPhoneDetailsForDescription(soldPhones).models} || Company: ${getPhoneDetailsForDescription(soldPhones).companies} || Color: ${getPhoneDetailsForDescription(soldPhones).colors}`,
         });
       } else {
         // Do not create a new Person entity, just log or skip
@@ -3738,10 +3805,16 @@ exports.soldAnyPhone = async (req, res) => {
       }
     }
 
+    // Calculate total profit from all sold phones
+    const totalProfit = soldPhones.reduce((sum, phone) => {
+      return sum + (phone.soldPhone?.profit || 0);
+    }, 0);
+    
     return res.status(200).json({
       message: "Processed IMEIs.",
       soldCount: soldPhones.length,
       notFoundCount: notFoundImeis.length,
+      totalProfit: totalProfit,
       soldPhones,
       notFoundImeis,
     });
