@@ -862,10 +862,21 @@ const sellMultipleAccessories = async (req, res) => {
       bank.accountCash += Number(amountToAdd);
       await bank.save();
 
+      // Get person name for better description
+      let personName = "Unknown";
+      if (entityData.name) {
+        personName = entityData.name;
+      } else if (entityData._id) {
+        const personFromId = await Person.findById(entityData._id);
+        if (personFromId) {
+          personName = personFromId.name;
+        }
+      }
+
       await BankTransaction.create({
         bankId: bank._id,
         userId,
-        sourceOfAmountAddition: `Sale of ${sales.length} accessories`,
+        sourceOfAmountAddition: `Sale of ${sales.length} accessories to ${personName} | Amount: ${amountToAdd}`,
         amount: Number(amountToAdd),
         accountCash: bank.accountCash,
         accountType: bank.accountType,
@@ -885,12 +896,23 @@ const sellMultipleAccessories = async (req, res) => {
       pocket.accountCash += Number(amountToAdd);
       await pocket.save();
 
+      // Get person name for better description
+      let personName = "Unknown";
+      if (entityData.name) {
+        personName = entityData.name;
+      } else if (entityData._id) {
+        const personFromId = await Person.findById(entityData._id);
+        if (personFromId) {
+          personName = personFromId.name;
+        }
+      }
+
       await PocketCashTransactionSchema.create({
         userId,
         pocketCashId: pocket._id,
         amountAdded: Number(amountToAdd),
         accountCash: pocket.accountCash,
-        reasonOfAmountAddition: `Sale of ${sales.length} accessories`,
+        reasonOfAmountAddition: `Sale of ${sales.length} accessories to ${personName} | Amount: ${amountToAdd}`,
       });
     }
 
@@ -970,7 +992,7 @@ const sellMultipleAccessories = async (req, res) => {
         givingCredit: Number(creditPaymentData.payableAmountLater),
         description: `Credit Sale: ${accessoryNames.join(
           ", "
-        )} | Total: ${totalPrice} | Credit: ${
+        )} to ${person.name} | Total: ${totalPrice} | Credit: ${
           creditPaymentData.payableAmountLater
         }`,
       });
@@ -994,13 +1016,7 @@ const sellMultipleAccessories = async (req, res) => {
           balanceAmount: 0,
           description: `Complete Payment of Sale: ${accessoryNames.join(
             ", "
-          )} to ${entityData.name || person.name} of ${accessoryData
-            .map(
-              (item) =>
-                `quantity ${item.quantity} at ${item.perPiecePrice} each`
-            )
-            .join(", ")}
-        `,
+          )} to ${newPerson.name} | Total: ${totalPrice} | Quantity: ${totalQuantity}`,
         });
       } else if (person) {
         await CreditTransaction.create({
@@ -1010,13 +1026,7 @@ const sellMultipleAccessories = async (req, res) => {
           balanceAmount: Number(person.givingCredit),
           description: `Complete Payment of Sale: ${accessoryNames.join(
             ", "
-          )} from ${entityData.name || person.name} of ${accessoryData
-            .map(
-              (item) =>
-                `quantity ${item.quantity} at ${item.perPiecePrice} each`
-            )
-            .join(", ")}
-        `,
+          )} to ${person.name} | Total: ${totalPrice} | Quantity: ${totalQuantity}`,
         });
       } else {
         console.log("no required entityData for full payment sale");
