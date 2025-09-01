@@ -133,8 +133,8 @@ exports.addPurchasePhone = async (req, res) => {
         amountDeducted: pocketCash,
         accountCash: pocketTransaction.accountCash, // ✅ add this line
         remainingAmount: pocketTransaction.accountCash,
-        reasonOfAmountDeduction: `Purchase of mobile from company: ${companyName}, model: ${modelName}`,
-        sourceOfAmountAddition: "Payment for purchase",
+        reasonOfAmountDeduction: `Purchase of ${phoneCondition} mobile of specs ${companyName} | ${modelName} from ${name} on ${purchasePrice}`,
+        // sourceOfAmountAddition: "Payment for purchase",
       });
     }
     console.log("req", req.body);
@@ -1816,6 +1816,8 @@ exports.sellPhonesFromBulk = async (req, res) => {
         message: "Bulk Phone Purchase ID is required.",
       });
     }
+    const bulkPhonePurchaseData = await BulkPhonePurchase.findById(bulkPhonePurchaseId);
+   console.log("extracted data", bulkPhonePurchaseData)
     if (sellingPaymentType === "Credit" && !payableAmountNow && !payableAmountLater && !payableAmountLaterDate) {
       return res.status(400).json({
         message: "fill all credit data fields",
@@ -1853,7 +1855,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
         message: "Accessory name and price must be provided if quantity is 0.",
       });
     }
-    // Find the bulk phone purchase
+    // Find the bulk phone purchase with all necessary data
     const bulkPhonePurchase = await BulkPhonePurchase.findById(
       bulkPhonePurchaseId
     ).populate({
@@ -1865,6 +1867,13 @@ exports.sellPhonesFromBulk = async (req, res) => {
 
     if (!bulkPhonePurchase) {
       return res.status(404).json({ message: "Bulk phone purchase not found" });
+    }
+
+    // Ensure we have the purchase data
+    if (!bulkPhonePurchase.prices || !bulkPhonePurchase.prices.buyingPrice) {
+      return res.status(400).json({ 
+        message: "Bulk phone purchase is missing price information" 
+      });
     }
 
     // Validate payment type specific fields
@@ -2008,9 +2017,14 @@ exports.sellPhonesFromBulk = async (req, res) => {
     ) {
       // If imeisWithPrices is provided as an object, use it to calculate total buying price
       for (const [imeiKey, sellingPrice] of Object.entries(imeisWithPrices)) {
-        // Find the IMEI record in imeiRecords
+        // Support keys like "imei1 / imei2" by splitting and trimming
+        const parsedImeis = String(imeiKey)
+          .split("/")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        // Find the IMEI record in imeiRecords by matching either side
         const imeiRecord = imeiRecords.find(
-          (rec) => rec.imei1 === imeiKey || rec.imei2 === imeiKey
+          (rec) => parsedImeis.includes(rec.imei1) || (rec.imei2 && parsedImeis.includes(rec.imei2))
         );
         let buyingPrice = 0;
         if (imeiRecord) {
@@ -2037,15 +2051,29 @@ exports.sellPhonesFromBulk = async (req, res) => {
         totalBuyingPrice += buyingPrice;
         totalSellingPrice += Number(sellingPrice);
         profitDetails.push({
-          imei: imeiKey,
+          imei: parsedImeis.length > 0 ? parsedImeis.join(" / ") : String(imeiKey).trim(),
           sellingPrice: Number(sellingPrice),
           buyingPrice,
           profit: Number(sellingPrice) - buyingPrice,
         });
       }
-      // Optionally, you can log or return profitDetails for each IMEI
-      // The totalProfit below will now be based on totalSellingPrice - totalBuyingPrice
-      // totalProfit = totalSellingPrice - totalBuyingPrice;
+    } else {
+      // If imeisWithPrices is not provided, calculate based on salePrice
+      totalSellingPrice = Number(salePrice);
+      // Calculate total buying price for all IMEIs being sold
+      const totalImeis = imeiNumbers.length;
+      totalBuyingPrice = (Number(bulkPhonePurchase.prices.buyingPrice) / 
+        bulkPhonePurchase.ramSimDetails.reduce(
+          (sum, rs) => sum + (rs.imeiNumbers ? rs.imeiNumbers.length : 0),
+          0
+        )) * totalImeis;
+      
+      profitDetails = imeiNumbers.map(imei => ({
+        imei,
+        sellingPrice: Number(salePrice) / totalImeis,
+        buyingPrice: totalBuyingPrice / totalImeis,
+        profit: (Number(salePrice) / totalImeis) - (totalBuyingPrice / totalImeis)
+      }));
     }
 
     // Calculate total profit
@@ -2060,7 +2088,6 @@ exports.sellPhonesFromBulk = async (req, res) => {
     );
     console.log("Total Profit:", totalProfit);
     console.log(req.body)
-    const bulkPhonePurchaseData = await BulkPhonePurchase.findById(bulkPhonePurchaseId);
     console.log("Bulk Phone Purchase Data:", bulkPhonePurchaseData);
     // Create a single SoldPhone record for all IMEIs
     const soldPhone = new SoldPhone({
@@ -2073,7 +2100,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
       customerName,
       profit: totalProfit,
       customerNumber,
-      purchasePrice: bulkPhonePurchase.prices.buyingPrice,
+      purchasePrice: Number(bulkPhonePurchase.prices.buyingPrice), // Ensure it's a number
       dateSold,
       cnicBackPic,
       cnicFrontPic,
@@ -2113,6 +2140,9 @@ exports.sellPhonesFromBulk = async (req, res) => {
         await ramSim.save();
       }
     }
+
+    // Refresh the bulkPhonePurchase data after modifications
+    await bulkPhonePurchase.save();
 
     // Handle bank transaction if applicable
     if (bankAccountUsed) {
@@ -2197,21 +2227,62 @@ exports.sellPhonesFromBulk = async (req, res) => {
       bulkPhonePurchaseId
     ).populate("ramSimDetails");
 
+    // Final verification - fetch the saved SoldPhone to ensure all data is present
+    const finalSoldPhone = await SoldPhone.findById(soldPhone._id);
+    console.log("Final SoldPhone verification:", {
+      id: finalSoldPhone._id,
+      purchasePrice: finalSoldPhone.purchasePrice,
+      bulkPhonePurchaseId: finalSoldPhone.bulkPhonePurchaseId,
+      profit: finalSoldPhone.profit
+      
+    });
+
     if (
       updatedBulkPhonePurchase.ramSimDetails.every(
         (ramSim) => ramSim.imeiNumbers.length === 0
       )
     ) {
+      // Build purchase details to return before deleting
+      const bulkPurchaseDetails = {
+        _id: updatedBulkPhonePurchase._id,
+        prices: updatedBulkPhonePurchase.prices,
+        date: updatedBulkPhonePurchase.date,
+        purchasePaymentStatus: updatedBulkPhonePurchase.purchasePaymentStatus,
+        purchasePaymentType: updatedBulkPhonePurchase.purchasePaymentType,
+        personId: updatedBulkPhonePurchase.personId,
+        models: (updatedBulkPhonePurchase.ramSimDetails || []).map((rs) => ({
+          companyName: rs.companyName,
+          modelName: rs.modelName,
+          ramMemory: rs.ramMemory,
+          priceOfOne: rs.priceOfOne,
+        })),
+      };
+
       await BulkPhonePurchase.findByIdAndDelete(bulkPhonePurchaseId);
       return res.status(200).json({
         message: "All phones sold. Bulk purchase deleted.",
-        soldPhone, // Return the single sold phone document
+        soldPhone: finalSoldPhone,
+        bulkPurchaseDetails,
       });
     }
 
     res.status(200).json({
       message: "Phones sold successfully",
-      soldPhone, // Return the single sold phone document
+      soldPhone: finalSoldPhone,
+      bulkPurchaseDetails: {
+        _id: updatedBulkPhonePurchase._id,
+        prices: updatedBulkPhonePurchase.prices,
+        date: updatedBulkPhonePurchase.date,
+        purchasePaymentStatus: updatedBulkPhonePurchase.purchasePaymentStatus,
+        purchasePaymentType: updatedBulkPhonePurchase.purchasePaymentType,
+        personId: updatedBulkPhonePurchase.personId,
+        models: (updatedBulkPhonePurchase.ramSimDetails || []).map((rs) => ({
+          companyName: rs.companyName,
+          modelName: rs.modelName,
+          ramMemory: rs.ramMemory,
+          priceOfOne: rs.priceOfOne,
+        })),
+      },
       statusUpdated: "Partial sale completed",
     });
   } catch (error) {
