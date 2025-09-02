@@ -17,6 +17,12 @@ exports.createPerson = async (req, res) => {
   try {
     const { name, number, reference } = req.body;
     const userId = req.user.id;
+    if(!name || !number || !reference) {
+      return res.status(400).json({ message: "Name, number, and reference are required" });
+    }
+    if(await Person.findOne({number, userId})){
+      return res.status(400).json({ message: "Person already exists" });
+    }
 
     const newPerson = new Person({ userId, name, number, reference });
     await newPerson.save();
@@ -47,7 +53,7 @@ exports.giveCredit = async (req, res) => {
       // Deduct purchasePrice from accountCash
       bank.accountCash -= Number(giveCredit?.amountFromBank);
       await bank.save();
-
+      console.log("bank", bank);
       // Log the transaction
       await BankTransaction.create({
         bankId: bank._id,
@@ -74,7 +80,7 @@ exports.giveCredit = async (req, res) => {
 
       pocketTransaction.accountCash -= Number(giveCredit?.amountFromPocket);
       await pocketTransaction.save();
-
+      console.log("pocketTransaction", pocketTransaction);
       await PocketCashTransactionSchema.create({
         userId: req.user.id,
         pocketCashId: pocketTransaction._id, // if you want to associate it
@@ -110,12 +116,14 @@ exports.giveCredit = async (req, res) => {
     person.takingCredit = updatedTaking;
     person.status = status;
     await person.save();
+    const balanceAmount = person.takingCredit > person.givingCredit ? person.takingCredit - person.givingCredit : person.givingCredit - person.takingCredit;
 
     await CreditTransaction.create({
       userId,
       personId,
       givingCredit: amount,
       description,
+      balanceAmount,
     });
 
     res.status(200).json({ message: "Credit given successfully", person });
@@ -204,12 +212,15 @@ exports.takeCredit = async (req, res) => {
     person.takingCredit = updatedTaking;
     person.status = status;
     await person.save();
+    
+    const balanceAmount = person.takingCredit > person.givingCredit ? person.takingCredit - person.givingCredit : person.givingCredit - person.takingCredit;
 
     await CreditTransaction.create({
       userId,
       personId,
       takingCredit: amount,
       description,
+      balanceAmount,
     });
 
     res.status(200).json({ message: "Credit taken successfully", person });
