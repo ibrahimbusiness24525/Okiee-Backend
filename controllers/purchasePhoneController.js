@@ -3806,8 +3806,7 @@ exports.soldAnyPhone = async (req, res) => {
         amountDeducted: pocketCash || 0,
         accountCash: pocketTransaction.accountCash,
         remainingAmount: pocketTransaction.accountCash,
-        reasonOfAmountDeduction: `Phone Sale: ${imeis.length} phones sold to ${entityData.name || 'Customer'} | Amount: Rs. ${pocketCash || 0}`,
-        sourceOfAmountAddition: "Payment for mobile sale",
+        sourceOfAmountAddition: `Phone Sale: ${imeis.length} phones sold to ${entityData.name || 'Customer'} | Amount: Rs. ${pocketCash || 0}`,
       });
     }
     let person = null;

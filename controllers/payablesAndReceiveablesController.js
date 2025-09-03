@@ -11,6 +11,7 @@ const {
   PocketCashSchema,
   PocketCashTransactionSchema,
 } = require("../schema/PocketCashSchema");
+const { PurchasePhone, SoldPhone, BulkPhonePurchase, SingleSoldPhone } = require("../schema/purchasePhoneSchema");
 
 // 1. Create a Person
 exports.createPerson = async (req, res) => {
@@ -374,5 +375,111 @@ exports.updatePerson = async (req, res) => {
     res.status(200).json({ message: "Person updated successfully", person });
   } catch (error) {
     res.status(500).json({ message: "Error updating person", error });
+  }
+};
+
+exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { personId } = req.params;
+    const { number } = req.query; // Get number from query params as fallback
+
+    let person = null;
+    let customerNumber = null;
+
+    // If personId is provided, find person by ID
+    if (personId) {
+      person = await Person.findOne({ _id: personId, userId });
+      if (!person) {
+        return res.status(404).json({ message: "Person not found" });
+      }
+      customerNumber = person.number;
+    } 
+    // If personId is not provided but number is provided, find person by number
+    else if (number) {
+      person = await Person.findOne({ number, userId });
+      if (!person) {
+        return res.status(404).json({ message: "Person not found with this number" });
+      }
+      customerNumber = number;
+    } 
+    // If neither personId nor number is provided
+    else {
+      return res.status(400).json({ message: "Either Person ID or number is required" });
+    }
+
+    // Get all purchase and sale details with populated data
+    const bulkPurchasesDetails = await BulkPhonePurchase.find({ personId: person._id, userId })
+      .populate({
+        path: "ramSimDetails",
+        populate: {
+          path: "imeiNumbers",
+          model: "Imei"
+        }
+      })
+      .populate("personId", "name number reference")
+      .populate("bankAccountUsed")
+      .populate("pocketCash");
+
+    const singlePurchase = await PurchasePhone.find({ mobileNumber: customerNumber, userId })
+      .populate("soldDetails")
+      .populate("bankAccountUsed")
+      .populate("pocketCash")
+      .populate("shopid", "shopName");
+
+    const bulkSales = await SoldPhone.find({ customerNumber, userId })
+      .populate({
+        path: "bulkPhonePurchaseId",
+        populate: [
+          {
+            path: "ramSimDetails",
+            populate: {
+              path: "imeiNumbers",
+              model: "Imei"
+            }
+          },
+          {
+            path: "personId",
+            model: "Person"
+          }
+        ]
+      })
+      .populate("bankAccountUsed")
+      .populate("pocketCash");
+    
+    // For single sales, find them by customerNumber directly
+    const singleSales = await SingleSoldPhone.find({ 
+      customerNumber, 
+      userId 
+    })
+      .populate("purchasePhoneId")
+      .populate("bankAccountUsed")
+      .populate("pocketCash")
+      .populate("shopid", "shopName");
+
+    // Combine all purchase and sale data
+    const purchaseDetails = {
+      bulkPurchases: bulkPurchasesDetails,
+      singlePurchases: singlePurchase
+    };
+
+    const saleDetails = {
+      bulkSales: bulkSales,
+      singleSales: singleSales
+    };
+
+    res.status(200).json({ 
+      person,
+      purchaseDetails,
+      saleDetails,
+      summary: {
+        totalBulkPurchases: bulkPurchasesDetails.length,
+        totalSinglePurchases: singlePurchase.length,
+        totalBulkSales: bulkSales.length,
+        totalSingleSales: singleSales.length
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching purchase sale details", error });
   }
 };
