@@ -382,7 +382,7 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
   try {
     const userId = req.user.id;
     const { personId } = req.params;
-    const { number } = req.query; // Get number from query params as fallback
+    const { number, startDate, endDate } = req.query; // Get number and date range from query params
 
     let person = null;
     let customerNumber = null;
@@ -408,8 +408,24 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
       return res.status(400).json({ message: "Either Person ID or number is required" });
     }
 
-    // Get all purchase and sale details with populated data
-    const bulkPurchasesDetails = await BulkPhonePurchase.find({ personId: person._id, userId })
+    // Build date filter object if date range is provided
+    let dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter = {};
+      if (startDate) {
+        dateFilter.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        dateFilter.$lte = new Date(endDate);
+      }
+    }
+
+    // Get all purchase and sale details with populated data and date filtering
+    const bulkPurchasesQuery = { personId: person._id, userId };
+    if (Object.keys(dateFilter).length > 0) {
+      bulkPurchasesQuery.date = dateFilter;
+    }
+    const bulkPurchasesDetails = await BulkPhonePurchase.find(bulkPurchasesQuery)
       .populate({
         path: "ramSimDetails",
         populate: {
@@ -421,13 +437,21 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
       .populate("bankAccountUsed")
       .populate("pocketCash");
 
-    const singlePurchase = await PurchasePhone.find({ mobileNumber: customerNumber, userId })
+    const singlePurchaseQuery = { mobileNumber: customerNumber, userId };
+    if (Object.keys(dateFilter).length > 0) {
+      singlePurchaseQuery.date = dateFilter;
+    }
+    const singlePurchase = await PurchasePhone.find(singlePurchaseQuery)
       .populate("soldDetails")
       .populate("bankAccountUsed")
       .populate("pocketCash")
       .populate("shopid", "shopName");
 
-    const bulkSales = await SoldPhone.find({ customerNumber, userId })
+    const bulkSalesQuery = { customerNumber, userId };
+    if (Object.keys(dateFilter).length > 0) {
+      bulkSalesQuery.dateSold = dateFilter;
+    }
+    const bulkSales = await SoldPhone.find(bulkSalesQuery)
       .populate({
         path: "bulkPhonePurchaseId",
         populate: [
@@ -448,10 +472,11 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
       .populate("pocketCash");
     
     // For single sales, find them by customerNumber directly
-    const singleSales = await SingleSoldPhone.find({ 
-      customerNumber, 
-      userId 
-    })
+    const singleSalesQuery = { customerNumber, userId };
+    if (Object.keys(dateFilter).length > 0) {
+      singleSalesQuery.saleDate = dateFilter;
+    }
+    const singleSales = await SingleSoldPhone.find(singleSalesQuery)
       .populate("purchasePhoneId")
       .populate("bankAccountUsed")
       .populate("pocketCash")
@@ -477,6 +502,13 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
         totalSinglePurchases: singlePurchase.length,
         totalBulkSales: bulkSales.length,
         totalSingleSales: singleSales.length
+      },
+      filters: {
+        dateRange: {
+          startDate: startDate || null,
+          endDate: endDate || null,
+          applied: Object.keys(dateFilter).length > 0
+        }
       }
     });
   } catch (error) {

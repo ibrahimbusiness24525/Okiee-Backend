@@ -3781,7 +3781,7 @@ exports.soldAnyPhone = async (req, res) => {
       await BankTransaction.create({
         bankId: bank._id,
         userId: req.user.id,
-        sourceOfAmountAddition: `Phone Sale: ${imeis.length} phones sold to ${entityData.name || 'Customer'} | Amount: Rs. ${accountCash || 0}`,
+        sourceOfAmountAddition: `Phone Sale: ${imeis.length} of company name ${phoneCompanies.join(", ") || 'N/A'} and model name ${phoneModels.join(", ") || 'N/A'} and color ${phoneColors.join(", ") || 'N/A'} and ram ${phoneRams.join(", ") || 'N/A'} and sold to ${entityData.name || 'Customer'} | Amount: Rs. ${accountCash || 0}`,
         accountCash: accountCash || 0,
         accountType: bank.accountType,
       });
@@ -3806,7 +3806,7 @@ exports.soldAnyPhone = async (req, res) => {
         amountDeducted: pocketCash || 0,
         accountCash: pocketTransaction.accountCash,
         remainingAmount: pocketTransaction.accountCash,
-        sourceOfAmountAddition: `Phone Sale: ${imeis.length} phones sold to ${entityData.name || 'Customer'} | Amount: Rs. ${pocketCash || 0}`,
+        sourceOfAmountAddition: `Phone Sale: ${imeis.length} of company name ${phoneCompanies.join(", ") || 'N/A'} and model name ${phoneModels.join(", ") || 'N/A'} and color ${phoneColors.join(", ") || 'N/A'} and ram ${phoneRams.join(", ") || 'N/A'} and sold to ${entityData.name || 'Customer'} | Amount: Rs. ${pocketCash || 0}`,
       });
     }
     let person = null;

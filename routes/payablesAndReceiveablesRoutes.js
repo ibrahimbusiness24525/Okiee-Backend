@@ -43,5 +43,5 @@ router.delete(
   creditController.deleteTransaction
 );
 
-router.get("/detail-of-purchase-sale-by-person/:personId", decoderMiddleware, creditController.getDetailOfPurchaseSaleByPerson);
+router.get("/detail-of-purchase-sale-by-person/:personId?/:startDate?/:endDate?", decoderMiddleware, creditController.getDetailOfPurchaseSaleByPerson);
 module.exports = router;
