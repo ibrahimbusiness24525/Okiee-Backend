@@ -3138,25 +3138,75 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
   }
 
   try {
-    const singleSoldPhone = await SingleSoldPhone.find({
-      customerNumber,
-      userId,
-    });
-    const singlePurchasePhone = await PurchasePhone.find({
-      mobileNumber: customerNumber,
-      userId,
-    });
-    // const soldPhones = await SoldPhone.find({ customerNumber, userId });
+    let singleSoldPhone = [];
+    let singlePurchasePhone = [];
+    let bulkSoldPhones = [];
+
+    // Check if the input is an IMEI (typically 15 digits) or customer number
+    const isImei = /^\d{15}$/.test(customerNumber);
+
+    if (isImei) {
+      // Search by IMEI
+      console.log("Searching by IMEI:", customerNumber);
+      
+      // Search in SingleSoldPhone by IMEI
+      singleSoldPhone = await SingleSoldPhone.find({
+        $or: [
+          { imei1: customerNumber },
+          { imei2: customerNumber }
+        ],
+        userId,
+      });
+
+      // Search in PurchasePhone by IMEI
+      singlePurchasePhone = await PurchasePhone.find({
+        $or: [
+          { imei1: customerNumber },
+          { imei2: customerNumber }
+        ],
+        userId,
+      });
+
+      // Search in SoldPhone (bulk) by IMEI
+      bulkSoldPhones = await SoldPhone.find({
+        $or: [
+          { imei1: { $in: [customerNumber] } },
+          { imei2: { $in: [customerNumber] } }
+        ],
+        userId,
+      });
+    } else {
+      // Search by customer number (original logic)
+      console.log("Searching by customer number:", customerNumber);
+      
+      singleSoldPhone = await SingleSoldPhone.find({
+        customerNumber,
+        userId,
+      });
+      
+      singlePurchasePhone = await PurchasePhone.find({
+        mobileNumber: customerNumber,
+        userId,
+      });
+
+      // Also search bulk sold phones by customer number
+      bulkSoldPhones = await SoldPhone.find({
+        customerNumber,
+        userId,
+      });
+    }
 
     const combinedResults = [
       ...singleSoldPhone.map((item) => ({ ...item, type: "sold" })),
       ...singlePurchasePhone.map((item) => ({ ...item, type: "purchase" })),
+      ...bulkSoldPhones.map((item) => ({ ...item, type: "bulk_sold" })),
     ];
 
     if (combinedResults.length === 0) {
+      const searchType = isImei ? "IMEI" : "customer number";
       return res
         .status(404)
-        .json({ message: "No records found for this customer number" });
+        .json({ message: `No records found for this ${searchType}` });
     }
 
     return res.status(200).json(combinedResults);
