@@ -58,24 +58,63 @@ exports.addPurchasePhone = async (req, res) => {
     bankAccountUsed,
     pocketCash,
     accountCash,
+    // New optional params to mirror bulk purchase API
+    entityData,
+    purchasePaymentType,
+    creditPaymentData = {},
   } = req.body;
 
   try {
     console.log("This is name", name);
     // Create a new entry
 
+    // Normalize possibly stringified JSON inputs
+    let parsedCreditPaymentData = creditPaymentData;
+    if (typeof parsedCreditPaymentData === "string") {
+      try {
+        parsedCreditPaymentData = JSON.parse(parsedCreditPaymentData);
+      } catch (e) {
+        parsedCreditPaymentData = {};
+      }
+    }
+
+    let parsedEntityData = entityData;
+    if (typeof parsedEntityData === "string") {
+      try {
+        parsedEntityData = JSON.parse(parsedEntityData);
+      } catch (e) {
+        parsedEntityData = {};
+      }
+    }
+
+    let parsedAccessories = accessories;
+    if (typeof parsedAccessories === "string") {
+      try {
+        parsedAccessories = JSON.parse(parsedAccessories);
+      } catch (e) {
+        // keep as-is if parsing fails
+      }
+    }
+
+    // Coerce some primitives
+    const normalizedPurchasePrice = Number(purchasePrice ?? 0);
+    const normalizedIsApproved =
+      typeof isApprovedFromEgadgets === "string"
+        ? isApprovedFromEgadgets === "true"
+        : Boolean(isApprovedFromEgadgets);
+
     const purchasePhone = new PurchasePhone({
       userId: req.user.id,
       shopid,
       warranty,
       name,
-      fatherName,
+      fatherName: fatherName === "undefined" ? undefined : fatherName,
       companyName,
       modelName,
       date,
       cnic,
       batteryHealth,
-      accessories,
+      accessories: parsedAccessories,
       phoneCondition,
       specifications,
       ramMemory,
@@ -86,11 +125,11 @@ exports.addPurchasePhone = async (req, res) => {
       // personPicture,
       mobileNumber,
       price: {
-        purchasePrice,
+        purchasePrice: normalizedPurchasePrice,
         finalPrice,
         demandPrice,
       },
-      isApprovedFromEgadgets,
+      isApprovedFromEgadgets: normalizedIsApproved,
       // eGadgetStatusPicture,
     });
     if (bankAccountUsed) {
@@ -138,56 +177,87 @@ exports.addPurchasePhone = async (req, res) => {
       });
     }
     console.log("req", req.body);
+
+    // Prefer new params if provided, fallback to legacy ones
+    const resolvedPaymentType = purchasePaymentType || paymentType; // "full-payment" | "credit" | legacy "credit"
+    const resolvedEntityName = parsedEntityData?.name || name;
+    const resolvedEntityNumber = parsedEntityData?.number || Number(mobileNumber);
+
+    // Build a concise summary similar to bulk flow
+    const phoneSummary = `${companyName} ${modelName}${
+      batteryHealth ? ` | Battery: ${batteryHealth}` : ""
+    }${color ? ` | Color: ${color}` : ""}${ramMemory ? ` | RAM: ${ramMemory}` : ""}`.trim();
+
+    // Validate credit amounts if credit flow triggered
+    if (resolvedPaymentType === "credit") {
+      const payableNow = Number(parsedCreditPaymentData?.payableAmountNow ?? payableAmountNow ?? 0);
+      const payableLater = Number(parsedCreditPaymentData?.payableAmountLater ?? payableAmountLater ?? 0);
+      const totalBuying = normalizedPurchasePrice;
+      if (payableNow + payableLater !== totalBuying) {
+        return res
+          .status(400)
+          .json({
+            message:
+              "Invalid data: payable amounts (now + later) must equal purchase price",
+          });
+      }
+    }
+
+    // Find existing person strictly by number for this user
     let person = await Person.findOne({
-      name: name,
-      number: Number(mobileNumber), // ✅ correct
+      number: Number(resolvedEntityNumber),
       userId: req.user.id,
     });
     console.log("Person found:", person);
-    const takingCredit = person ? person.takingCredit : 0;
-    if (paymentType === "credit") {
+    const takingCredit = person ? Number(person.takingCredit || 0) : 0;
+
+    if (resolvedPaymentType === "credit") {
       console.log("====================================");
-      console.log("Payment Type:", paymentType);
-      console.log("Payable Amount Later:", payableAmountLater);
-      console.log("Payable Amount Now:", payableAmountNow);
-      console.log("Payment Date:", paymentDate);
+      console.log("Payment Type:", resolvedPaymentType);
+      console.log(
+        "Payable Amount Later:",
+        parsedCreditPaymentData?.payableAmountLater ?? payableAmountLater
+      );
+      console.log(
+        "Payable Amount Now:",
+        parsedCreditPaymentData?.payableAmountNow ?? payableAmountNow
+      );
+      console.log(
+        "Payment Date:",
+        parsedCreditPaymentData?.dateOfPayment ?? paymentDate
+      );
       console.log("====================================");
       // Use Person and CreditTransaction for receivables
 
       // Find or create the person (customer) by name and number
 
+      const payableLaterResolved = Number(
+        parsedCreditPaymentData?.payableAmountLater ?? payableAmountLater ?? 0
+      );
+
       if (!person) {
         person = await Person.create({
           userId: req.user.id,
-          name: name,
-          number: Number(mobileNumber),
-          reference: "Phone Purchase",
-          takingCredit: Number(payableAmountLater),
+          name: resolvedEntityName,
+          number: Number(resolvedEntityNumber),
+          reference: `Single Purchase: ${phoneSummary}`,
+          takingCredit: payableLaterResolved,
           status: "Payable",
         });
-        await CreditTransaction.create({
-          userId: req.user.id,
-          personId: person._id,
-          balanceAmount:
-            Number(payableAmountLater),
-          takingCredit: Number(payableAmountLater),
-          description: `Credit purchase of phone: ${companyName} ${modelName}`,
-        });
       } else {
-        person.takingCredit =
-          Number(person.takingCredit || 0) + Number(payableAmountLater);
+        person.takingCredit = Number(person.takingCredit || 0) + payableLaterResolved;
         person.status = "Payable";
-        person.reference = "Phone Purchase";
+        person.reference = `Single Purchase: ${phoneSummary}`;
         await person.save();
-        await CreditTransaction.create({
-          userId: req.user.id,
-          personId: person._id,
-          balanceAmount:
-            Number(takingCredit) + Number(payableAmountLater),
-          takingCredit: Number(payableAmountLater),
-          description: `Credit purchase of phone: ${companyName} ${modelName}`,
-        });
       }
+
+      await CreditTransaction.create({
+        userId: req.user.id,
+        personId: person._id,
+        balanceAmount: Number(takingCredit) + payableLaterResolved,
+        takingCredit: payableLaterResolved,
+        description: `Credit purchase of ${phoneSummary} by ${resolvedEntityName} - Amount: ${payableLaterResolved}`,
+      });
 
       // Log the credit transaction
     }
