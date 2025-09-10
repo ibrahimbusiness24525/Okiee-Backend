@@ -37,6 +37,7 @@ const {
   deleteSoldPhone,
   getDetailByImeiNumber,
   returnSingleSoldToPurchase,
+  returnBulkSoldToPurchase,
 } = require("../controllers/purchasePhoneController");
 const { decoderMiddleware } = require("../services/authServices");
 
@@ -159,4 +160,6 @@ router.post(
   decoderMiddleware,
   returnSingleSoldToPurchase
 );
+
+router.post("/return-bulk-sold-to-purchase", decoderMiddleware, returnBulkSoldToPurchase);
 module.exports = router;

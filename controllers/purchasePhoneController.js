@@ -210,7 +210,11 @@ exports.addPurchasePhone = async (req, res) => {
     });
     console.log("Person found:", person);
     const takingCredit = person ? Number(person.takingCredit || 0) : 0;
-
+    console.log("payment type", resolvedPaymentType);
+    
+          const payableLaterResolved = Number(
+            parsedCreditPaymentData?.payableAmountLater ?? payableAmountLater ?? 0
+          );
     if (resolvedPaymentType === "credit") {
       console.log("====================================");
       console.log("Payment Type:", resolvedPaymentType);
@@ -230,10 +234,6 @@ exports.addPurchasePhone = async (req, res) => {
       // Use Person and CreditTransaction for receivables
 
       // Find or create the person (customer) by name and number
-
-      const payableLaterResolved = Number(
-        parsedCreditPaymentData?.payableAmountLater ?? payableAmountLater ?? 0
-      );
 
       if (!person) {
         person = await Person.create({
@@ -261,6 +261,35 @@ exports.addPurchasePhone = async (req, res) => {
 
       // Log the credit transaction
     }
+    if (resolvedPaymentType === "full-payment") {
+      if (!person) {
+        person = await Person.create({
+          userId: req.user.id,
+          name: resolvedEntityName,
+          number: resolvedEntityNumber,
+          reference: `Single Purchase: ${phoneSummary}`,
+          takingCredit: 0,
+          status: "Settled",
+        });
+        await CreditTransaction.create({
+          userId: req.user.id,
+          personId: person._id,
+            balanceAmount:  0,
+          takingCredit: 0,
+          description: `Full payment purchase of ${phoneSummary} by ${resolvedEntityName} `,
+        });
+      } 
+      else {
+        await CreditTransaction.create({
+          userId: req.user.id,
+          personId: person._id,
+          balanceAmount: Number(person.takingCredit),
+          takingCredit: 0,
+          description: `Full payment purchase of ${phoneSummary} by ${resolvedEntityName} `,
+        });
+      }
+    }
+    
     // Save to database
     const savedPhone = await purchasePhone.save();
     res.status(201).json({
@@ -4292,5 +4321,238 @@ exports.returnSingleSoldToPurchase = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Internal server error", error: error.message });
+  }
+};
+
+
+exports.returnBulkSoldToPurchase = async (req, res) => {
+  try {
+    const {
+      bulkSoldId,
+      imeiNumbersWithPrices = [],
+      pocketCash,
+      bankAccountUsed,
+      accountCash,
+      deviceInfo = {}, // optional fallback for required fields when SoldPhone lacks them
+    } = req.body;
+
+    // Validate input
+    if (!bulkSoldId && (!imeiNumbersWithPrices || imeiNumbersWithPrices.length === 0)) {
+      return res.status(400).json({
+        message: "Either bulkSoldId or imeiNumbersWithPrices array is required"
+      });
+    }
+
+    // Find the sold phone record
+    const soldPhone = await SoldPhone.findById(bulkSoldId);
+    if (!soldPhone) {
+      return res.status(404).json({ message: "Sold phone record not found" });
+    }
+
+    // Use IMEI arrays directly from SoldPhone; do not rely on BulkPhonePurchase
+    const soldImei1List = Array.isArray(soldPhone.imei1)
+      ? soldPhone.imei1.map(String)
+      : (soldPhone.imei1 ? [String(soldPhone.imei1)] : []);
+
+    let phonesToReturn = [];
+    let totalReturnPrice = 0;
+
+    if (imeiNumbersWithPrices.length > 0) {
+      // Return specific phones with their return prices
+      for (const imeiWithPrice of imeiNumbersWithPrices) {
+        const imei1Value = String(imeiWithPrice.imei1);
+        if (soldImei1List.includes(imei1Value)) {
+          phonesToReturn.push({
+            imei1: imei1Value,
+            returnPrice: Number(imeiWithPrice.returnPrice),
+            originalSalePrice: Number(soldPhone.salePrice),
+            originalPurchasePrice: Number(soldPhone.purchasePrice),
+          });
+          totalReturnPrice += Number(imeiWithPrice.returnPrice);
+        }
+      }
+    } else {
+      // Return all phones from the bulk purchase
+      for (const imei1Value of soldImei1List) {
+        phonesToReturn.push({
+          imei1: imei1Value,
+          returnPrice: Number(soldPhone.salePrice), // default to sale price
+          originalSalePrice: Number(soldPhone.salePrice),
+          originalPurchasePrice: Number(soldPhone.purchasePrice),
+        });
+        totalReturnPrice += Number(soldPhone.salePrice);
+      }
+    }
+
+    // Handle bank account deduction
+    if (bankAccountUsed && accountCash) {
+      const bank = await AddBankAccount.findById(bankAccountUsed);
+      if (!bank) {
+        return res.status(404).json({ message: "Bank account not found" });
+      }
+
+      if (accountCash > bank.accountCash) {
+        return res.status(400).json({ message: "Insufficient bank account balance" });
+      }
+
+      bank.accountCash -= accountCash;
+      await bank.save();
+
+      await BankTransaction.create({
+        bankId: bank._id,
+        userId: req.user.id,
+        reasonOfAmountDeduction: `Return of bulk phones - Total return amount ( purchase ): ${totalReturnPrice}`,
+        accountCash: accountCash,
+        accountType: bank.accountType,
+      });
+    }
+
+    // Handle pocket cash deduction
+    if (pocketCash) {
+      const pocketTransaction = await PocketCashSchema.findOne({
+        userId: req.user.id,
+      });
+      if (!pocketTransaction) {
+        return res.status(404).json({ message: "Pocket cash account not found" });
+      }
+
+      if (pocketCash > pocketTransaction.accountCash) {
+        return res.status(400).json({ message: "Insufficient pocket cash" });
+      }
+
+      pocketTransaction.accountCash -= pocketCash;
+      await pocketTransaction.save();
+
+      await PocketCashTransactionSchema.create({
+        userId: req.user.id,
+        pocketCashId: pocketTransaction._id,
+        amountDeducted: pocketCash,
+        accountCash: pocketTransaction.accountCash,
+        remainingAmount: pocketTransaction.accountCash,
+        reasonOfAmountDeduction: `Return of bulk phones - Total return amount( purchase ): ${totalReturnPrice}`,
+      });
+    }
+
+    // Handle credit manipulation if the original sale was on credit
+    if (soldPhone.sellingPaymentType === "Credit" && soldPhone.payableAmountLater) {
+      // Lookup person by customer number + user
+      let person = await Person.findOne({
+        number: Number(soldPhone.customerNumber),
+        userId: req.user.id,
+      });
+      if (person) {
+        const payableAmountLater = Number(soldPhone.payableAmountLater);
+        const returnPrice = totalReturnPrice;
+        
+        let remainingAmount = 0;
+        let creditType = "";
+        let creditAmount = 0;
+
+        if (returnPrice > payableAmountLater) {
+          // Person owes us more
+          remainingAmount = returnPrice - payableAmountLater;
+          creditType = "takingCredit";
+          creditAmount = remainingAmount;
+          person.takingCredit = Number(person.takingCredit || 0) + remainingAmount;
+        } else {
+          // We owe person
+          remainingAmount = payableAmountLater - returnPrice;
+          creditType = "givingCredit";
+          creditAmount = remainingAmount;
+          person.givingCredit = Number(person.givingCredit || 0) + remainingAmount;
+        }
+
+        person.status = creditType === "takingCredit" ? "Payable" : "Receivable";
+        await person.save();
+
+        // Create credit transaction
+        await CreditTransaction.create({
+          userId: req.user.id,
+          personId: person._id,
+          [creditType]: creditAmount,
+          balanceAmount: creditType === "takingCredit" 
+            ? Number(person.takingCredit || 0) 
+            : Number(person.givingCredit || 0),
+          description: `Phone return adjustment - Return amount: ${returnPrice}, Original credit: ${payableAmountLater}, ${creditType}: ${creditAmount}`,
+        });
+      }
+    }
+
+    // Create new purchase phone records for returned phones
+    const returnedPurchasePhones = [];
+    for (const phone of phonesToReturn) {
+      // Resolve device fields: prefer values stored on SoldPhone, else from deviceInfo, else safe defaults
+      const resolvedCompanyName = soldPhone.companyName || deviceInfo.companyName || "Unknown";
+      const resolvedModelName = soldPhone.modelName || deviceInfo.modelName || "Unknown";
+      const resolvedRamMemory = soldPhone.ramMemory || deviceInfo.ramMemory || "N/A";
+      const resolvedColor = soldPhone.color || deviceInfo.color || "";
+      const resolvedSpecifications = deviceInfo.specifications || "Returned";
+      const resolvedPhoneCondition = deviceInfo.phoneCondition || "Used";
+      const resolvedWarranty = soldPhone.warranty || deviceInfo.warranty || "12 month";
+
+      const newPurchasePhone = new PurchasePhone({
+        userId: req.user.id,
+        shopid: soldPhone.shopid, // rely on sold record; no request requirement
+        warranty: resolvedWarranty,
+        name: soldPhone.customerName,
+        companyName: resolvedCompanyName,
+        modelName: resolvedModelName,
+        date: new Date(),
+        batteryHealth: undefined,
+        accessories: soldPhone.accessories || {},
+        phoneCondition: resolvedPhoneCondition,
+        specifications: resolvedSpecifications,
+        ramMemory: resolvedRamMemory,
+        color: resolvedColor || "",
+        imei1: phone.imei1,
+        imei2: undefined,
+        mobileNumber: soldPhone.customerNumber,
+        price: {
+          purchasePrice: phone.returnPrice,
+          finalPrice: phone.returnPrice,
+          demandPrice: phone.returnPrice,
+        },
+        isApprovedFromEgadgets: false,
+      });
+
+      const savedPhone = await newPurchasePhone.save();
+      returnedPurchasePhones.push(savedPhone);
+
+      // Calculate and update profit based on per-phone values
+      const previousProfit = Number(phone.originalSalePrice) - Number(phone.originalPurchasePrice);
+      const profitAdjustment = previousProfit - Number(phone.returnPrice);
+      // Reduce total profit by the adjustment for this returned phone
+      soldPhone.profit = Number(soldPhone.profit || 0) - profitAdjustment;
+    }
+
+    // Remove returned IMEIs from the sold phone record
+    const returnedImei1s = phonesToReturn.map(phone => String(phone.imei1));
+    const remainingImeis = (soldPhone.imei1 || []).filter(imei => !returnedImei1s.includes(String(imei)));
+    
+    if (remainingImeis.length === 0) {
+      // All phones returned, delete the sold phone record
+      await SoldPhone.findByIdAndDelete(bulkSoldId);
+    } else {
+      // Some phones remain, update the record
+      soldPhone.imei1 = remainingImeis;
+      await soldPhone.save();
+    }
+
+    res.status(200).json({
+      message: "Phones returned successfully",
+      data: {
+        returnedPhones: returnedPurchasePhones,
+        totalReturnPrice,
+        remainingImeis: remainingImeis.length,
+        soldPhoneDeleted: remainingImeis.length === 0
+      }
+    });
+
+  } catch (error) {
+    console.error("Error returning bulk sold phones:", error);
+    res.status(500).json({ 
+      message: "Internal server error", 
+      error: error.message 
+    });
   }
 };

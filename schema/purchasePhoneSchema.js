@@ -20,7 +20,7 @@ const PurchasePhoneSchema = new mongoose.Schema(
     shopid: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Shop",
-      required: true,
+      required: false,
     },
     name: { type: String, required: true },
     // fatherName: { type: String, required: false },
@@ -95,7 +95,7 @@ const SingleSoldPhoneSchema = new mongoose.Schema(
     shopid: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Shop",
-      required: true,
+      required: false,
     },
     customerName: { type: String, required: true },
     customerNumber: { type: String, required: false },
@@ -393,7 +393,7 @@ const dispatchSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   shopName: {
     type: String,
-    required: true,
+    required: false,
   },
   receiverName: {
     type: String,
