@@ -59,8 +59,8 @@ exports.giveCredit = async (req, res) => {
       await BankTransaction.create({
         bankId: bank._id,
         userId: req.user.id,
-        reasonOfAmountDeduction: `give credit to person: ${person.name}, amount: ${amount}`,
-        accountCash: amount,
+        reasonOfAmountDeduction: `give credit to person: ${person.name}, amount from bank: ${giveCredit?.amountFromBank} | total amount: ${amount}`,
+        accountCash: giveCredit?.amountFromBank,
         accountType: bank.accountType,
       });
     }
@@ -88,7 +88,7 @@ exports.giveCredit = async (req, res) => {
         amountDeducted: giveCredit?.amountFromPocket,
         accountCash: pocketTransaction.accountCash, // ✅ add this line
         remainingAmount: pocketTransaction.accountCash,
-        reasonOfAmountDeduction: `give credit to person: ${person.name}, amount: ${amount}`,
+        reasonOfAmountDeduction: `give credit to person: ${person.name}, amount from pocket: ${giveCredit?.amountFromPocket} | total amount: ${amount}`,
       });
     }
 
@@ -155,7 +155,7 @@ exports.takeCredit = async (req, res) => {
       await BankTransaction.create({
         bankId: bank._id,
         userId: req.user.id,
-        reasonOfAmountDeduction: `take credit from person: ${person.name}, amount: ${amount}`,
+        reasonOfAmountDeduction: `take credit from person: ${person.name}, amount from bank: ${takeCredit?.amountFromBank} | total amount: ${amount}`,
         accountCash: amount,
         accountType: bank.accountType,
       });
@@ -184,7 +184,7 @@ exports.takeCredit = async (req, res) => {
         amountDeducted: takeCredit?.amountFromPocket,
         accountCash: pocketTransaction.accountCash, // ✅ add this line
         remainingAmount: pocketTransaction.accountCash,
-        reasonOfAmountDeduction: `take credit from person: ${person.name}, amount: ${amount}`,
+        reasonOfAmountDeduction: `take credit from person: ${person.name}, amount from pocket: ${takeCredit?.amountFromPocket} | total amount: ${amount}`,
       });
     }
 
