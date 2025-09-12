@@ -138,14 +138,23 @@ exports.deletePocketCashTransaction = async (req, res) => {
     const pocketCash = await PocketCashSchema.findOne({ userId });
     const transaction = await PocketCashTransactionSchema.findOne({ _id: id, userId });
     if (!transaction) return res.status(404).json({ success: false, message: "Transaction not found or not authorized" });
-    if (transaction.amountDeducted) {
-      pocketCash.accountCash += transaction.amountDeducted;
+    // if (transaction.amountDeducted) {
+    //   pocketCash.accountCash += transaction.amountDeducted;
+    //   await pocketCash.save();
+    // }
+    // if (transaction.amountAdded) {
+    //   pocketCash.accountCash -= transaction.amountAdded;
+    //   await pocketCash.save();
+    // }
+    if ((transaction?.reasonOfAmountDeduction || "").toLowerCase().includes("purchase") || (transaction?.sourceOfAmountAddition || "").toLowerCase().includes("purchase") || transaction?.amountDeducted) {
+      pocketCash.accountCash += transaction.amountDeducted || transaction.amountAdded;
       await pocketCash.save();
     }
-    if (transaction.amountAdded) {
-      pocketCash.accountCash -= transaction.amountAdded;
+    else {
+      pocketCash.accountCash -= transaction.amountDeducted || transaction.amountAdded;
       await pocketCash.save();
     }
+   
     await PocketCashTransactionSchema.deleteOne({ _id: id, userId });
     res.status(200).json({ success: true, message: "Transaction deleted successfully" });
   } catch (error) {
