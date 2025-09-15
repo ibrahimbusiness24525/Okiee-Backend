@@ -42,6 +42,7 @@ router.delete(
   decoderMiddleware,
   creditController.deleteTransaction
 );
-
+router.put("/update-transaction/:id", decoderMiddleware, creditController.editTransaction);
 router.get("/detail-of-purchase-sale-by-person/:personId?/:startDate?/:endDate?", decoderMiddleware, creditController.getDetailOfPurchaseSaleByPerson);
+
 module.exports = router;

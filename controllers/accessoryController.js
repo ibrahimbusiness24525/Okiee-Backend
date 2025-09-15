@@ -369,7 +369,7 @@ const createAccessory = async (req, res) => {
       await BankTransaction.create({
         bankId: bank._id,
         userId,
-        reasonOfAmountDeduction: `Purchasing ${accessories.length} accessories`,
+        reasonOfAmountDeduction: `Purchase of ${accessories.length} accessories | ${accessories.map((acc) => acc.accessoryName).join(", ")}`,
         amount: amountToDeduct,
         accountCash: bank.accountCash,
         accountType: bank.accountType,
@@ -402,7 +402,7 @@ const createAccessory = async (req, res) => {
         pocketCashId: pocket._id,
         amountDeducted: amountToDeduct,
         accountCash: pocket.accountCash,
-        reasonOfAmountDeduction: `Purchasing ${accessories.length} accessories`,
+        reasonOfAmountDeduction: `Purchase of ${accessories.length} accessories | ${accessories.map((acc) => acc.accessoryName).join(", ")}`,
       });
     }
 
@@ -912,7 +912,7 @@ const sellMultipleAccessories = async (req, res) => {
         pocketCashId: pocket._id,
         amountAdded: Number(amountToAdd),
         accountCash: pocket.accountCash,
-        reasonOfAmountAddition: `Sale of ${sales.length} accessories to ${personName} | Amount: ${amountToAdd}`,
+        sourceOfAmountAddition: `Sale of ${sales.length} accessories to ${personName} | Amount: ${amountToAdd}`,
       });
     }
 
