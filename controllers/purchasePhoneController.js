@@ -121,8 +121,6 @@ exports.addPurchasePhone = async (req, res) => {
       color,
       imei1,
       imei2,
-      // phonePicture,
-      // personPicture,
       mobileNumber,
       price: {
         purchasePrice: normalizedPurchasePrice,
@@ -130,7 +128,6 @@ exports.addPurchasePhone = async (req, res) => {
         demandPrice,
       },
       isApprovedFromEgadgets: normalizedIsApproved,
-      // eGadgetStatusPicture,
     });
     if (bankAccountUsed) {
       const bank = await AddBankAccount.findById(bankAccountUsed);
@@ -262,24 +259,25 @@ exports.addPurchasePhone = async (req, res) => {
       // Log the credit transaction
     }
     if (resolvedPaymentType === "full-payment") {
-      if (!person) {
-        person = await Person.create({
-          userId: req.user.id,
-          name: resolvedEntityName,
-          number: resolvedEntityNumber,
-          reference: `Single Purchase: ${phoneSummary}`,
-          takingCredit: 0,
-          status: "Settled",
-        });
-        await CreditTransaction.create({
-          userId: req.user.id,
-          personId: person._id,
-            balanceAmount:  0,
-          takingCredit: 0,
-          description: `Full payment purchase of ${phoneSummary} by ${resolvedEntityName} `,
-        });
-      } 
-      else {
+      // if (!person) {
+      //   person = await Person.create({
+      //     userId: req.user.id,
+      //     name: resolvedEntityName,
+      //     number: resolvedEntityNumber,
+      //     reference: `Single Purchase: ${phoneSummary}`,
+      //     takingCredit: 0,
+      //     status: "Settled",
+      //   });
+      //   await CreditTransaction.create({
+      //     userId: req.user.id,
+      //     personId: person._id,
+      //       balanceAmount:  0,
+      //     takingCredit: 0,
+      //     description: `Full payment purchase of ${phoneSummary} by ${resolvedEntityName} `,
+      //   });
+      // } 
+      // else {
+       if(person){
         await CreditTransaction.create({
           userId: req.user.id,
           personId: person._id,
@@ -287,7 +285,11 @@ exports.addPurchasePhone = async (req, res) => {
           takingCredit: 0,
           description: `Full payment purchase of ${phoneSummary} by ${resolvedEntityName} `,
         });
-      }
+       }
+       else{
+        console.log("no required entityData for full payment purchase");
+       }
+      // }
     }
     
     // Save to database

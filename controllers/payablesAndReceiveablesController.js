@@ -327,54 +327,92 @@ exports.getAllPersonsNameAndId = async (req, res) => {
     res.status(500).json({ message: "Error fetching persons", error });
   }
 };
+// exports.editTransaction = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { givingCredit, takingCredit, description, balanceAmount } = req.body;
+
+//     const existing = await CreditTransaction.findOne({ _id: id, userId: req.user.id });
+//     if (!existing) {
+//       return res.status(404).json({ success: false, message: "Transaction not found" });
+//     }
+
+//     const person = await Person.findOne({ _id: existing.personId, userId: req.user.id });
+//     if (!person) {
+//       return res.status(404).json({ success: false, message: "Person not found" });
+//     }
+
+//     let newGiving, newTaking, newBalanceAmount;
+
+//     // If balanceAmount is provided, calculate givingCredit and takingCredit based on it
+//     if (balanceAmount !== undefined && balanceAmount !== null) {
+//       newBalanceAmount = Number(balanceAmount);
+      
+//       // Calculate the difference from current person totals
+//       const currentBalance = Math.abs(Number(person.takingCredit || 0) - Number(person.givingCredit || 0));
+//       const balanceDifference = newBalanceAmount - currentBalance;
+      
+//       if (person.takingCredit > person.givingCredit) {
+//         // Currently payable - adjust takingCredit
+//         newTaking = Math.max(0, Number(person.takingCredit || 0) + balanceDifference);
+//         newGiving = Number(person.givingCredit || 0);
+//       } else {
+//         // Currently receivable - adjust givingCredit
+//         newGiving = Math.max(0, Number(person.givingCredit || 0) + balanceDifference);
+//         newTaking = Number(person.takingCredit || 0);
+//       }
+//     } else {
+//       // Use provided values or existing values
+//       newGiving = givingCredit ?? existing.givingCredit ?? 0;
+//       newTaking = takingCredit ?? existing.takingCredit ?? 0;
+//       newBalanceAmount = Math.abs(Number(newTaking) - Number(newGiving));
+//     }
+
+//     const deltaGiving = Number(newGiving) - Number(existing.givingCredit || 0);
+//     const deltaTaking = Number(newTaking) - Number(existing.takingCredit || 0);
+
+//     // Update person's totals using deltas
+//     person.givingCredit = Number(person.givingCredit || 0) + deltaGiving;
+//     person.takingCredit = Number(person.takingCredit || 0) + deltaTaking;
+
+//     if (person.givingCredit < 0) person.givingCredit = 0;
+//     if (person.takingCredit < 0) person.takingCredit = 0;
+
+//     // Recalculate person status
+//     person.status = person.takingCredit > 0 ? "Payable" : person.givingCredit > 0 ? "Receivable" : "Settled";
+//     await person.save();
+
+//     // Update the transaction
+//     existing.givingCredit = newGiving;
+//     existing.takingCredit = newTaking;
+//     if (typeof description === "string") existing.description = description;
+//     existing.balanceAmount = newBalanceAmount;
+//     await existing.save();
+
+//     return res.status(200).json({ message: "Transaction edited successfully", transaction: existing, person });
+//   } catch (error) {
+//     return res.status(500).json({ message: "Error editing transaction", error });
+//   }
+// };
+
+
 exports.editTransaction = async (req, res) => {
   try {
     const { id } = req.params;
-    const { givingCredit, takingCredit, description } = req.body;
+    const { givingCredit, takingCredit, description, balanceAmount } = req.body;
+    const transaction = await CreditTransaction.findOne({ _id: id, userId: req.user.id });
+    if (!transaction) return res.status(404).json({ message: "Transaction not found" });
 
-    const existing = await CreditTransaction.findOne({ _id: id, userId: req.user.id });
-    if (!existing) {
-      return res.status(404).json({ success: false, message: "Transaction not found" });
-    }
-
-    const person = await Person.findOne({ _id: existing.personId, userId: req.user.id });
-    if (!person) {
-      return res.status(404).json({ success: false, message: "Person not found" });
-    }
-
-    const newGiving = givingCredit ?? existing.givingCredit ?? 0;
-    const newTaking = takingCredit ?? existing.takingCredit ?? 0;
-
-    const deltaGiving = Number(newGiving) - Number(existing.givingCredit || 0);
-    const deltaTaking = Number(newTaking) - Number(existing.takingCredit || 0);
-
-    // Update person's totals using deltas
-    person.givingCredit = Number(person.givingCredit || 0) + deltaGiving;
-    person.takingCredit = Number(person.takingCredit || 0) + deltaTaking;
-
-    if (person.givingCredit < 0) person.givingCredit = 0;
-    if (person.takingCredit < 0) person.takingCredit = 0;
-
-    // Recalculate person status
-    person.status = person.takingCredit > 0 ? "Payable" : person.givingCredit > 0 ? "Receivable" : "Settled";
-    await person.save();
-
-    // Recalculate transaction balance from updated person
-    const newBalanceAmount = Math.abs(Number(person.takingCredit || 0) - Number(person.givingCredit || 0));
-
-    // Update the transaction
-    existing.givingCredit = newGiving;
-    existing.takingCredit = newTaking;
-    if (typeof description === "string") existing.description = description;
-    existing.balanceAmount = newBalanceAmount;
-    await existing.save();
-
-    return res.status(200).json({ message: "Transaction edited successfully", transaction: existing, person });
+    transaction.givingCredit = givingCredit;
+    transaction.takingCredit = takingCredit;
+    transaction.description = description;
+    transaction.balanceAmount = balanceAmount;
+    await transaction.save();
+    res.status(200).json({ message: "Transaction edited successfully", transaction });
   } catch (error) {
-    return res.status(500).json({ message: "Error editing transaction", error });
+    res.status(500).json({ message: "Error editing transaction", error });
   }
 };
-
 exports.deletePerson = async (req, res) => {
   try {
     const userId = req.user.id;
