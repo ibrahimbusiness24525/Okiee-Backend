@@ -1160,6 +1160,13 @@ exports.addBulkPhones = async (req, res) => {
           takingCredit: Number(creditPaymentData.payableAmountLater),
           status: "Payable",
         });
+        await CreditTransaction.create({
+          userId: req.user.id,
+          personId: person._id,
+          balanceAmount: Number(creditPaymentData.payableAmountLater),
+          takingCredit: Number(creditPaymentData.payableAmountLater),
+          description: `Credit purchase of ${phoneSummary} by ${entityData.name} - Amount: ${creditPaymentData.payableAmountLater}`,
+        });
       } else {
         person.takingCredit =
           Number(person.takingCredit || 0) +
@@ -1169,16 +1176,17 @@ exports.addBulkPhones = async (req, res) => {
         Number(creditPaymentData.payableAmountLater);
         person.reference = `Bulk Purchase: ${phoneSummary}`;
         await person.save();
+        await CreditTransaction.create({
+          userId: req.user.id,
+          personId: person._id,
+          balanceAmount:
+            Number(takingCredit) + Number(creditPaymentData.payableAmountLater),
+          takingCredit: Number(creditPaymentData.payableAmountLater),
+          description: `Credit purchase of ${phoneSummary} by ${entityData.name} - Amount: ${creditPaymentData.payableAmountLater}`,
+        });
       }
       // Log the credit transaction
-      await CreditTransaction.create({
-        userId: req.user.id,
-        personId: person._id,
-        balanceAmount:
-          Number(takingCredit) + Number(creditPaymentData.payableAmountLater),
-        takingCredit: Number(creditPaymentData.payableAmountLater),
-        description: `Credit purchase of ${phoneSummary} by ${entityData.name} - Amount: ${creditPaymentData.payableAmountLater}`,
-      });
+    
     }
     if (purchasePaymentType === "full-payment") {
       if (!person) {
@@ -4030,20 +4038,28 @@ exports.soldAnyPhone = async (req, res) => {
           givingCredit: Number(payableAmountLater),
           status: "Receivable",
         });
+        await CreditTransaction.create({
+          userId: req.user.id,
+          personId: person._id,
+          givingCredit: Number(payableAmountLater),
+          balanceAmount:  Number(payableAmountLater),
+          description: `Credit Sale: ${imeis.length} phones sold to ${entityData.name || person.name
+            } || Credit: ${payableAmountLater} || Model: ${phoneModels.join(", ") || 'N/A'} || Company: ${phoneCompanies.join(", ") || 'N/A'} || Color: ${phoneColors.join(", ") || 'N/A'} || RAM: ${phoneRams.join(", ") || 'N/A'} || SIM: ${phoneSims.join(", ") || 'N/A'}`,
+        });
       } else {
         person.givingCredit += Number(payableAmountLater);
         person.status = "Receivable";
         await person.save();
+        await CreditTransaction.create({
+          userId: req.user.id,
+          personId: person._id,
+          givingCredit: Number(payableAmountLater),
+          balanceAmount: currentGiveCreditAmount + Number(payableAmountLater),
+          description: `Credit Sale: ${imeis.length} phones sold to ${entityData.name || person.name
+            } || Credit: ${payableAmountLater} || Model: ${phoneModels.join(", ") || 'N/A'} || Company: ${phoneCompanies.join(", ") || 'N/A'} || Color: ${phoneColors.join(", ") || 'N/A'} || RAM: ${phoneRams.join(", ") || 'N/A'} || SIM: ${phoneSims.join(", ") || 'N/A'}`,
+        });
       }
 
-      await CreditTransaction.create({
-        userId: req.user.id,
-        personId: person._id,
-        givingCredit: Number(payableAmountLater),
-        balanceAmount: currentGiveCreditAmount + Number(payableAmountLater),
-        description: `Credit Sale: ${imeis.length} phones sold to ${entityData.name || person.name
-          } || Credit: ${payableAmountLater} || Model: ${phoneModels.join(", ") || 'N/A'} || Company: ${phoneCompanies.join(", ") || 'N/A'} || Color: ${phoneColors.join(", ") || 'N/A'} || RAM: ${phoneRams.join(", ") || 'N/A'} || SIM: ${phoneSims.join(", ") || 'N/A'}`,
-      });
     }
 
     // Do NOT create a new entity if sellingPaymentType is "Full Payment"
