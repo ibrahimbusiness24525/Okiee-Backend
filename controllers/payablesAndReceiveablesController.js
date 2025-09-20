@@ -518,9 +518,10 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
           model: "Imei"
         }
       })
-      .populate("personId", "name number reference")
-      .populate("bankAccountUsed")
-      .populate("pocketCash");
+      .populate("personId", "name number reference givingCredit takingCredit status")
+      .populate("bankAccountUsed", "accountName accountType accountCash")
+      .populate("pocketCash", "accountCash")
+      .sort({ createdAt: -1 });
 
     const singlePurchaseQuery = { mobileNumber: customerNumber, userId };
     if (Object.keys(dateFilter).length > 0) {
@@ -528,9 +529,10 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
     }
     const singlePurchase = await PurchasePhone.find(singlePurchaseQuery)
       .populate("soldDetails")
-      .populate("bankAccountUsed")
-      .populate("pocketCash")
-      .populate("shopid", "shopName");
+      .populate("bankAccountUsed", "accountName accountType accountCash")
+      .populate("pocketCash", "accountCash")
+      .populate("shopid", "shopName")
+      .sort({ createdAt: -1 });
 
     const bulkSalesQuery = { customerNumber, userId };
     if (Object.keys(dateFilter).length > 0) {
@@ -549,12 +551,14 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
           },
           {
             path: "personId",
-            model: "Person"
+            model: "Person",
+            select: "name number reference givingCredit takingCredit status"
           }
         ]
       })
-      .populate("bankAccountUsed")
-      .populate("pocketCash");
+      .populate("bankAccountUsed", "accountName accountType accountCash")
+      .populate("pocketCash", "accountCash")
+      .sort({ createdAt: -1 });
     
     // For single sales, find them by customerNumber directly
     const singleSalesQuery = { customerNumber, userId };
@@ -562,10 +566,18 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
       singleSalesQuery.saleDate = dateFilter;
     }
     const singleSales = await SingleSoldPhone.find(singleSalesQuery)
-      .populate("purchasePhoneId")
-      .populate("bankAccountUsed")
-      .populate("pocketCash")
-      .populate("shopid", "shopName");
+      .populate("purchasePhoneId", "companyName modelName imei1 imei2 price")
+      .populate("bankAccountUsed", "accountName accountType accountCash")
+      .populate("pocketCash", "accountCash")
+      .populate("shopid", "shopName")
+      .sort({ createdAt: -1 });
+
+    // Calculate totals
+    const totalBulkPurchases = bulkPurchasesDetails.length;
+    const totalSinglePurchases = singlePurchase.length;
+    const totalBulkSales = bulkSales.length;
+    const totalSingleSales = singleSales.length;
+
 
     // Combine all purchase and sale data
     const purchaseDetails = {
@@ -583,10 +595,10 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
       purchaseDetails,
       saleDetails,
       summary: {
-        totalBulkPurchases: bulkPurchasesDetails.length,
-        totalSinglePurchases: singlePurchase.length,
-        totalBulkSales: bulkSales.length,
-        totalSingleSales: singleSales.length
+        totalBulkPurchases,
+        totalSinglePurchases,
+        totalBulkSales,
+        totalSingleSales
       },
       filters: {
         dateRange: {

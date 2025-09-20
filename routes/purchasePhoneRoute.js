@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
+const path = require("path");
 const {
   addPurchasePhone,
   getAllPurchasePhone,
@@ -42,26 +43,67 @@ const {
 const { decoderMiddleware } = require("../services/authServices");
 
 // Multer setup for file uploads (specific for adding purchase phones)
-const upload = multer({ dest: "uploads/" });
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/')
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+    cb(null, file.fieldname + '-' + uniqueSuffix + '.' + file.originalname.split('.').pop())
+  }
+})
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: function (req, file, cb) {
+    // Accept only image files
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true)
+    } else {
+      cb(new Error('Only image files are allowed!'), false)
+    }
+  }
+});
+
+// Route to serve uploaded images
+router.get('/uploads/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(__dirname, '../uploads', filename);
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      res.status(404).json({ message: 'File not found' });
+    }
+  });
+});
 
 // Route to add a new purchase phone slip (with file upload support)
 router.post(
   "/purchase-phone",
-  // upload.fields([
-  //     { name: 'phonePicture', maxCount: 1 },
-  //     { name: 'personPicture', maxCount: 1 },
-  //     { name: 'eGadgetStatusPicture', maxCount: 1 }
-  // ]),
-  //  (req, res, next) => {
-  //     console.log("After Multer:", req.files);
-  //     next();
-  // },
+  upload.fields([
+    { name: 'cnicFrontPic', maxCount: 1 },
+    { name: 'cnicBackPic', maxCount: 1 }
+  ]),
+  (req, res, next) => {
+    console.log("After Multer:", req.files);
+    next();
+  },
   decoderMiddleware,
   addPurchasePhone
 ); //used to purchasesingle phone
 
 router.post(
   "/bulk-phone-purchase",
+  upload.fields([
+    { name: 'cnicFrontPic', maxCount: 1 },
+    { name: 'cnicBackPic', maxCount: 1 }
+  ]),
+  (req, res, next) => {
+    console.log("After Multer (Bulk):", req.files);
+    next();
+  },
   decoderMiddleware,
   addBulkPhones //used
 );
@@ -109,6 +151,21 @@ router.get("/single-sold-phone/:id", decoderMiddleware, getSingleSoldPhoneById);
 // get bulk sold phone
 router.get("/bulk-sold-phone/:id", decoderMiddleware, getBulkSoldPhoneById);
 // Route to edit a purchase phone slip by ID
+// Route alias for frontend compatibility
+router.post(
+  "/single-purchase-phone",
+  upload.fields([
+    { name: 'cnicFrontPic', maxCount: 1 },
+    { name: 'cnicBackPic', maxCount: 1 }
+  ]),
+  (req, res, next) => {
+    console.log("After Multer (Single Purchase):", req.files);
+    next();
+  },
+  decoderMiddleware,
+  addPurchasePhone
+);
+
 router.put("/single-purchase-phone/:id", updateSinglePurchasePhone);
 
 // Route to delete a purchase phone slip by ID

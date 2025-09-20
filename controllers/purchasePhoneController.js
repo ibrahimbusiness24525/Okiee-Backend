@@ -64,6 +64,19 @@ exports.addPurchasePhone = async (req, res) => {
     creditPaymentData = {},
   } = req.body;
 
+  // Handle uploaded files
+  let cnicFrontPic = null;
+  let cnicBackPic = null;
+  
+  if (req.files) {
+    if (req.files.cnicFrontPic && req.files.cnicFrontPic[0]) {
+      cnicFrontPic = req.files.cnicFrontPic[0].path;
+    }
+    if (req.files.cnicBackPic && req.files.cnicBackPic[0]) {
+      cnicBackPic = req.files.cnicBackPic[0].path;
+    }
+  }
+
   try {
     console.log("This is name", name);
     // Create a new entry
@@ -113,6 +126,8 @@ exports.addPurchasePhone = async (req, res) => {
       modelName,
       date,
       cnic,
+      cnicFrontPic,
+      cnicBackPic,
       batteryHealth,
       accessories: parsedAccessories,
       phoneCondition,
@@ -295,8 +310,13 @@ exports.addPurchasePhone = async (req, res) => {
     // Save to database
     const savedPhone = await purchasePhone.save();
     res.status(201).json({
+      success: true,
       message: "Purchase phone slip created successfully!",
-      data: savedPhone,
+      data: {
+        ...savedPhone.toObject(),
+        cnicFrontPic: savedPhone.cnicFrontPic || null,
+        cnicBackPic: savedPhone.cnicBackPic || null,
+      },
     });
   } catch (error) {
     console.error("Error creating purchase phone slip:", error);
@@ -1126,6 +1146,19 @@ exports.addBulkPhones = async (req, res) => {
       creditPaymentData = {},
       entityData = {},
     } = req.body;
+
+    // Handle uploaded files for bulk purchase
+    let cnicFrontPic = null;
+    let cnicBackPic = null;
+    
+    if (req.files) {
+      if (req.files.cnicFrontPic && req.files.cnicFrontPic[0]) {
+        cnicFrontPic = req.files.cnicFrontPic[0].path;
+      }
+      if (req.files.cnicBackPic && req.files.cnicBackPic[0]) {
+        cnicBackPic = req.files.cnicBackPic[0].path;
+      }
+    }
     let person;
     console.log("Received Data:", req.body);
 
@@ -1253,6 +1286,8 @@ exports.addBulkPhones = async (req, res) => {
       purchasePaymentType,
       purchasePaymentStatus,
       ...(purchasePaymentType === "credit" && { creditPaymentData }),
+      cnicFrontPic,
+      cnicBackPic,
     });
     if (bankAccountUsed) {
       const bank = await AddBankAccount.findById(bankAccountUsed);
@@ -3250,6 +3285,7 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
     let singleSoldPhone = [];
     let singlePurchasePhone = [];
     let bulkSoldPhones = [];
+    let bulkPurchasePhones = [];
 
     // Check if the input is an IMEI (typically 15 digits) or customer number
     const isImei = /^\d{15}$/.test(customerNumber);
@@ -3265,7 +3301,7 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
           { imei2: customerNumber }
         ],
         userId,
-      });
+      }).populate('purchasePhoneId').populate('bankAccountUsed').populate('pocketCash');
 
       // Search in PurchasePhone by IMEI
       singlePurchasePhone = await PurchasePhone.find({
@@ -3274,7 +3310,7 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
           { imei2: customerNumber }
         ],
         userId,
-      });
+      }).populate('bankAccountUsed').populate('pocketCash').populate('shopid');
 
       // Search in SoldPhone (bulk) by IMEI
       bulkSoldPhones = await SoldPhone.find({
@@ -3283,7 +3319,31 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
           { imei2: { $in: [customerNumber] } }
         ],
         userId,
+      }).populate('bulkPhonePurchaseId').populate('bankAccountUsed').populate('pocketCash');
+
+      // Search in BulkPhonePurchase by IMEI through ramSimDetails
+      const bulkPurchases = await BulkPhonePurchase.find({
+        userId,
+      }).populate({
+        path: 'ramSimDetails',
+        populate: {
+          path: 'imeiNumbers',
+          match: {
+            $or: [
+              { imei1: customerNumber },
+              { imei2: customerNumber }
+            ]
+          }
+        }
       });
+
+      // Filter bulk purchases that have matching IMEIs
+      bulkPurchasePhones = bulkPurchases.filter(bulk => 
+        bulk.ramSimDetails.some(ramSim => 
+          ramSim.imeiNumbers && ramSim.imeiNumbers.length > 0
+        )
+      );
+
     } else {
       // Search by customer number (original logic)
       console.log("Searching by customer number:", customerNumber);
@@ -3291,37 +3351,87 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
       singleSoldPhone = await SingleSoldPhone.find({
         customerNumber,
         userId,
-      });
+      }).populate('purchasePhoneId').populate('bankAccountUsed').populate('pocketCash');
       
       singlePurchasePhone = await PurchasePhone.find({
         mobileNumber: customerNumber,
         userId,
-      });
+      }).populate('bankAccountUsed').populate('pocketCash').populate('shopid');
 
-      // Also search bulk sold phones by customer number
+      // Search bulk sold phones by customer number
       bulkSoldPhones = await SoldPhone.find({
         customerNumber,
         userId,
-      });
+      }).populate('bulkPhonePurchaseId').populate('bankAccountUsed').populate('pocketCash');
+
+      // Search bulk purchases by personId (if customer is a person)
+      const person = await Person.findOne({ number: customerNumber, userId });
+      if (person) {
+        bulkPurchasePhones = await BulkPhonePurchase.find({
+          personId: person._id,
+          userId,
+        }).populate('personId').populate('bankAccountUsed').populate('pocketCash');
+      }
     }
 
-    const combinedResults = [
-      ...singleSoldPhone.map((item) => ({ ...item, type: "sold" })),
-      ...singlePurchasePhone.map((item) => ({ ...item, type: "purchase" })),
-      ...bulkSoldPhones.map((item) => ({ ...item, type: "bulk_sold" })),
-    ];
+    // Format results with additional metadata
+    const formatResults = (items, type) => {
+      return items.map(item => ({
+        ...item.toObject(),
+        recordType: type,
+        searchType: isImei ? 'imei' : 'phone_number',
+        searchValue: customerNumber,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt
+      }));
+    };
 
-    if (combinedResults.length === 0) {
-      const searchType = isImei ? "IMEI" : "customer number";
+    const combinedResults = {
+      searchInfo: {
+        searchValue: customerNumber,
+        searchType: isImei ? 'imei' : 'phone_number',
+        totalRecords: 0
+      },
+      singlePurchases: formatResults(singlePurchasePhone, 'single_purchase'),
+      singleSales: formatResults(singleSoldPhone, 'single_sale'),
+      bulkPurchases: formatResults(bulkPurchasePhones, 'bulk_purchase'),
+      bulkSales: formatResults(bulkSoldPhones, 'bulk_sale'),
+      summary: {
+        totalPurchases: singlePurchasePhone.length + bulkPurchasePhones.length,
+        totalSales: singleSoldPhone.length + bulkSoldPhones.length,
+        singlePurchases: singlePurchasePhone.length,
+        singleSales: singleSoldPhone.length,
+        bulkPurchases: bulkPurchasePhones.length,
+        bulkSales: bulkSoldPhones.length
+      }
+    };
+
+    combinedResults.searchInfo.totalRecords = combinedResults.summary.totalPurchases + combinedResults.summary.totalSales;
+
+    if (combinedResults.searchInfo.totalRecords === 0) {
+      const searchType = isImei ? "IMEI" : "phone number";
       return res
         .status(404)
-        .json({ message: `No records found for this ${searchType}` });
+        .json({ 
+          success: false,
+          message: `No records found for this ${searchType}`,
+          searchValue: customerNumber,
+          searchType: isImei ? 'imei' : 'phone_number'
+        });
     }
 
-    return res.status(200).json(combinedResults);
+    return res.status(200).json({
+      success: true,
+      message: "Records retrieved successfully",
+      data: combinedResults
+    });
   } catch (error) {
     console.error("Error fetching customer details:", error);
-    return res.status(500).json({ message: "Server error", error });
+    return res.status(500).json({ 
+      success: false,
+      message: "Server error", 
+      error: error.message 
+    });
   }
 };
 

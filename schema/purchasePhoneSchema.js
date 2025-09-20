@@ -29,6 +29,8 @@ const PurchasePhoneSchema = new mongoose.Schema(
     date: { type: Date, required: true },
     batteryHealth: { type: String, required: false },
     cnic: { type: String, required: false },
+    cnicFrontPic: { type: String, required: false }, // File URL for CNIC front picture
+    cnicBackPic: { type: String, required: false }, // File URL for CNIC back picture
     accessories: {
       box: { type: Boolean, default: false, required: false },
       charger: { type: Boolean, default: false, required: false },
@@ -374,6 +376,8 @@ const BulkPhonePurchaseSchema = new mongoose.Schema(
       totalPaidAmount: { type: Number, required: false },
       dateOfPayment: { type: Date, required: false },
     },
+    cnicFrontPic: { type: String, required: false }, // File URL for CNIC front picture
+    cnicBackPic: { type: String, required: false }, // File URL for CNIC back picture
     ramSimDetails: [{ type: mongoose.Schema.Types.ObjectId, ref: "RamSim" }],
     status: {
       type: String,
