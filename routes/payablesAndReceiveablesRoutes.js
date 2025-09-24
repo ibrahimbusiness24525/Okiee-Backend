@@ -45,4 +45,7 @@ router.delete(
 router.put("/update-transaction/:id", decoderMiddleware, creditController.editTransaction);
 router.get("/detail-of-purchase-sale-by-person/:personId?/:startDate?/:endDate?", decoderMiddleware, creditController.getDetailOfPurchaseSaleByPerson);
 
+// Verify password (returns boolean) using same logic as login
+router.post("/verify-password", decoderMiddleware, creditController.getVerificationByPassword);
+
 module.exports = router;

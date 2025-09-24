@@ -1,4 +1,5 @@
 // controllers/creditController.js
+const bcrypt = require("bcryptjs");
 const {
   AddBankAccount,
   BankTransaction,
@@ -12,6 +13,7 @@ const {
   PocketCashTransactionSchema,
 } = require("../schema/PocketCashSchema");
 const { PurchasePhone, SoldPhone, BulkPhonePurchase, SingleSoldPhone } = require("../schema/purchasePhoneSchema");
+const User = require("../schema/UserSchema");
 
 // 1. Create a Person
 exports.createPerson = async (req, res) => {
@@ -610,5 +612,31 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: "Error fetching purchase sale details", error });
+  }
+};
+
+exports.getVerificationByPassword = async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || typeof password !== "string") {
+      return res.status(400).json({ message: "Password is required" });
+    }
+
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = await User.findById(userId).select("password active");
+    if (!user || user.active === false) {
+      // Return boolean as requested by frontend expectations
+      return res.status(200).json(false);
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    // Return plain boolean to match frontend expectation
+    return res.status(200).json(isMatch);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching verification by password", error });
   }
 };
