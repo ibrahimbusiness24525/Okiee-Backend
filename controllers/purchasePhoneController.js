@@ -1201,6 +1201,7 @@ exports.addBulkPhones = async (req, res) => {
           description: `Credit purchase of ${phoneSummary} by ${entityData.name} - Amount: ${creditPaymentData.payableAmountLater}`,
         });
       } else {
+        const previousBalance = Number(person.takingCredit || 0);
         person.takingCredit =
           Number(person.takingCredit || 0) +
           Number(creditPaymentData.payableAmountLater);
@@ -1212,8 +1213,7 @@ exports.addBulkPhones = async (req, res) => {
         await CreditTransaction.create({
           userId: req.user.id,
           personId: person._id,
-          balanceAmount:
-            Number(takingCredit) + Number(creditPaymentData.payableAmountLater),
+          balanceAmount: previousBalance + Number(creditPaymentData.payableAmountLater),
           takingCredit: Number(creditPaymentData.payableAmountLater),
           description: `Credit purchase of ${phoneSummary} by ${entityData.name} - Amount: ${creditPaymentData.payableAmountLater}`,
         });
@@ -4152,11 +4152,12 @@ exports.soldAnyPhone = async (req, res) => {
           userId: req.user.id,
           personId: person._id,
           givingCredit: Number(payableAmountLater),
-          balanceAmount:  Number(payableAmountLater),
+          balanceAmount: Number(payableAmountLater),
           description: `Credit Sale: ${imeis.length} phones sold to ${entityData.name || person.name
             } || Credit: ${payableAmountLater} || Model: ${phoneModels.join(", ") || 'N/A'} || Company: ${phoneCompanies.join(", ") || 'N/A'} || Color: ${phoneColors.join(", ") || 'N/A'} || RAM: ${phoneRams.join(", ") || 'N/A'} || SIM: ${phoneSims.join(", ") || 'N/A'}`,
         });
       } else {
+        const previousBalance = Number(person.takingCredit || 0);
         person.givingCredit += Number(payableAmountLater);
         person.status = "Receivable";
         await person.save();
@@ -4164,7 +4165,7 @@ exports.soldAnyPhone = async (req, res) => {
           userId: req.user.id,
           personId: person._id,
           givingCredit: Number(payableAmountLater),
-          balanceAmount: currentGiveCreditAmount + Number(payableAmountLater),
+          balanceAmount: previousBalance - Number(payableAmountLater),
           description: `Credit Sale: ${imeis.length} phones sold to ${entityData.name || person.name
             } || Credit: ${payableAmountLater} || Model: ${phoneModels.join(", ") || 'N/A'} || Company: ${phoneCompanies.join(", ") || 'N/A'} || Color: ${phoneColors.join(", ") || 'N/A'} || RAM: ${phoneRams.join(", ") || 'N/A'} || SIM: ${phoneSims.join(", ") || 'N/A'}`,
         });
@@ -4606,52 +4607,72 @@ exports.returnBulkSoldToPurchase = async (req, res) => {
       }
     }
 
-    // Create new purchase phone records for returned phones
-    const returnedPurchasePhones = [];
+    // Create a new bulk purchase record for returned phones
+    const resolvedCompanyName = soldPhone.companyName || deviceInfo.companyName || "Unknown";
+    const resolvedModelName = soldPhone.modelName || deviceInfo.modelName || "Unknown";
+    const resolvedRamMemory = soldPhone.ramMemory || deviceInfo.ramMemory || "N/A";
+    const resolvedSpecifications = deviceInfo.specifications || "Returned";
+    const resolvedPhoneCondition = deviceInfo.phoneCondition || "Used";
+    const resolvedWarranty = soldPhone.warranty || deviceInfo.warranty || "12 month";
+
+    // Create bulk purchase record for returned phones
+    const bulkReturnPurchase = new BulkPhonePurchase({
+      userId: req.user.id,
+      date: new Date(),
+      prices: {
+        buyingPrice: totalReturnPrice.toString(),
+        dealerPrice: totalReturnPrice.toString(),
+      },
+      purchasePaymentType: "full-payment",
+      purchasePaymentStatus: "paid",
+      status: "Available",
+      cnicFrontPic: soldPhone.cnicFrontPic || undefined,
+      cnicBackPic: soldPhone.cnicBackPic || undefined,
+    });
+
+    const savedBulkReturn = await bulkReturnPurchase.save();
+
+    // Create RamSim record for the returned phones
+    const ramSimData = new RamSim({
+      companyName: resolvedCompanyName,
+      modelName: resolvedModelName,
+      batteryHealth: deviceInfo.batteryHealth || "Unknown",
+      ramMemory: resolvedRamMemory,
+      simOption: deviceInfo.simOption || "Dual",
+      priceOfOne: totalReturnPrice / phonesToReturn.length, // Average price per phone
+      bulkPhonePurchaseId: savedBulkReturn._id,
+    });
+
+    const savedRamSim = await ramSimData.save();
+
+    // Create IMEI records for returned phones
+    const imeiNumbers = await Promise.all(
+      phonesToReturn.map(async (phone) => {
+        const newImei = new Imei({
+          imei1: phone.imei1,
+          imei2: phone.imei2 || undefined,
+          color: soldPhone.color || deviceInfo.color || "",
+          batteryHealth: deviceInfo.batteryHealth || "Unknown",
+          ramSimId: savedRamSim._id,
+        });
+        return await newImei.save();
+      })
+    );
+
+    savedRamSim.imeiNumbers = imeiNumbers;
+    await savedRamSim.save();
+
+    savedBulkReturn.ramSimDetails = [savedRamSim._id];
+    await savedBulkReturn.save();
+
+    // Calculate and update profit for the sold phone record
+    let totalProfitAdjustment = 0;
     for (const phone of phonesToReturn) {
-      // Resolve device fields: prefer values stored on SoldPhone, else from deviceInfo, else safe defaults
-      const resolvedCompanyName = soldPhone.companyName || deviceInfo.companyName || "Unknown";
-      const resolvedModelName = soldPhone.modelName || deviceInfo.modelName || "Unknown";
-      const resolvedRamMemory = soldPhone.ramMemory || deviceInfo.ramMemory || "N/A";
-      const resolvedColor = soldPhone.color || deviceInfo.color || "";
-      const resolvedSpecifications = deviceInfo.specifications || "Returned";
-      const resolvedPhoneCondition = deviceInfo.phoneCondition || "Used";
-      const resolvedWarranty = soldPhone.warranty || deviceInfo.warranty || "12 month";
-
-      const newPurchasePhone = new PurchasePhone({
-        userId: req.user.id,
-        shopid: soldPhone.shopid, // rely on sold record; no request requirement
-        warranty: resolvedWarranty,
-        name: soldPhone.customerName,
-        companyName: resolvedCompanyName,
-        modelName: resolvedModelName,
-        date: new Date(),
-        batteryHealth: undefined,
-        accessories: soldPhone.accessories || {},
-        phoneCondition: resolvedPhoneCondition,
-        specifications: resolvedSpecifications,
-        ramMemory: resolvedRamMemory,
-        color: resolvedColor || "",
-        imei1: phone.imei1,
-        imei2: undefined,
-        mobileNumber: soldPhone.customerNumber,
-        price: {
-          purchasePrice: phone.returnPrice,
-          finalPrice: phone.returnPrice,
-          demandPrice: phone.returnPrice,
-        },
-        isApprovedFromEgadgets: false,
-      });
-
-      const savedPhone = await newPurchasePhone.save();
-      returnedPurchasePhones.push(savedPhone);
-
-      // Calculate and update profit based on per-phone values
       const previousProfit = Number(phone.originalSalePrice) - Number(phone.originalPurchasePrice);
       const profitAdjustment = previousProfit - Number(phone.returnPrice);
-      // Reduce total profit by the adjustment for this returned phone
-      soldPhone.profit = Number(soldPhone.profit || 0) - profitAdjustment;
+      totalProfitAdjustment += profitAdjustment;
     }
+    soldPhone.profit = Number(soldPhone.profit || 0) - totalProfitAdjustment;
 
     // Remove returned IMEIs from the sold phone record
     const returnedImei1s = phonesToReturn.map(phone => String(phone.imei1));
@@ -4667,10 +4688,11 @@ exports.returnBulkSoldToPurchase = async (req, res) => {
     }
 
     res.status(200).json({
-      message: "Phones returned successfully",
+      message: "Phones returned successfully as bulk purchase",
       data: {
-        returnedPhones: returnedPurchasePhones,
+        bulkReturnPurchase: savedBulkReturn,
         totalReturnPrice,
+        returnedPhoneCount: phonesToReturn.length,
         remainingImeis: remainingImeis.length,
         soldPhoneDeleted: remainingImeis.length === 0
       }
