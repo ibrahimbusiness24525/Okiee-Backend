@@ -1201,6 +1201,9 @@ exports.addBulkPhones = async (req, res) => {
           description: `Credit purchase of ${phoneSummary} by ${entityData.name} - Amount: ${creditPaymentData.payableAmountLater}`,
         });
       } else {
+                const currentTakingCredit = Number(person.takingCredit || 0);
+        const currentGivingCredit = Number(person.givingCredit || 0);
+        const currentAmount = Number(currentTakingCredit - currentGivingCredit)
         const previousBalance = Number(person.takingCredit || 0);
         person.takingCredit =
           Number(person.takingCredit || 0) +
@@ -1213,7 +1216,7 @@ exports.addBulkPhones = async (req, res) => {
         await CreditTransaction.create({
           userId: req.user.id,
           personId: person._id,
-          balanceAmount: previousBalance + Number(creditPaymentData.payableAmountLater),
+          balanceAmount: currentAmount + Number(creditPaymentData.payableAmountLater),
           takingCredit: Number(creditPaymentData.payableAmountLater),
           description: `Credit purchase of ${phoneSummary} by ${entityData.name} - Amount: ${creditPaymentData.payableAmountLater}`,
         });
