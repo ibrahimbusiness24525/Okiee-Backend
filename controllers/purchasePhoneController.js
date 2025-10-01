@@ -1203,7 +1203,8 @@ exports.addBulkPhones = async (req, res) => {
       } else {
                 const currentTakingCredit = Number(person.takingCredit || 0);
         const currentGivingCredit = Number(person.givingCredit || 0);
-        const currentAmount = Number(currentTakingCredit - currentGivingCredit)
+        const currentAmount = Math.abs(Number(currentTakingCredit - currentGivingCredit))
+        
         const previousBalance = Number(person.takingCredit || 0);
         person.takingCredit =
           Number(person.takingCredit || 0) +
@@ -4160,6 +4161,9 @@ exports.soldAnyPhone = async (req, res) => {
             } || Credit: ${payableAmountLater} || Model: ${phoneModels.join(", ") || 'N/A'} || Company: ${phoneCompanies.join(", ") || 'N/A'} || Color: ${phoneColors.join(", ") || 'N/A'} || RAM: ${phoneRams.join(", ") || 'N/A'} || SIM: ${phoneSims.join(", ") || 'N/A'}`,
         });
       } else {
+        const currentGivingCredit = Number(person.givingCredit || 0);
+        const currentTakingCredit = Number(person.takingCredit || 0);
+        const currentAmount = Math.abs(Number(currentGivingCredit - currentTakingCredit))
         const previousBalance = Number(person.takingCredit || 0);
         person.givingCredit += Number(payableAmountLater);
         person.status = "Receivable";
@@ -4168,7 +4172,7 @@ exports.soldAnyPhone = async (req, res) => {
           userId: req.user.id,
           personId: person._id,
           givingCredit: Number(payableAmountLater),
-          balanceAmount: previousBalance - Number(payableAmountLater),
+          balanceAmount: currentAmount - Number(payableAmountLater),
           description: `Credit Sale: ${imeis.length} phones sold to ${entityData.name || person.name
             } || Credit: ${payableAmountLater} || Model: ${phoneModels.join(", ") || 'N/A'} || Company: ${phoneCompanies.join(", ") || 'N/A'} || Color: ${phoneColors.join(", ") || 'N/A'} || RAM: ${phoneRams.join(", ") || 'N/A'} || SIM: ${phoneSims.join(", ") || 'N/A'}`,
         });

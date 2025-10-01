@@ -138,7 +138,7 @@ exports.deletePocketCashTransaction = async (req, res) => {
     const pocketCash = await PocketCashSchema.findOne({ userId });
     const transaction = await PocketCashTransactionSchema.findOne({ _id: id, userId });
     if (!transaction) return res.status(404).json({ success: false, message: "Transaction not found or not authorized" });
-    if ((transaction?.reasonOfAmountDeduction || "").toLowerCase().includes("purchase") || (transaction?.sourceOfAmountAddition || "").toLowerCase().includes("purchase") || transaction?.amountDeducted) {
+    if ((transaction?.reasonOfAmountDeduction || "").toLowerCase().includes("purchase") || (transaction?.sourceOfAmountAddition || "").toLowerCase().includes("purchase") ) {
       console.log("Adding cash to pocket cash", transaction.amountDeducted || transaction.amountAdded);
       pocketCash.accountCash += transaction.amountDeducted || transaction.amountAdded;
       await pocketCash.save();

@@ -1354,7 +1354,71 @@ const deleteAccessoryById = async (req, res) => {
     res.status(500).json({ message: "Failed to delete accessory", error });
   }
 };
-
+const returnSoldAccessories = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { accessoryId, quantity, perPiecePrice, accessoryName,bankAccountUsed,pocketCash } = req.body;
+    const accessory = await Accessory.findOne({ _id: accessoryId, userId });
+    if (!accessory) {
+      const accessory = await Accessory.create({
+        userId,
+        accessoryName,
+        quantity,
+        perPiecePrice,
+        totalPrice: perPiecePrice * quantity,
+      });
+      return res.status(200).json({ message: "Accessory returned successfully", accessory });
+    }
+    accessory.stock += quantity;
+    accessory.totalPrice += perPiecePrice * quantity;
+    await accessory.save();
+    res.status(200).json({ message: "Accessory returned successfully", accessory });
+    const transaction = await AccessoryTransaction.create({
+      userId,
+      accessoryId,
+      quantity,
+      perPiecePrice,
+      totalPrice: perPiecePrice * quantity,
+      type: "return",
+    });
+    if (bankAccountUsed) {
+      const bank = await AddBankAccount.findById(bankAccountUsed);
+      if (!bank) {
+        return res.status(404).json({ message: "Bank account not found" });
+      }
+      bank.accountCash -= perPiecePrice * quantity;
+      await bank.save();
+      await BankTransaction.create({
+        bankId: bank._id,
+        userId,
+        amount: perPiecePrice * quantity,
+        accountCash: bank.accountCash,
+        accountType: bank.accountType,
+        reasonOfAmountDeduction: `Return of accessory: ${accessoryName}`,
+      });
+    }
+    if (pocketCash) {
+      const pocket = await PocketCashSchema.findById(userId);
+      if (!pocket) {
+        return res.status(404).json({ message: "Pocket cash not found" });
+      }
+      pocket.accountCash -= perPiecePrice * quantity;
+      await pocket.save();
+      await PocketCashTransactionSchema.create({
+        userId,
+        pocketCashId: pocket._id,
+        amountDeducted: perPiecePrice * quantity,
+        remainingAmount: pocket.accountCash,
+        accountCash: pocket.accountCash,
+        reasonOfAmountDeduction: `Return of accessory: ${accessoryName}`,
+      });
+    }
+    res.status(200).json({ message: "Accessory returned successfully", transaction });
+  } catch (error) {
+    console.error("Error returning sold accessories:", error);
+    res.status(500).json({ message: "Failed to return sold accessories", error });
+  }
+};
 module.exports = {
   createAccessory,
   getAllAccessories,
@@ -1366,4 +1430,5 @@ module.exports = {
   getAccessoriesPersonRecord,
   deleteAccessoryById,
   getAccessoriesPersonPurchaseRecord,
+  returnSoldAccessories,
 };

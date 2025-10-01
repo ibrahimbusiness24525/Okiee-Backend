@@ -173,7 +173,7 @@ exports.takeCredit = async (req, res) => {
           .json({ message: "Pocket cash account not found." });
       }
 
-   
+
       pocketTransaction.accountCash += Number(takeCredit?.amountFromPocket);
       await pocketTransaction.save();
 
@@ -331,6 +331,10 @@ exports.editTransaction = async (req, res) => {
     const { id } = req.params;
     const { givingCredit, takingCredit, description, balanceAmount,createdAt,updatedAt} = req.body;
 
+    console.log("Edit Transaction Request Body:", req.body);
+    console.log("Received createdAt:", createdAt, "Type:", typeof createdAt);
+    console.log("Received updatedAt:", updatedAt, "Type:", typeof updatedAt);
+
     const existing = await CreditTransaction.findOne({ _id: id, userId: req.user.id });
     if (!existing) {
       return res.status(404).json({ success: false, message: "Transaction not found" });
@@ -343,59 +347,124 @@ exports.editTransaction = async (req, res) => {
 
     let newGiving, newTaking, newBalanceAmount;
 
-    // If balanceAmount is provided, calculate givingCredit and takingCredit based on it
-    if (balanceAmount !== undefined && balanceAmount !== null) {
-      newBalanceAmount = Number(balanceAmount);
-      
-      // Calculate the difference from current person totals
-      const currentBalance = Math.abs(Number(person.takingCredit || 0) - Number(person.givingCredit || 0));
-      const balanceDifference = newBalanceAmount - currentBalance;
-      
-      if (person.takingCredit > person.givingCredit) {
-        // Currently payable - adjust takingCredit
-        newTaking = Math.max(0, Number(person.takingCredit || 0) + balanceDifference);
-        newGiving = Number(person.givingCredit || 0);
+    // Check if any credit values are being changed OR if dates are being changed
+    const isChangingCredits = givingCredit !== undefined || takingCredit !== undefined || balanceAmount !== undefined;
+    const isChangingDates = (createdAt && createdAt !== null && createdAt !== "" && createdAt !== undefined) || 
+                           (updatedAt && updatedAt !== null && updatedAt !== "" && updatedAt !== undefined);
+
+    if (isChangingCredits || isChangingDates) {
+      // If balanceAmount is provided, calculate givingCredit and takingCredit based on it
+      if (balanceAmount !== undefined && balanceAmount !== null) {
+        newBalanceAmount = Number(balanceAmount);
+        
+        // Calculate the difference from current person totals
+        const currentBalance = Math.abs(Number(person.takingCredit || 0) - Number(person.givingCredit || 0));
+        const balanceDifference = newBalanceAmount - currentBalance;
+        
+        if (person.takingCredit > person.givingCredit) {
+          // Currently payable - adjust takingCredit
+          newTaking = Math.max(0, Number(person.takingCredit || 0) + balanceDifference);
+          newGiving = Number(person.givingCredit || 0);
+        } else {
+          // Currently receivable - adjust givingCredit
+          newGiving = Math.max(0, Number(person.givingCredit || 0) + balanceDifference);
+          newTaking = Number(person.takingCredit || 0);
+        }
       } else {
-        // Currently receivable - adjust givingCredit
-        newGiving = Math.max(0, Number(person.givingCredit || 0) + balanceDifference);
-        newTaking = Number(person.takingCredit || 0);
+        // Use provided values or existing values
+        newGiving = givingCredit ?? existing.givingCredit ?? 0;
+        newTaking = takingCredit ?? existing.takingCredit ?? 0;
+        newBalanceAmount = Math.abs(Number(newTaking) - Number(newGiving));
       }
+
+      const deltaGiving = Number(newGiving) - Number(existing.givingCredit || 0);
+      const deltaTaking = Number(newTaking) - Number(existing.takingCredit || 0);
+
+      // Update person's totals using deltas
+      person.givingCredit = Number(person.givingCredit || 0) + deltaGiving;
+      person.takingCredit = Number(person.takingCredit || 0) + deltaTaking;
+
+      if (person.givingCredit < 0) person.givingCredit = 0;
+      if (person.takingCredit < 0) person.takingCredit = 0;
+
+      // Recalculate person status
+      person.status = person.takingCredit > 0 ? "Payable" : person.givingCredit > 0 ? "Receivable" : "Settled";
+      await person.save();
     } else {
-      // Use provided values or existing values
-      newGiving = givingCredit ?? existing.givingCredit ?? 0;
-      newTaking = takingCredit ?? existing.takingCredit ?? 0;
-      newBalanceAmount = Math.abs(Number(newTaking) - Number(newGiving));
+      // No credit values being changed, keep existing values
+      newGiving = existing.givingCredit;
+      newTaking = existing.takingCredit;
+      newBalanceAmount = existing.balanceAmount;
     }
 
-    const deltaGiving = Number(newGiving) - Number(existing.givingCredit || 0);
-    const deltaTaking = Number(newTaking) - Number(existing.takingCredit || 0);
+    // Prepare update object
+    const updateData = {};
+    
+    // Update credit fields if credits are being changed OR dates are being changed
+    if (isChangingCredits || isChangingDates) {
+      updateData.givingCredit = newGiving;
+      updateData.takingCredit = newTaking;
+      updateData.balanceAmount = newBalanceAmount;
+    }
+    
+    // Update description if provided
+    if (typeof description === "string") {
+      updateData.description = description;
+    }
+    
+    // Update dates if provided
+    if (createdAt && createdAt !== null && createdAt !== "" && createdAt !== undefined) {
+      try {
+        const dateCreated = new Date(createdAt);
+        if (!isNaN(dateCreated.getTime())) {
+          updateData.createdAt = dateCreated;
+          console.log("Will update createdAt to:", dateCreated);
+        } else {
+          console.log("Invalid createdAt format:", createdAt);
+        }
+      } catch (error) {
+        console.log("Error parsing createdAt:", error);
+      }
+    } else {
+      console.log("createdAt not provided or empty:", createdAt);
+    }
+    
+    if (updatedAt && updatedAt !== null && updatedAt !== "" && updatedAt !== undefined) {
+      try {
+        const dateUpdated = new Date(updatedAt);
+        if (!isNaN(dateUpdated.getTime())) {
+          updateData.updatedAt = dateUpdated;
+          console.log("Will update updatedAt to:", dateUpdated);
+        } else {
+          console.log("Invalid updatedAt format:", updatedAt);
+        }
+      } catch (error) {
+        console.log("Error parsing updatedAt:", error);
+      }
+    } else {
+      console.log("updatedAt not provided or empty:", updatedAt);
+    }
+    
+    console.log("Update data:", updateData);
+    
+    // Use direct MongoDB update to bypass Mongoose timestamp handling
+    const result = await CreditTransaction.collection.updateOne(
+      { _id: existing._id },
+      { $set: updateData }
+    );
+    
+    console.log("MongoDB update result:", result);
+    
+    // Fetch the updated transaction
+    const updatedTransaction = await CreditTransaction.findById(existing._id);
+    
+    console.log("Updated transaction:", updatedTransaction);
 
-    // Update person's totals using deltas
-    person.givingCredit = Number(person.givingCredit || 0) + deltaGiving;
-    person.takingCredit = Number(person.takingCredit || 0) + deltaTaking;
-
-    if (person.givingCredit < 0) person.givingCredit = 0;
-    if (person.takingCredit < 0) person.takingCredit = 0;
-
-    // Recalculate person status
-    person.status = person.takingCredit > 0 ? "Payable" : person.givingCredit > 0 ? "Receivable" : "Settled";
-    await person.save();
-
-    // Update the transaction
-    existing.givingCredit = newGiving;
-    existing.takingCredit = newTaking;
-    existing.createdAt = createdAt;
-    existing.updatedAt = updatedAt;
-    if (typeof description === "string") existing.description = description;
-    existing.balanceAmount = newBalanceAmount;
-    await existing.save();
-
-    return res.status(200).json({ message: "Transaction edited successfully", transaction: existing, person });
+    return res.status(200).json({ message: "Transaction edited successfully", transaction: updatedTransaction, person });
   } catch (error) {
     return res.status(500).json({ message: "Error editing transaction", error });
   }
 };
-
 
 // exports.editTransaction = async (req, res) => {
 //   try {
