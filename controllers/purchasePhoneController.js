@@ -1201,7 +1201,7 @@ exports.addBulkPhones = async (req, res) => {
           description: `Credit purchase of ${phoneSummary} by ${entityData.name} - Amount: ${creditPaymentData.payableAmountLater}`,
         });
       } else {
-                const currentTakingCredit = Number(person.takingCredit || 0);
+                const currentTakingCredit = Number(person.takingCredit || 0) + Number(creditPaymentData.payableAmountLater);
         const currentGivingCredit = Number(person.givingCredit || 0);
         const currentAmount = Math.abs(Number(currentTakingCredit - currentGivingCredit))
         
@@ -1217,7 +1217,7 @@ exports.addBulkPhones = async (req, res) => {
         await CreditTransaction.create({
           userId: req.user.id,
           personId: person._id,
-          balanceAmount: currentAmount + Number(creditPaymentData.payableAmountLater),
+          balanceAmount: Math.abs(currentAmount),
           takingCredit: Number(creditPaymentData.payableAmountLater),
           description: `Credit purchase of ${phoneSummary} by ${entityData.name} - Amount: ${creditPaymentData.payableAmountLater}`,
         });
@@ -4161,7 +4161,7 @@ exports.soldAnyPhone = async (req, res) => {
             } || Credit: ${payableAmountLater} || Model: ${phoneModels.join(", ") || 'N/A'} || Company: ${phoneCompanies.join(", ") || 'N/A'} || Color: ${phoneColors.join(", ") || 'N/A'} || RAM: ${phoneRams.join(", ") || 'N/A'} || SIM: ${phoneSims.join(", ") || 'N/A'}`,
         });
       } else {
-        const currentGivingCredit = Number(person.givingCredit || 0);
+        const currentGivingCredit = Number(person.givingCredit || 0) + Number(payableAmountLater);
         const currentTakingCredit = Number(person.takingCredit || 0);
         const currentAmount = Math.abs(Number(currentGivingCredit - currentTakingCredit))
         const previousBalance = Number(person.takingCredit || 0);
@@ -4172,12 +4172,11 @@ exports.soldAnyPhone = async (req, res) => {
           userId: req.user.id,
           personId: person._id,
           givingCredit: Number(payableAmountLater),
-          balanceAmount: currentAmount - Number(payableAmountLater),
+          balanceAmount: Math.abs(currentAmount) ,
           description: `Credit Sale: ${imeis.length} phones sold to ${entityData.name || person.name
             } || Credit: ${payableAmountLater} || Model: ${phoneModels.join(", ") || 'N/A'} || Company: ${phoneCompanies.join(", ") || 'N/A'} || Color: ${phoneColors.join(", ") || 'N/A'} || RAM: ${phoneRams.join(", ") || 'N/A'} || SIM: ${phoneSims.join(", ") || 'N/A'}`,
         });
       }
-
     }
 
     // Do NOT create a new entity if sellingPaymentType is "Full Payment"

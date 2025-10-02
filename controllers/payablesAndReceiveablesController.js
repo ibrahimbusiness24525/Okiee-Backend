@@ -347,12 +347,18 @@ exports.editTransaction = async (req, res) => {
 
     let newGiving, newTaking, newBalanceAmount;
 
-    // Check if any credit values are being changed OR if dates are being changed
-    const isChangingCredits = givingCredit !== undefined || takingCredit !== undefined || balanceAmount !== undefined;
-    const isChangingDates = (createdAt && createdAt !== null && createdAt !== "" && createdAt !== undefined) || 
-                           (updatedAt && updatedAt !== null && updatedAt !== "" && updatedAt !== undefined);
+    // Check if any credit values are actually being changed (different from existing values)
+    const isChangingCredits = (givingCredit !== undefined && Number(givingCredit) !== Number(existing.givingCredit || 0)) || 
+                             (takingCredit !== undefined && Number(takingCredit) !== Number(existing.takingCredit || 0)) || 
+                             (balanceAmount !== undefined && Number(balanceAmount) !== Number(existing.balanceAmount || 0));
 
-    if (isChangingCredits || isChangingDates) {
+    console.log("Credit change check:");
+    console.log("givingCredit:", givingCredit, "existing:", existing.givingCredit, "changed:", givingCredit !== undefined && Number(givingCredit) !== Number(existing.givingCredit || 0));
+    console.log("takingCredit:", takingCredit, "existing:", existing.takingCredit, "changed:", takingCredit !== undefined && Number(takingCredit) !== Number(existing.takingCredit || 0));
+    console.log("balanceAmount:", balanceAmount, "existing:", existing.balanceAmount, "changed:", balanceAmount !== undefined && Number(balanceAmount) !== Number(existing.balanceAmount || 0));
+    console.log("isChangingCredits:", isChangingCredits);
+
+    if (isChangingCredits) {
       // If balanceAmount is provided, calculate givingCredit and takingCredit based on it
       if (balanceAmount !== undefined && balanceAmount !== null) {
         newBalanceAmount = Number(balanceAmount);
@@ -400,8 +406,8 @@ exports.editTransaction = async (req, res) => {
     // Prepare update object
     const updateData = {};
     
-    // Update credit fields if credits are being changed OR dates are being changed
-    if (isChangingCredits || isChangingDates) {
+    // Update credit fields only if credits are being changed
+    if (isChangingCredits) {
       updateData.givingCredit = newGiving;
       updateData.takingCredit = newTaking;
       updateData.balanceAmount = newBalanceAmount;
