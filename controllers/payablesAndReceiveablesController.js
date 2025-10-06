@@ -359,42 +359,68 @@ exports.editTransaction = async (req, res) => {
     console.log("isChangingCredits:", isChangingCredits);
 
     if (isChangingCredits) {
-      // If balanceAmount is provided, calculate givingCredit and takingCredit based on it
+      // First, revert the existing transaction's impact on person totals
+      person.givingCredit = Number(person.givingCredit || 0) - Number(existing.givingCredit || 0);
+      person.takingCredit = Number(person.takingCredit || 0) - Number(existing.takingCredit || 0);
+      
+      // Ensure values don't go negative
+      if (person.givingCredit < 0) person.givingCredit = 0;
+      if (person.takingCredit < 0) person.takingCredit = 0;
+
+      // Now calculate new values based on what's being updated
       if (balanceAmount !== undefined && balanceAmount !== null) {
         newBalanceAmount = Number(balanceAmount);
         
-        // Calculate the difference from current person totals
-        const currentBalance = Math.abs(Number(person.takingCredit || 0) - Number(person.givingCredit || 0));
-        const balanceDifference = newBalanceAmount - currentBalance;
-        
-        if (person.takingCredit > person.givingCredit) {
-          // Currently payable - adjust takingCredit
-          newTaking = Math.max(0, Number(person.takingCredit || 0) + balanceDifference);
-          newGiving = Number(person.givingCredit || 0);
+        // Determine if this should be payable or receivable based on the balance amount
+        // If balanceAmount > 0, we need to determine which credit to set
+        if (newBalanceAmount > 0) {
+          // Check if we have givingCredit or takingCredit provided to determine direction
+          if (givingCredit !== undefined && takingCredit !== undefined) {
+            // Both provided - use them directly
+            newGiving = Number(givingCredit);
+            newTaking = Number(takingCredit);
+          } else if (givingCredit !== undefined) {
+            // Only givingCredit provided - this is receivable
+            newGiving = Number(givingCredit);
+            newTaking = 0;
+          } else if (takingCredit !== undefined) {
+            // Only takingCredit provided - this is payable
+            newTaking = Number(takingCredit);
+            newGiving = 0;
+          } else {
+            // Neither provided - maintain current direction or default to receivable
+            if (existing.takingCredit > existing.givingCredit) {
+              // Was payable - make it payable
+              newTaking = newBalanceAmount;
+              newGiving = 0;
+            } else {
+              // Was receivable or settled - make it receivable
+              newGiving = newBalanceAmount;
+              newTaking = 0;
+            }
+          }
         } else {
-          // Currently receivable - adjust givingCredit
-          newGiving = Math.max(0, Number(person.givingCredit || 0) + balanceDifference);
-          newTaking = Number(person.takingCredit || 0);
+          // Balance is 0 - settled
+          newGiving = 0;
+          newTaking = 0;
         }
       } else {
         // Use provided values or existing values
-        newGiving = givingCredit ?? existing.givingCredit ?? 0;
-        newTaking = takingCredit ?? existing.takingCredit ?? 0;
+        newGiving = givingCredit !== undefined ? Number(givingCredit) : Number(existing.givingCredit || 0);
+        newTaking = takingCredit !== undefined ? Number(takingCredit) : Number(existing.takingCredit || 0);
         newBalanceAmount = Math.abs(Number(newTaking) - Number(newGiving));
       }
 
-      const deltaGiving = Number(newGiving) - Number(existing.givingCredit || 0);
-      const deltaTaking = Number(newTaking) - Number(existing.takingCredit || 0);
+      // Now add the new transaction values to person totals
+      person.givingCredit = Number(person.givingCredit || 0) + Number(newGiving);
+      person.takingCredit = Number(person.takingCredit || 0) + Number(newTaking);
 
-      // Update person's totals using deltas
-      person.givingCredit = Number(person.givingCredit || 0) + deltaGiving;
-      person.takingCredit = Number(person.takingCredit || 0) + deltaTaking;
-
+      // Ensure values don't go negative
       if (person.givingCredit < 0) person.givingCredit = 0;
       if (person.takingCredit < 0) person.takingCredit = 0;
 
       // Recalculate person status
-      person.status = person.takingCredit > 0 ? "Payable" : person.givingCredit > 0 ? "Receivable" : "Settled";
+      person.status = person.takingCredit > person.givingCredit ? "Payable" : person.givingCredit > person.takingCredit ? "Receivable" : "Settled";
       await person.save();
     } else {
       // No credit values being changed, keep existing values
