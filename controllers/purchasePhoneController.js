@@ -3275,10 +3275,12 @@ exports.getBulkDispatches = async (req, res) => {
 exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
   const { customerNumber } = req.params;
   const userId = req.user.id; // Extract user ID from request
+  const {imei} = req.body;
 
   console.log("customerNumber:", customerNumber);
   console.log("userId:", userId);
-
+  console.log("imei:", imei);
+  
   if (!customerNumber || !userId) {
     return res
       .status(400)
@@ -3291,10 +3293,10 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
     let bulkSoldPhones = [];
     let bulkPurchasePhones = [];
 
-    // Check if the input is an IMEI (typically 15 digits) or customer number
-    const isImei = /^\d{15}$/.test(customerNumber);
+   console.log(imei);
+   
 
-    if (isImei) {
+    if (imei) {
       // Search by IMEI
       console.log("Searching by IMEI:", customerNumber);
       
@@ -3383,7 +3385,7 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
       return items.map(item => ({
         ...item.toObject(),
         recordType: type,
-        searchType: isImei ? 'imei' : 'phone_number',
+        searchType: imei ? 'imei' : 'phone_number',
         searchValue: customerNumber,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt
@@ -3393,7 +3395,7 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
     const combinedResults = {
       searchInfo: {
         searchValue: customerNumber,
-        searchType: isImei ? 'imei' : 'phone_number',
+        searchType: imei ? 'imei' : 'phone_number',
         totalRecords: 0
       },
       singlePurchases: formatResults(singlePurchasePhone, 'single_purchase'),
@@ -3413,14 +3415,14 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
     combinedResults.searchInfo.totalRecords = combinedResults.summary.totalPurchases + combinedResults.summary.totalSales;
 
     if (combinedResults.searchInfo.totalRecords === 0) {
-      const searchType = isImei ? "IMEI" : "phone number";
+      const searchType = imei ? "IMEI" : "phone number";
       return res
         .status(404)
         .json({ 
           success: false,
           message: `No records found for this ${searchType}`,
           searchValue: customerNumber,
-          searchType: isImei ? 'imei' : 'phone_number'
+          searchType: imei ? 'imei' : 'phone_number'
         });
     }
 

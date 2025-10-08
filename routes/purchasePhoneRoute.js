@@ -203,7 +203,7 @@ router.patch(
   decoderMiddleware,
   returnBulkDispatch
 );
-router.get(
+router.post(
   "/customer-sold-record/:customerNumber",
   decoderMiddleware,
   getCustomerSalesRecordDetailsByNumber
