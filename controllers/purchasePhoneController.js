@@ -1198,7 +1198,7 @@ exports.addBulkPhones = async (req, res) => {
           personId: person._id,
           balanceAmount: Number(creditPaymentData.payableAmountLater),
           takingCredit: Number(creditPaymentData.payableAmountLater),
-          description: `Credit purchase of ${phoneSummary} by ${entityData.name} - Amount: ${creditPaymentData.payableAmountLater}`,
+          description: `Credit purchase of given amount is ${creditPaymentData.payableAmountLater} of ${phoneSummary} by ${entityData.name} - Amount: ${creditPaymentData.payableAmountLater}`,
         });
       } else {
                 const currentTakingCredit = Number(person.takingCredit || 0) + Number(creditPaymentData.payableAmountLater);
@@ -1219,7 +1219,7 @@ exports.addBulkPhones = async (req, res) => {
           personId: person._id,
           balanceAmount: Math.abs(currentAmount),
           takingCredit: Number(creditPaymentData.payableAmountLater),
-          description: `Credit purchase of ${phoneSummary} by ${entityData.name} - Amount: ${creditPaymentData.payableAmountLater}`,
+          description: `Credit purchase of given amount is ${creditPaymentData.payableAmountLater} of ${phoneSummary} by ${entityData.name} - Amount: ${creditPaymentData.payableAmountLater}`,
         });
       }
       // Log the credit transaction
@@ -3796,7 +3796,7 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
 exports.soldAnyPhone = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { imeis, bankAccountUsed, accountCash, pocketCash,entityData ,sellingPaymentType,payableAmountLater,
+    const { imeis, bankAccountUsed, accountCash, pocketCash,entityData ,sellingPaymentType,payableAmountLater,payableAmountNow,
       imeiPrices,// Array of {imei: '', price: ''} objects
       ...phoneDetails } =
       req.body;
@@ -4159,7 +4159,7 @@ exports.soldAnyPhone = async (req, res) => {
           personId: person._id,
           givingCredit: Number(payableAmountLater),
           balanceAmount: Number(payableAmountLater),
-          description: `Credit Sale: ${imeis.length} phones sold to ${entityData.name || person.name
+          description: `Credit Sale: received amount of ${imeis.length} phones is ${payableAmountNow} and sold to ${entityData.name || person.name
             } || Credit: ${payableAmountLater} || Model: ${phoneModels.join(", ") || 'N/A'} || Company: ${phoneCompanies.join(", ") || 'N/A'} || Color: ${phoneColors.join(", ") || 'N/A'} || RAM: ${phoneRams.join(", ") || 'N/A'} || SIM: ${phoneSims.join(", ") || 'N/A'}`,
         });
       } else {
@@ -4175,7 +4175,7 @@ exports.soldAnyPhone = async (req, res) => {
           personId: person._id,
           givingCredit: Number(payableAmountLater),
           balanceAmount: Math.abs(currentAmount) ,
-          description: `Credit Sale: ${imeis.length} phones sold to ${entityData.name || person.name
+          description: `Credit Sale: received amount of ${imeis.length} phones is ${payableAmountNow} and sold to ${entityData.name || person.name
             } || Credit: ${payableAmountLater} || Model: ${phoneModels.join(", ") || 'N/A'} || Company: ${phoneCompanies.join(", ") || 'N/A'} || Color: ${phoneColors.join(", ") || 'N/A'} || RAM: ${phoneRams.join(", ") || 'N/A'} || SIM: ${phoneSims.join(", ") || 'N/A'}`,
         });
       }

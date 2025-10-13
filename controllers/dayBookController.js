@@ -162,21 +162,42 @@ exports.getToDayBook = async (req, res) => {
   try {
     const userId = req.user.id;
     const dateParam = req.query.date;
+    const startParam = req.query.startDate;
+    const endParam = req.query.endDate;
 
     let selectedDate = new Date();
-    if (dateParam) {
-      selectedDate = new Date(dateParam);
-      if (isNaN(selectedDate.getTime())) {
+    let nextDate;
+
+    // If both startDate and endDate are provided, use range mode
+    if (startParam && endParam) {
+      const start = new Date(startParam);
+      const end = new Date(endParam);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         return res
           .status(400)
-          .json({ message: "Invalid date format. Use YYYY-MM-DD." });
+          .json({ message: "Invalid date range. Use YYYY-MM-DD for startDate and endDate." });
       }
+      // Normalize to [start@00:00:00.000, end+1day@00:00:00.000) to keep $lt semantics
+      selectedDate = new Date(start);
+      selectedDate.setHours(0, 0, 0, 0);
+      nextDate = new Date(end);
+      nextDate.setHours(0, 0, 0, 0);
+      nextDate.setDate(nextDate.getDate() + 1);
+    } else {
+      // Fallback to single day mode (existing behavior)
+      if (dateParam) {
+        selectedDate = new Date(dateParam);
+        if (isNaN(selectedDate.getTime())) {
+          return res
+            .status(400)
+            .json({ message: "Invalid date format. Use YYYY-MM-DD." });
+        }
+      }
+      // Set start and end of the day
+      selectedDate.setHours(0, 0, 0, 0);
+      nextDate = new Date(selectedDate);
+      nextDate.setDate(nextDate.getDate() + 1);
     }
-
-    // Set start and end of the day
-    selectedDate.setHours(0, 0, 0, 0);
-    const nextDate = new Date(selectedDate);
-    nextDate.setDate(nextDate.getDate() + 1);
 
     const [
       ledger,
@@ -306,6 +327,11 @@ exports.getToDayBook = async (req, res) => {
         totalAccessoriesProfit,
         totalAccesoriesTransactionLength,
         totalAccessoryTransactionAmount,
+        // Echo back the effective date range used so the frontend can display it
+        dateRange: {
+          startDate: selectedDate,
+          endDate: new Date(nextDate.getTime() - 1) // inclusive end (just before nextDate)
+        },
         creditSummary: {
           totalPayable,
           totalReceivable,
