@@ -244,17 +244,33 @@ exports.getToDayBook = async (req, res) => {
         userId,
         createdAt: { $gte: selectedDate, $lt: nextDate },
       }),
-      Accessory.find({ userId, updatedAt: { $gte: selectedDate, $lt: nextDate } }),
+      Accessory.find({ userId,
+        //  updatedAt: { $gte: selectedDate, $lt: nextDate } 
+        }),
       AccessoryTransaction.find({
         userId,
         createdAt: { $gte: selectedDate, $lt: nextDate },
       })
     ]);
-
+    console.log("accessories", accessories);
     // === PHONE STOCK CALCULATIONS ===
     const totalSinglePhones = allSinglePhones.length;
     const totalSingleAmount = allSinglePhones.reduce(
       (sum, phone) => sum + (phone.price?.purchasePrice || 0),
+      0
+    );
+    const totalSingleNewAmount = allSinglePhones.reduce(
+      (sum, phone) =>
+        phone.phoneCondition === "New"
+          ? sum + (phone.price?.purchasePrice || 0)
+          : sum,
+      0
+    );
+    const totalSingleUsedAmount = allSinglePhones.reduce(
+      (sum, phone) =>
+        phone.phoneCondition === "Used"
+          ? sum + (phone.price?.purchasePrice || 0)
+          : sum,
       0
     );
 
@@ -301,8 +317,12 @@ exports.getToDayBook = async (req, res) => {
       0
     );
     const totalAccesoriesTransactionLength = accessoryTransactions.length;
-    const totalAccessoryTransactionAmount = accessoryTransactions.reduce(
-      (sum, transaction) => sum + (transaction.totalPrice || 0),
+    // const totalAccessoryTransactionAmount = accessoryTransactions.reduce(
+    //   (sum, transaction) => sum + (transaction.totalPrice || 0),
+    //   0
+    // );
+    const totalAccessoryTransactionAmount = accessories.reduce(
+      (sum, accessory) => sum + (accessory.totalPrice || 0),
       0
     );
     const todayPersonsOfAccessories = accessories.map(accessory => ({
@@ -313,6 +333,12 @@ exports.getToDayBook = async (req, res) => {
       accessoryName: accessory.accessoryName || "Unknown",
       quantity: accessory.quantity || 0,
     }));
+    console.log("total single new stock amount:", totalSingleNewAmount);
+    console.log("total single used stock amount:", totalSingleUsedAmount);
+    console.log("total single used stock amount length:", allSinglePhones.filter(phone => phone.phoneCondition === "Used").length);
+    console.log("total single new stock amount length:", allSinglePhones.filter(phone => phone.phoneCondition === "New").length);
+    console.log("total bulk stock amount:", totalBulkAmount);
+    console.log("total accessory stock amount:", totalAccessoryTransactionAmount);
     res.status(200).json({
       message: `Records fetched for ${dateParam || "today"}`,
       data: {

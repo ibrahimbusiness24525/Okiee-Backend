@@ -1181,7 +1181,7 @@ exports.addBulkPhones = async (req, res) => {
       ...(entityData.number && { number: entityData.number }),
       userId: req.user.id,
     });
-    const takingCredit = person.takingCredit;
+    // const takingCredit = person.takingCredit;
     if (purchasePaymentType === "credit") {
       console.log("entityData", person);
       if (!person) {
@@ -3796,12 +3796,12 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
 exports.soldAnyPhone = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { imeis, bankAccountUsed, accountCash, pocketCash,entityData ,sellingPaymentType,payableAmountLater,payableAmountNow,
+    const { imeis, bankAccountUsed, accountCash, pocketCash,entityData ,sellingPaymentType,payableAmountLater,payableAmountNow, payableAmountLaterDate,
       imeiPrices,// Array of {imei: '', price: ''} objects
       ...phoneDetails } =
       req.body;
     const accessories = req.body.accessories || [];
-    
+   
     // Arrays to store phone details from ramSim - declare at the top
     const phoneModels = [];
     const phoneCompanies = [];
@@ -3899,7 +3899,11 @@ exports.soldAnyPhone = async (req, res) => {
           profit: profit,
           isApprovedFromEgadgets: purchasePhone.isApprovedFromEgadgets,
           eGadgetStatusPicture: purchasePhone.eGadgetStatusPicture,
-          ...(sellingPaymentType === "Credit" && { payableAmountLater }),
+          ...(sellingPaymentType === "Credit" && {
+            payableAmountNow: Number(payableAmountNow || 0),
+            payableAmountLater: Number(payableAmountLater || 0),
+            payableAmountLaterDate: payableAmountLaterDate ? new Date(payableAmountLaterDate) : undefined,
+          }),
           invoiceNumber: "INV-" + new Date().getTime(),
           ...phoneDetails, // Now filtered to exclude financial fields
         });
@@ -3937,7 +3941,7 @@ exports.soldAnyPhone = async (req, res) => {
             const unitPrice = Number(ramSim.priceOfOne) || 0;
             const profit = soldPrice - unitPrice;
             
-                          const soldPhone = new SoldPhone({
+            const soldPhone = new SoldPhone({
                 bulkPhonePurchaseId: bulkPhone._id,
                 imei1: imeiDoc.imei1,
                 imei2: imeiDoc.imei2,
@@ -3954,10 +3958,14 @@ exports.soldAnyPhone = async (req, res) => {
                 totalInvoice: soldPrice,
                 profit: profit,
                 sellingPaymentType,
+                ...(sellingPaymentType === "Credit" && {
+                  payableAmountNow: Number(payableAmountNow || 0),
+                  payableAmountLater: Number(payableAmountLater || 0),
+                  payableAmountLaterDate: payableAmountLaterDate ? new Date(payableAmountLaterDate) : undefined,
+                }),
                 customerName: phoneDetails.customerName,
                 customerNumber: phoneDetails.customerNumber,
                 warranty: phoneDetails.warranty,
-                ...(sellingPaymentType === "Credit" && { payableAmountLater }),
                 invoiceNumber: "INV-" + new Date().getTime(),
                 ...phoneDetails, // Now filtered to exclude financial fields
               });
