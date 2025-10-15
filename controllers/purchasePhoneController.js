@@ -10,6 +10,82 @@ const {
 } = require("../schema/purchasePhoneSchema");
 const { default: mongoose } = require("mongoose");
 const { invoiceGenerator } = require("../services/invoiceGenerator");
+
+// Migration function to add status field to existing documents
+const migrateExistingDocuments = async () => {
+  try {
+    // Update PurchasePhone documents without status field
+    await PurchasePhone.updateMany(
+      { status: { $exists: false } },
+      { $set: { status: "Available" } }
+    );
+
+    // Update Imei documents without status field
+    await Imei.updateMany(
+      { status: { $exists: false } },
+      { $set: { status: "Available" } }
+    );
+
+    console.log("Migration completed: Added status field to existing documents");
+  } catch (error) {
+    console.error("Migration error:", error);
+  }
+};
+
+// Helper function to update bulk purchase status based on IMEI availability
+const updateBulkPurchaseStatus = async (bulkPurchaseId) => {
+  try {
+    const bulkPurchase = await BulkPhonePurchase.findById(bulkPurchaseId).populate({
+      path: "ramSimDetails",
+      populate: { path: "imeiNumbers" }
+    });
+
+    if (!bulkPurchase) return;
+
+    let totalImeis = 0;
+    let soldImeis = 0;
+
+    for (const ramSim of bulkPurchase.ramSimDetails) {
+      for (const imei of ramSim.imeiNumbers) {
+        totalImeis++;
+        if (imei.status === "Sold") {
+          soldImeis++;
+        }
+      }
+    }
+
+    if (totalImeis === 0) {
+      bulkPurchase.status = "Available";
+    } else if (soldImeis === 0) {
+      bulkPurchase.status = "Available";
+    } else if (soldImeis === totalImeis) {
+      bulkPurchase.status = "Sold";
+    } else {
+      bulkPurchase.status = "Partially Sold";
+    }
+
+    await bulkPurchase.save();
+  } catch (error) {
+    console.error("Error updating bulk purchase status:", error);
+  }
+};
+
+// Migration endpoint to add status field to existing documents
+exports.migrateStatusField = async (req, res) => {
+  try {
+    await migrateExistingDocuments();
+    res.status(200).json({ 
+      message: "Migration completed successfully. All existing documents now have status field." 
+    });
+  } catch (error) {
+    console.error("Migration error:", error);
+    res.status(500).json({ 
+      message: "Migration failed", 
+      error: error.message 
+    });
+  }
+};
+
 const PartyLedger = require("../schema/PartyLedgerSchema");
 const {
   AddBankAccount,
@@ -661,10 +737,11 @@ exports.sellSinglePhone = async (req, res) => {
     // Save the sold phone
     await soldPhone.save();
 
-    // Mark purchased phone as sold and remove it
+    // Mark purchased phone as sold instead of deleting
     purchasedPhone.isSold = true;
     purchasedPhone.soldDetails = soldPhone._id;
-    await PurchasePhone.findByIdAndDelete(purchasePhoneId); // Fixes deletion issue
+    purchasedPhone.status = "Sold";
+    await purchasedPhone.save();
 
     res.status(201).json({ message: "Phone sold successfully", soldPhone });
   } catch (error) {
@@ -818,6 +895,10 @@ exports.getAllPurchasePhone = async (req, res) => {
     // Fetch all purchase phone slips for the logged-in user
     const purchasePhones = await PurchasePhone.find({
       userId: req.user.id,
+      $or: [
+        { status: "Available" },
+        { status: { $exists: false } } // Include documents without status field (legacy data)
+      ]
     }).populate("soldDetails");
 
     // Format the response to match the required structure
@@ -882,13 +963,21 @@ exports.getAllPurchasePhones = async (req, res) => {
     // Fetch all single purchase phones
     const purchasePhones = await PurchasePhone.find({
       userId: req.user.id,
+      $or: [
+        { status: "Available" },
+        { status: { $exists: false } } // Include documents without status field (legacy data)
+      ]
     }).populate("soldDetails");
     // Fetch all bulk purchased phones with RAM and IMEI details
     const bulkPhones = await BulkPhonePurchase.find({
       userId: req.user.id,
+      status: { $in: ["Available", "Partially Sold"] }
     }).populate({
       path: "ramSimDetails",
-      populate: { path: "imeiNumbers" },
+      populate: { 
+        path: "imeiNumbers",
+        match: { status: "Available" }
+      },
     }).populate({
       path: "personId",
       model: "Person", 
@@ -2270,24 +2359,14 @@ exports.sellPhonesFromBulk = async (req, res) => {
 
     await soldPhone.save();
 
-    // Remove all sold IMEIs from the system
+    // Mark all sold IMEIs as sold instead of deleting
     for (const imeiRecord of imeiRecords) {
-      await Imei.findByIdAndDelete(imeiRecord._id);
-
-      // Update ramSimDetails by removing the sold IMEI
-      const ramSim = bulkPhonePurchase.ramSimDetails.find((rs) =>
-        rs.imeiNumbers.some(
-          (ir) => ir._id.toString() === imeiRecord._id.toString()
-        )
-      );
-
-      if (ramSim) {
-        ramSim.imeiNumbers = ramSim.imeiNumbers.filter(
-          (record) => record._id.toString() !== imeiRecord._id.toString()
-        );
-        await ramSim.save();
-      }
+      imeiRecord.status = "Sold";
+      await imeiRecord.save();
     }
+
+    // Update bulk purchase status based on remaining IMEIs
+    await updateBulkPurchaseStatus(bulkPhonePurchase._id);
 
     // Refresh the bulkPhonePurchase data after modifications
     await bulkPhonePurchase.save();
@@ -3796,7 +3875,7 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
 exports.soldAnyPhone = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { imeis, bankAccountUsed, accountCash, pocketCash,entityData ,sellingPaymentType,payableAmountLater,payableAmountNow, payableAmountLaterDate,
+  const { imeis, bankAccountUsed, accountCash, pocketCash,entityData ,sellingPaymentType,payableAmountLater,payableAmountNow, payableAmountLaterDate,
       imeiPrices,// Array of {imei: '', price: ''} objects
       ...phoneDetails } =
       req.body;
@@ -3840,9 +3919,15 @@ exports.soldAnyPhone = async (req, res) => {
     }
 
     // Get all bulk phones for this user (not just one)
-    const bulkPhones = await BulkPhonePurchase.find({ userId }).populate({
+    const bulkPhones = await BulkPhonePurchase.find({ 
+      userId,
+      status: { $in: ["Available", "Partially Sold"] }
+    }).populate({
       path: "ramSimDetails",
-      populate: { path: "imeiNumbers" },
+      populate: { 
+        path: "imeiNumbers",
+        match: { status: "Available" }
+      },
     });
 
     for (const imei of imeis) {
@@ -3851,7 +3936,13 @@ exports.soldAnyPhone = async (req, res) => {
       // Try single purchase
       const purchasePhone = await PurchasePhone.findOne({
         userId,
-        $or: [{ imei1: imei }, { imei2: imei }],
+        $or: [
+          { status: "Available" },
+          { status: { $exists: false } } // Include documents without status field (legacy data)
+        ],
+        $and: [
+          { $or: [{ imei1: imei }, { imei2: imei }] }
+        ]
       });
 
       
@@ -3909,8 +4000,11 @@ exports.soldAnyPhone = async (req, res) => {
         });
         
         await soldPhone.save();
-        // Delete the phone from single purchase collection
-        await PurchasePhone.findByIdAndDelete(purchasePhone._id);
+        // Mark the phone as sold instead of deleting
+        purchasePhone.status = "Sold";
+        purchasePhone.isSold = true;
+        purchasePhone.soldDetails = soldPhone._id;
+        await purchasePhone.save();
 
         soldPhones.push({ imei, type: "single", soldPhone });
         found = true;
@@ -3972,13 +4066,19 @@ exports.soldAnyPhone = async (req, res) => {
 
             await soldPhone.save();
 
+            // Mark IMEI as sold instead of deleting
             if (imeiDoc && imeiDoc._id) {
-              await Imei.findByIdAndDelete(imeiDoc._id);
+              imeiDoc.status = "Sold";
+              await imeiDoc.save();
             } else if (
               typeof imeiDoc === "string" ||
               imeiDoc instanceof mongoose.Types.ObjectId
             ) {
-              await Imei.findByIdAndDelete(imeiDoc);
+              const imeiToUpdate = await Imei.findById(imeiDoc);
+              if (imeiToUpdate) {
+                imeiToUpdate.status = "Sold";
+                await imeiToUpdate.save();
+              }
             }
 
             ramSim.imeiNumbers.splice(imeiIndex, 1);
@@ -4002,9 +4102,9 @@ exports.soldAnyPhone = async (req, res) => {
           );
           await bulkPhone.save();
         }
-        // If after removal, bulkPhone.ramSimDetails is empty, delete the bulkPhonePurchase
-        if (ramSimChanged && bulkPhone.ramSimDetails.length === 0) {
-          await BulkPhonePurchase.findByIdAndDelete(bulkPhone._id);
+        // Update bulk purchase status based on remaining IMEIs
+        if (ramSimChanged) {
+          await updateBulkPurchaseStatus(bulkPhone._id);
         }
         if (found) break;
       }

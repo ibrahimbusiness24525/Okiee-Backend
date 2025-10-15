@@ -39,6 +39,7 @@ const {
   getDetailByImeiNumber,
   returnSingleSoldToPurchase,
   returnBulkSoldToPurchase,
+  migrateStatusField,
 } = require("../controllers/purchasePhoneController");
 const { decoderMiddleware } = require("../services/authServices");
 
@@ -219,4 +220,8 @@ router.post(
 );
 
 router.post("/return-bulk-sold-to-purchase", decoderMiddleware, returnBulkSoldToPurchase);
+
+// Migration endpoint to add status field to existing documents
+router.post("/migrate-status-field", migrateStatusField);
+
 module.exports = router;

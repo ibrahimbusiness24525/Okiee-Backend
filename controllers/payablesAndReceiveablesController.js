@@ -715,6 +715,167 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
   }
 };
 
+
+// exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+//     const { personId } = req.params;
+//     const { number, startDate, endDate } = req.query; // Get number and date range from query params
+
+//     let person = null;
+//     let customerNumber = null;
+
+//     // If personId is provided, find person by ID
+//     if (personId) {
+//       person = await Person.findOne({ _id: personId, userId });
+//       if (!person) {
+//         return res.status(404).json({ message: "Person not found" });
+//       }
+//       customerNumber = person.number;
+//     } 
+//     // If personId is not provided but number is provided, find person by number
+//     else if (number) {
+//       person = await Person.findOne({ number, userId });
+//       if (!person) {
+//         return res.status(404).json({ message: "Person not found with this number" });
+//       }
+//       customerNumber = number;
+//     } 
+//     // If neither personId nor number is provided
+//     else {
+//       return res.status(400).json({ message: "Either Person ID or number is required" });
+//     }
+
+//     // Build date filter object if date range is provided
+//     let dateFilter = {};
+//     if (startDate || endDate) {
+//       dateFilter = {};
+//       if (startDate) {
+//         dateFilter.$gte = new Date(startDate);
+//       }
+//       if (endDate) {
+//         dateFilter.$lte = new Date(endDate);
+//       }
+//     }
+
+//     // Get all purchase and sale details with populated data and date filtering
+//     const bulkPurchasesQuery = { personId: person._id, userId };
+//     if (Object.keys(dateFilter).length > 0) {
+//       bulkPurchasesQuery.date = dateFilter;
+//     }
+//     // Keep all bulk purchases for this person; IMEIs include both available and sold
+//     const bulkPurchasesDetails = await BulkPhonePurchase.find(bulkPurchasesQuery)
+//       .populate({
+//         path: "ramSimDetails",
+//         populate: {
+//           path: "imeiNumbers",
+//           model: "Imei"
+//         }
+//       })
+//       .populate("personId", "name number reference givingCredit takingCredit status")
+//       .populate("bankAccountUsed", "accountName accountType accountCash")
+//       .populate("pocketCash", "accountCash")
+//       .sort({ createdAt: -1 });
+
+//     // Include legacy and current flow (status may not exist on legacy docs)
+//     const singlePurchaseQuery = { 
+//       mobileNumber: customerNumber, 
+//       userId,
+//       $or: [
+//         { status: "Available" },
+//         { status: "Sold" },
+//         { status: { $exists: false } }
+//       ]
+//     };
+//     if (Object.keys(dateFilter).length > 0) {
+//       singlePurchaseQuery.date = dateFilter;
+//     }
+//     const singlePurchase = await PurchasePhone.find(singlePurchaseQuery)
+//       .populate("soldDetails")
+//       .populate("bankAccountUsed", "accountName accountType accountCash")
+//       .populate("pocketCash", "accountCash")
+//       .populate("shopid", "shopName")
+//       .sort({ createdAt: -1 });
+
+//     const bulkSalesQuery = { customerNumber, userId };
+//     if (Object.keys(dateFilter).length > 0) {
+//       bulkSalesQuery.dateSold = dateFilter;
+//     }
+//     const bulkSales = await SoldPhone.find(bulkSalesQuery)
+//       .populate({
+//         path: "bulkPhonePurchaseId",
+//         populate: [
+//           {
+//             path: "ramSimDetails",
+//             populate: {
+//               path: "imeiNumbers",
+//               model: "Imei"
+//             }
+//           },
+//           {
+//             path: "personId",
+//             model: "Person",
+//             select: "name number reference givingCredit takingCredit status"
+//           }
+//         ]
+//       })
+//       .populate("bankAccountUsed", "accountName accountType accountCash")
+//       .populate("pocketCash", "accountCash")
+//       .sort({ createdAt: -1 });
+    
+//     // For single sales, find them by customerNumber directly
+//     const singleSalesQuery = { customerNumber, userId };
+//     if (Object.keys(dateFilter).length > 0) {
+//       singleSalesQuery.saleDate = dateFilter;
+//     }
+//     const singleSales = await SingleSoldPhone.find(singleSalesQuery)
+//       .populate("purchasePhoneId", "companyName modelName imei1 imei2 price")
+//       .populate("bankAccountUsed", "accountName accountType accountCash")
+//       .populate("pocketCash", "accountCash")
+//       .populate("shopid", "shopName")
+//       .sort({ createdAt: -1 });
+
+//     // Calculate totals
+//     const totalBulkPurchases = bulkPurchasesDetails.length;
+//     const totalSinglePurchases = singlePurchase.length;
+//     const totalBulkSales = bulkSales.length;
+//     const totalSingleSales = singleSales.length;
+
+
+//     // Combine all purchase and sale data
+//     const purchaseDetails = {
+//       bulkPurchases: bulkPurchasesDetails,
+//       singlePurchases: singlePurchase
+//     };
+
+//     const saleDetails = {
+//       bulkSales: bulkSales,
+//       singleSales: singleSales
+//     };
+
+//     res.status(200).json({ 
+//       person,
+//       purchaseDetails,
+//       saleDetails,
+//       summary: {
+//         totalBulkPurchases,
+//         totalSinglePurchases,
+//         totalBulkSales,
+//         totalSingleSales
+//       },
+//       filters: {
+//         dateRange: {
+//           startDate: startDate || null,
+//           endDate: endDate || null,
+//           applied: Object.keys(dateFilter).length > 0
+//         }
+//       }
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: "Error fetching purchase sale details", error });
+//   }
+// };
+
 exports.getVerificationByPassword = async (req, res) => {
   try {
     const { password } = req.body;

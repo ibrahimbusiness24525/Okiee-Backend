@@ -68,6 +68,12 @@ const PurchasePhoneSchema = new mongoose.Schema(
       default: false,
       required: false,
     },
+    status: {
+      type: String,
+      enum: ["Available", "Sold"],
+      default: "Available",
+      required: false,
+    },
   },
   { timestamps: true }
 );
@@ -305,6 +311,12 @@ const ImeiSchema = new mongoose.Schema({
     required: true,
   },
   isDispatched: { type: Boolean, default: false },
+  status: {
+    type: String,
+    enum: ["Available", "Sold"],
+    default: "Available",
+    required: false,
+  },
 });
 
 const RamSimSchema = new mongoose.Schema({
@@ -457,3 +469,13 @@ module.exports = {
   SingleSoldPhone,
   Dispatch,
 };
+
+
+
+
+
+
+
+
+
+
