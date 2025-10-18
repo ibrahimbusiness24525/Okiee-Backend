@@ -976,7 +976,7 @@ exports.getAllPurchasePhones = async (req, res) => {
       path: "ramSimDetails",
       populate: { 
         path: "imeiNumbers",
-        match: { status: "Available" }
+        match: { status: { $ne: "Sold" } }  // $ne = not eq
       },
     }).populate({
       path: "personId",
