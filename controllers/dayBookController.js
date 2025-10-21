@@ -308,14 +308,14 @@ exports.getToDayBook = async (req, res) => {
       (sum, txn) => sum + txn.givingCredit,
       0
     );
-    // const totalAccessoriesProfit = accessoryTransactions.reduce(
-    //   (sum, transaction) => sum + (transaction.totalProfit || 0),
-    //   0
-    // );
-    const totalAccessoriesProfit = accessories.reduce(
-      (sum, accessory) => sum + (accessory.profit || 0),
+    const totalAccessoriesProfit = accessoryTransactions.reduce(
+      (sum, transaction) => sum + (transaction.profit || 0),
       0
     );
+    // const totalAccessoriesProfit = accessories.reduce(
+    //   (sum, accessory) => sum + (accessory.profit || 0),
+    //   0
+    // );
     const totalAccesoriesTransactionLength = accessoryTransactions.length;
     // const totalAccessoryTransactionAmount = accessoryTransactions.reduce(
     //   (sum, transaction) => sum + (transaction.totalPrice || 0),
