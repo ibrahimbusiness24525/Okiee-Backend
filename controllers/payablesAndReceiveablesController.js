@@ -12,7 +12,12 @@ const {
   PocketCashSchema,
   PocketCashTransactionSchema,
 } = require("../schema/PocketCashSchema");
-const { PurchasePhone, SoldPhone, BulkPhonePurchase, SingleSoldPhone } = require("../schema/purchasePhoneSchema");
+const {
+  PurchasePhone,
+  SoldPhone,
+  BulkPhonePurchase,
+  SingleSoldPhone,
+} = require("../schema/purchasePhoneSchema");
 const User = require("../schema/UserSchema");
 
 // 1. Create a Person
@@ -20,10 +25,12 @@ exports.createPerson = async (req, res) => {
   try {
     const { name, number, reference } = req.body;
     const userId = req.user.id;
-    if(!name || !number || !reference) {
-      return res.status(400).json({ message: "Name, number, and reference are required" });
+    if (!name || !number || !reference) {
+      return res
+        .status(400)
+        .json({ message: "Name, number, and reference are required" });
     }
-    if(await Person.findOne({number, userId})){
+    if (await Person.findOne({ number, userId })) {
       return res.status(400).json({ message: "Person already exists" });
     }
 
@@ -43,11 +50,11 @@ exports.giveCredit = async (req, res) => {
   try {
     const { personId, amount, description, giveCredit } = req.body;
     const userId = req.user.id;
-    
+
     // Fetch person details first to get the name for descriptions
     const person = await Person.findOne({ _id: personId, userId });
     if (!person) return res.status(404).json({ message: "Person not found" });
-    
+
     console.log("give credit", giveCredit);
     if (giveCredit?.bankAccountUsed) {
       const bank = await AddBankAccount.findById(giveCredit?.bankAccountUsed);
@@ -112,14 +119,17 @@ exports.giveCredit = async (req, res) => {
       updatedTaking > 0
         ? "Payable"
         : updatedGiving > 0
-          ? "Receivable"
-          : "Settled";
+        ? "Receivable"
+        : "Settled";
 
     person.givingCredit = updatedGiving;
     person.takingCredit = updatedTaking;
     person.status = status;
     await person.save();
-    const balanceAmount = person.takingCredit > person.givingCredit ? person.takingCredit - person.givingCredit : person.givingCredit - person.takingCredit;
+    const balanceAmount =
+      person.takingCredit > person.givingCredit
+        ? person.takingCredit - person.givingCredit
+        : person.givingCredit - person.takingCredit;
 
     await CreditTransaction.create({
       userId,
@@ -140,11 +150,11 @@ exports.takeCredit = async (req, res) => {
   try {
     const { personId, amount, description, takeCredit } = req.body;
     const userId = req.user.id;
-    
+
     // Fetch person details first to get the name for descriptions
     const person = await Person.findOne({ _id: personId, userId });
     if (!person) return res.status(404).json({ message: "Person not found" });
-    
+
     if (takeCredit?.bankAccountUsed) {
       const bank = await AddBankAccount.findById(takeCredit?.bankAccountUsed);
       if (!bank) return res.status(404).json({ message: "Bank not found" });
@@ -172,7 +182,6 @@ exports.takeCredit = async (req, res) => {
           .status(404)
           .json({ message: "Pocket cash account not found." });
       }
-
 
       pocketTransaction.accountCash += Number(takeCredit?.amountFromPocket);
       await pocketTransaction.save();
@@ -205,15 +214,18 @@ exports.takeCredit = async (req, res) => {
       updatedTaking > 0
         ? "Payable"
         : updatedGiving > 0
-          ? "Receivable"
-          : "Settled";
+        ? "Receivable"
+        : "Settled";
 
     person.givingCredit = updatedGiving;
     person.takingCredit = updatedTaking;
     person.status = status;
     await person.save();
-    
-    const balanceAmount = person.takingCredit > person.givingCredit ? person.takingCredit - person.givingCredit : person.givingCredit - person.takingCredit;
+
+    const balanceAmount =
+      person.takingCredit > person.givingCredit
+        ? person.takingCredit - person.givingCredit
+        : person.givingCredit - person.takingCredit;
 
     await CreditTransaction.create({
       userId,
@@ -252,7 +264,6 @@ exports.getPersonDetail = async (req, res) => {
     const person = await Person.findOne({ _id: id, userId });
     if (!person) return res.status(404).json({ message: "Person not found" });
 
-
     const transactions = await CreditTransaction.find({
       personId: id,
       userId,
@@ -267,27 +278,29 @@ exports.getPersonDetail = async (req, res) => {
 exports.deleteTransaction = async (req, res) => {
   try {
     const id = req.params.id;
-    if (!id) return res.status(400).json({ message: "Transaction ID is required" });
+    if (!id)
+      return res.status(400).json({ message: "Transaction ID is required" });
 
     const transaction = await CreditTransaction.findOne({
       _id: id,
-      userId: req.user.id // Fixed: use req.user.id
+      userId: req.user.id, // Fixed: use req.user.id
     });
 
     if (!transaction) {
       return res.status(404).json({ message: "Transaction not found" });
     }
 
-
-
     const givingCredit = transaction.givingCredit;
     const takingCredit = transaction.takingCredit;
 
-    const person = await Person.findOne({ _id: transaction.personId, userId: req.user.id });
+    const person = await Person.findOne({
+      _id: transaction.personId,
+      userId: req.user.id,
+    });
 
     if (!person) {
       res.status(404).json({ message: "Person not found" });
-      return
+      return;
     }
 
     if (takingCredit) {
@@ -306,13 +319,15 @@ exports.deleteTransaction = async (req, res) => {
     }
     await CreditTransaction.findOneAndDelete({
       _id: id,
-      userId: req.user.id
+      userId: req.user.id,
     });
     await person.save();
     res.status(200).json({ message: "Transaction deleted successfully" });
   } catch (error) {
     console.error("Error deletingg transaction:", error);
-    res.status(500).json({ message: "Error deleting transaction", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error deleting transaction", error: error.message });
   }
 };
 exports.getAllPersonsNameAndId = async (req, res) => {
@@ -329,40 +344,87 @@ exports.getAllPersonsNameAndId = async (req, res) => {
 exports.editTransaction = async (req, res) => {
   try {
     const { id } = req.params;
-    const { givingCredit, takingCredit, description, balanceAmount,createdAt,updatedAt} = req.body;
+    const {
+      givingCredit,
+      takingCredit,
+      description,
+      balanceAmount,
+      createdAt,
+      updatedAt,
+    } = req.body;
 
     console.log("Edit Transaction Request Body:", req.body);
     console.log("Received createdAt:", createdAt, "Type:", typeof createdAt);
     console.log("Received updatedAt:", updatedAt, "Type:", typeof updatedAt);
 
-    const existing = await CreditTransaction.findOne({ _id: id, userId: req.user.id });
+    const existing = await CreditTransaction.findOne({
+      _id: id,
+      userId: req.user.id,
+    });
     if (!existing) {
-      return res.status(404).json({ success: false, message: "Transaction not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Transaction not found" });
     }
 
-    const person = await Person.findOne({ _id: existing.personId, userId: req.user.id });
+    const person = await Person.findOne({
+      _id: existing.personId,
+      userId: req.user.id,
+    });
     if (!person) {
-      return res.status(404).json({ success: false, message: "Person not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Person not found" });
     }
 
     let newGiving, newTaking, newBalanceAmount;
 
     // Check if any credit values are actually being changed (different from existing values)
-    const isChangingCredits = (givingCredit !== undefined && Number(givingCredit) !== Number(existing.givingCredit || 0)) || 
-                             (takingCredit !== undefined && Number(takingCredit) !== Number(existing.takingCredit || 0)) || 
-                             (balanceAmount !== undefined && Number(balanceAmount) !== Number(existing.balanceAmount || 0));
+    const isChangingCredits =
+      (givingCredit !== undefined &&
+        Number(givingCredit) !== Number(existing.givingCredit || 0)) ||
+      (takingCredit !== undefined &&
+        Number(takingCredit) !== Number(existing.takingCredit || 0)) ||
+      (balanceAmount !== undefined &&
+        Number(balanceAmount) !== Number(existing.balanceAmount || 0));
 
     console.log("Credit change check:");
-    console.log("givingCredit:", givingCredit, "existing:", existing.givingCredit, "changed:", givingCredit !== undefined && Number(givingCredit) !== Number(existing.givingCredit || 0));
-    console.log("takingCredit:", takingCredit, "existing:", existing.takingCredit, "changed:", takingCredit !== undefined && Number(takingCredit) !== Number(existing.takingCredit || 0));
-    console.log("balanceAmount:", balanceAmount, "existing:", existing.balanceAmount, "changed:", balanceAmount !== undefined && Number(balanceAmount) !== Number(existing.balanceAmount || 0));
+    console.log(
+      "givingCredit:",
+      givingCredit,
+      "existing:",
+      existing.givingCredit,
+      "changed:",
+      givingCredit !== undefined &&
+        Number(givingCredit) !== Number(existing.givingCredit || 0)
+    );
+    console.log(
+      "takingCredit:",
+      takingCredit,
+      "existing:",
+      existing.takingCredit,
+      "changed:",
+      takingCredit !== undefined &&
+        Number(takingCredit) !== Number(existing.takingCredit || 0)
+    );
+    console.log(
+      "balanceAmount:",
+      balanceAmount,
+      "existing:",
+      existing.balanceAmount,
+      "changed:",
+      balanceAmount !== undefined &&
+        Number(balanceAmount) !== Number(existing.balanceAmount || 0)
+    );
     console.log("isChangingCredits:", isChangingCredits);
 
     if (isChangingCredits) {
       // First, revert the existing transaction's impact on person totals
-      person.givingCredit = Number(person.givingCredit || 0) - Number(existing.givingCredit || 0);
-      person.takingCredit = Number(person.takingCredit || 0) - Number(existing.takingCredit || 0);
-      
+      person.givingCredit =
+        Number(person.givingCredit || 0) - Number(existing.givingCredit || 0);
+      person.takingCredit =
+        Number(person.takingCredit || 0) - Number(existing.takingCredit || 0);
+
       // Ensure values don't go negative
       if (person.givingCredit < 0) person.givingCredit = 0;
       if (person.takingCredit < 0) person.takingCredit = 0;
@@ -370,7 +432,7 @@ exports.editTransaction = async (req, res) => {
       // Now calculate new values based on what's being updated
       if (balanceAmount !== undefined && balanceAmount !== null) {
         newBalanceAmount = Number(balanceAmount);
-        
+
         // Determine if this should be payable or receivable based on the balance amount
         // If balanceAmount > 0, we need to determine which credit to set
         if (newBalanceAmount > 0) {
@@ -406,21 +468,34 @@ exports.editTransaction = async (req, res) => {
         }
       } else {
         // Use provided values or existing values
-        newGiving = givingCredit !== undefined ? Number(givingCredit) : Number(existing.givingCredit || 0);
-        newTaking = takingCredit !== undefined ? Number(takingCredit) : Number(existing.takingCredit || 0);
+        newGiving =
+          givingCredit !== undefined
+            ? Number(givingCredit)
+            : Number(existing.givingCredit || 0);
+        newTaking =
+          takingCredit !== undefined
+            ? Number(takingCredit)
+            : Number(existing.takingCredit || 0);
         newBalanceAmount = Math.abs(Number(newTaking) - Number(newGiving));
       }
 
       // Now add the new transaction values to person totals
-      person.givingCredit = Number(person.givingCredit || 0) + Number(newGiving);
-      person.takingCredit = Number(person.takingCredit || 0) + Number(newTaking);
+      person.givingCredit =
+        Number(person.givingCredit || 0) + Number(newGiving);
+      person.takingCredit =
+        Number(person.takingCredit || 0) + Number(newTaking);
 
       // Ensure values don't go negative
       if (person.givingCredit < 0) person.givingCredit = 0;
       if (person.takingCredit < 0) person.takingCredit = 0;
 
       // Recalculate person status
-      person.status = person.takingCredit > person.givingCredit ? "Payable" : person.givingCredit > person.takingCredit ? "Receivable" : "Settled";
+      person.status =
+        person.takingCredit > person.givingCredit
+          ? "Payable"
+          : person.givingCredit > person.takingCredit
+          ? "Receivable"
+          : "Settled";
       await person.save();
     } else {
       // No credit values being changed, keep existing values
@@ -431,21 +506,26 @@ exports.editTransaction = async (req, res) => {
 
     // Prepare update object
     const updateData = {};
-    
+
     // Update credit fields only if credits are being changed
     if (isChangingCredits) {
       updateData.givingCredit = newGiving;
       updateData.takingCredit = newTaking;
       updateData.balanceAmount = newBalanceAmount;
     }
-    
+
     // Update description if provided
     if (typeof description === "string") {
       updateData.description = description;
     }
-    
+
     // Update dates if provided
-    if (createdAt && createdAt !== null && createdAt !== "" && createdAt !== undefined) {
+    if (
+      createdAt &&
+      createdAt !== null &&
+      createdAt !== "" &&
+      createdAt !== undefined
+    ) {
       try {
         const dateCreated = new Date(createdAt);
         if (!isNaN(dateCreated.getTime())) {
@@ -460,8 +540,13 @@ exports.editTransaction = async (req, res) => {
     } else {
       console.log("createdAt not provided or empty:", createdAt);
     }
-    
-    if (updatedAt && updatedAt !== null && updatedAt !== "" && updatedAt !== undefined) {
+
+    if (
+      updatedAt &&
+      updatedAt !== null &&
+      updatedAt !== "" &&
+      updatedAt !== undefined
+    ) {
       try {
         const dateUpdated = new Date(updatedAt);
         if (!isNaN(dateUpdated.getTime())) {
@@ -476,25 +561,31 @@ exports.editTransaction = async (req, res) => {
     } else {
       console.log("updatedAt not provided or empty:", updatedAt);
     }
-    
+
     console.log("Update data:", updateData);
-    
+
     // Use direct MongoDB update to bypass Mongoose timestamp handling
     const result = await CreditTransaction.collection.updateOne(
       { _id: existing._id },
       { $set: updateData }
     );
-    
+
     console.log("MongoDB update result:", result);
-    
+
     // Fetch the updated transaction
     const updatedTransaction = await CreditTransaction.findById(existing._id);
-    
+
     console.log("Updated transaction:", updatedTransaction);
 
-    return res.status(200).json({ message: "Transaction edited successfully", transaction: updatedTransaction, person });
+    return res.status(200).json({
+      message: "Transaction edited successfully",
+      transaction: updatedTransaction,
+      person,
+    });
   } catch (error) {
-    return res.status(500).json({ message: "Error editing transaction", error });
+    return res
+      .status(500)
+      .json({ message: "Error editing transaction", error });
   }
 };
 
@@ -581,18 +672,22 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
         return res.status(404).json({ message: "Person not found" });
       }
       customerNumber = person.number;
-    } 
+    }
     // If personId is not provided but number is provided, find person by number
     else if (number) {
       person = await Person.findOne({ number, userId });
       if (!person) {
-        return res.status(404).json({ message: "Person not found with this number" });
+        return res
+          .status(404)
+          .json({ message: "Person not found with this number" });
       }
       customerNumber = number;
-    } 
+    }
     // If neither personId nor number is provided
     else {
-      return res.status(400).json({ message: "Either Person ID or number is required" });
+      return res
+        .status(400)
+        .json({ message: "Either Person ID or number is required" });
     }
 
     // Build date filter object if date range is provided
@@ -612,15 +707,20 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
     if (Object.keys(dateFilter).length > 0) {
       bulkPurchasesQuery.date = dateFilter;
     }
-    const bulkPurchasesDetails = await BulkPhonePurchase.find(bulkPurchasesQuery)
+    const bulkPurchasesDetails = await BulkPhonePurchase.find(
+      bulkPurchasesQuery
+    )
       .populate({
         path: "ramSimDetails",
         populate: {
           path: "imeiNumbers",
-          model: "Imei"
-        }
+          model: "Imei",
+        },
       })
-      .populate("personId", "name number reference givingCredit takingCredit status")
+      .populate(
+        "personId",
+        "name number reference givingCredit takingCredit status"
+      )
       .populate("bankAccountUsed", "accountName accountType accountCash")
       .populate("pocketCash", "accountCash")
       .sort({ createdAt: -1 });
@@ -648,20 +748,20 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
             path: "ramSimDetails",
             populate: {
               path: "imeiNumbers",
-              model: "Imei"
-            }
+              model: "Imei",
+            },
           },
           {
             path: "personId",
             model: "Person",
-            select: "name number reference givingCredit takingCredit status"
-          }
-        ]
+            select: "name number reference givingCredit takingCredit status",
+          },
+        ],
       })
       .populate("bankAccountUsed", "accountName accountType accountCash")
       .populate("pocketCash", "accountCash")
       .sort({ createdAt: -1 });
-    
+
     // For single sales, find them by customerNumber directly
     const singleSalesQuery = { customerNumber, userId };
     if (Object.keys(dateFilter).length > 0) {
@@ -674,25 +774,41 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
       .populate("shopid", "shopName")
       .sort({ createdAt: -1 });
 
+    // Get sold items from purchases that belong to this party
+    const soldFromPurchasesQuery = {
+      mobileNumber: customerNumber,
+      userId,
+      status: "Sold",
+      soldDetails: { $exists: true },
+    };
+    if (Object.keys(dateFilter).length > 0) {
+      soldFromPurchasesQuery.date = dateFilter;
+    }
+    const soldFromPurchases = await PurchasePhone.find(soldFromPurchasesQuery)
+      .populate("soldDetails")
+      .populate("bankAccountUsed", "accountName accountType accountCash")
+      .populate("pocketCash", "accountCash")
+      .populate("shopid", "shopName")
+      .sort({ createdAt: -1 });
+
     // Calculate totals
     const totalBulkPurchases = bulkPurchasesDetails.length;
     const totalSinglePurchases = singlePurchase.length;
     const totalBulkSales = bulkSales.length;
-    const totalSingleSales = singleSales.length;
-
+    const totalSingleSales = singleSales.length + soldFromPurchases.length;
 
     // Combine all purchase and sale data
     const purchaseDetails = {
       bulkPurchases: bulkPurchasesDetails,
-      singlePurchases: singlePurchase
+      singlePurchases: singlePurchase,
     };
 
     const saleDetails = {
       bulkSales: bulkSales,
-      singleSales: singleSales
+      singleSales: [...singleSales, ...soldFromPurchases],
     };
 
-    res.status(200).json({ 
+    res.status(200).json({
       person,
       purchaseDetails,
       saleDetails,
@@ -700,21 +816,22 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
         totalBulkPurchases,
         totalSinglePurchases,
         totalBulkSales,
-        totalSingleSales
+        totalSingleSales,
       },
       filters: {
         dateRange: {
           startDate: startDate || null,
           endDate: endDate || null,
-          applied: Object.keys(dateFilter).length > 0
-        }
-      }
+          applied: Object.keys(dateFilter).length > 0,
+        },
+      },
     });
   } catch (error) {
-    res.status(500).json({ message: "Error fetching purchase sale details", error });
+    res
+      .status(500)
+      .json({ message: "Error fetching purchase sale details", error });
   }
 };
-
 
 // exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
 //   try {
@@ -732,7 +849,7 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
 //         return res.status(404).json({ message: "Person not found" });
 //       }
 //       customerNumber = person.number;
-//     } 
+//     }
 //     // If personId is not provided but number is provided, find person by number
 //     else if (number) {
 //       person = await Person.findOne({ number, userId });
@@ -740,7 +857,7 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
 //         return res.status(404).json({ message: "Person not found with this number" });
 //       }
 //       customerNumber = number;
-//     } 
+//     }
 //     // If neither personId nor number is provided
 //     else {
 //       return res.status(400).json({ message: "Either Person ID or number is required" });
@@ -778,8 +895,8 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
 //       .sort({ createdAt: -1 });
 
 //     // Include legacy and current flow (status may not exist on legacy docs)
-//     const singlePurchaseQuery = { 
-//       mobileNumber: customerNumber, 
+//     const singlePurchaseQuery = {
+//       mobileNumber: customerNumber,
 //       userId,
 //       $or: [
 //         { status: "Available" },
@@ -822,7 +939,7 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
 //       .populate("bankAccountUsed", "accountName accountType accountCash")
 //       .populate("pocketCash", "accountCash")
 //       .sort({ createdAt: -1 });
-    
+
 //     // For single sales, find them by customerNumber directly
 //     const singleSalesQuery = { customerNumber, userId };
 //     if (Object.keys(dateFilter).length > 0) {
@@ -841,7 +958,6 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
 //     const totalBulkSales = bulkSales.length;
 //     const totalSingleSales = singleSales.length;
 
-
 //     // Combine all purchase and sale data
 //     const purchaseDetails = {
 //       bulkPurchases: bulkPurchasesDetails,
@@ -853,7 +969,7 @@ exports.getDetailOfPurchaseSaleByPerson = async (req, res) => {
 //       singleSales: singleSales
 //     };
 
-//     res.status(200).json({ 
+//     res.status(200).json({
 //       person,
 //       purchaseDetails,
 //       saleDetails,
@@ -898,6 +1014,8 @@ exports.getVerificationByPassword = async (req, res) => {
     // Return plain boolean to match frontend expectation
     return res.status(200).json(isMatch);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching verification by password", error });
+    res
+      .status(500)
+      .json({ message: "Error fetching verification by password", error });
   }
 };
