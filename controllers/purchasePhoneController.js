@@ -26,7 +26,9 @@ const migrateExistingDocuments = async () => {
       { $set: { status: "Available" } }
     );
 
-    console.log("Migration completed: Added status field to existing documents");
+    console.log(
+      "Migration completed: Added status field to existing documents"
+    );
   } catch (error) {
     console.error("Migration error:", error);
   }
@@ -35,9 +37,11 @@ const migrateExistingDocuments = async () => {
 // Helper function to update bulk purchase status based on IMEI availability
 const updateBulkPurchaseStatus = async (bulkPurchaseId) => {
   try {
-    const bulkPurchase = await BulkPhonePurchase.findById(bulkPurchaseId).populate({
+    const bulkPurchase = await BulkPhonePurchase.findById(
+      bulkPurchaseId
+    ).populate({
       path: "ramSimDetails",
-      populate: { path: "imeiNumbers" }
+      populate: { path: "imeiNumbers" },
     });
 
     if (!bulkPurchase) return;
@@ -74,14 +78,15 @@ const updateBulkPurchaseStatus = async (bulkPurchaseId) => {
 exports.migrateStatusField = async (req, res) => {
   try {
     await migrateExistingDocuments();
-    res.status(200).json({ 
-      message: "Migration completed successfully. All existing documents now have status field." 
+    res.status(200).json({
+      message:
+        "Migration completed successfully. All existing documents now have status field.",
     });
   } catch (error) {
     console.error("Migration error:", error);
-    res.status(500).json({ 
-      message: "Migration failed", 
-      error: error.message 
+    res.status(500).json({
+      message: "Migration failed",
+      error: error.message,
     });
   }
 };
@@ -143,7 +148,7 @@ exports.addPurchasePhone = async (req, res) => {
   // Handle uploaded files
   let cnicFrontPic = null;
   let cnicBackPic = null;
-  
+
   if (req.files) {
     if (req.files.cnicFrontPic && req.files.cnicFrontPic[0]) {
       cnicFrontPic = req.files.cnicFrontPic[0].path;
@@ -269,25 +274,30 @@ exports.addPurchasePhone = async (req, res) => {
     // Prefer new params if provided, fallback to legacy ones
     const resolvedPaymentType = purchasePaymentType || paymentType; // "full-payment" | "credit" | legacy "credit"
     const resolvedEntityName = parsedEntityData?.name || name;
-    const resolvedEntityNumber = parsedEntityData?.number || Number(mobileNumber);
+    const resolvedEntityNumber =
+      parsedEntityData?.number || Number(mobileNumber);
 
     // Build a concise summary similar to bulk flow
     const phoneSummary = `${companyName} ${modelName}${
       batteryHealth ? ` | Battery: ${batteryHealth}` : ""
-    }${color ? ` | Color: ${color}` : ""}${ramMemory ? ` | RAM: ${ramMemory}` : ""}`.trim();
+    }${color ? ` | Color: ${color}` : ""}${
+      ramMemory ? ` | RAM: ${ramMemory}` : ""
+    }`.trim();
 
     // Validate credit amounts if credit flow triggered
     if (resolvedPaymentType === "credit") {
-      const payableNow = Number(parsedCreditPaymentData?.payableAmountNow ?? payableAmountNow ?? 0);
-      const payableLater = Number(parsedCreditPaymentData?.payableAmountLater ?? payableAmountLater ?? 0);
+      const payableNow = Number(
+        parsedCreditPaymentData?.payableAmountNow ?? payableAmountNow ?? 0
+      );
+      const payableLater = Number(
+        parsedCreditPaymentData?.payableAmountLater ?? payableAmountLater ?? 0
+      );
       const totalBuying = normalizedPurchasePrice;
       if (payableNow + payableLater !== totalBuying) {
-        return res
-          .status(400)
-          .json({
-            message:
-              "Invalid data: payable amounts (now + later) must equal purchase price",
-          });
+        return res.status(400).json({
+          message:
+            "Invalid data: payable amounts (now + later) must equal purchase price",
+        });
       }
     }
 
@@ -299,10 +309,10 @@ exports.addPurchasePhone = async (req, res) => {
     console.log("Person found:", person);
     const takingCredit = person ? Number(person.takingCredit || 0) : 0;
     console.log("payment type", resolvedPaymentType);
-    
-          const payableLaterResolved = Number(
-            parsedCreditPaymentData?.payableAmountLater ?? payableAmountLater ?? 0
-          );
+
+    const payableLaterResolved = Number(
+      parsedCreditPaymentData?.payableAmountLater ?? payableAmountLater ?? 0
+    );
     if (resolvedPaymentType === "credit") {
       console.log("====================================");
       console.log("Payment Type:", resolvedPaymentType);
@@ -333,7 +343,8 @@ exports.addPurchasePhone = async (req, res) => {
           status: "Payable",
         });
       } else {
-        person.takingCredit = Number(person.takingCredit || 0) + payableLaterResolved;
+        person.takingCredit =
+          Number(person.takingCredit || 0) + payableLaterResolved;
         person.status = "Payable";
         person.reference = `Single Purchase: ${phoneSummary}`;
         await person.save();
@@ -366,9 +377,9 @@ exports.addPurchasePhone = async (req, res) => {
       //     takingCredit: 0,
       //     description: `Full payment purchase of ${phoneSummary} by ${resolvedEntityName} `,
       //   });
-      // } 
+      // }
       // else {
-       if(person){
+      if (person) {
         await CreditTransaction.create({
           userId: req.user.id,
           personId: person._id,
@@ -376,13 +387,12 @@ exports.addPurchasePhone = async (req, res) => {
           takingCredit: 0,
           description: `Full payment purchase of ${phoneSummary} by ${resolvedEntityName} `,
         });
-       }
-       else{
+      } else {
         console.log("no required entityData for full payment purchase");
-       }
+      }
       // }
     }
-    
+
     // Save to database
     const savedPhone = await purchasePhone.save();
     res.status(201).json({
@@ -807,23 +817,23 @@ exports.getBulkSoldPhoneById = async (req, res) => {
             populate: [
               {
                 path: "imeiNumbers",
-                model: "Imei"
-              }
-            ]
+                model: "Imei",
+              },
+            ],
           },
           {
             path: "personId",
-            model: "Person"
+            model: "Person",
           },
           {
             path: "bankAccountUsed",
-            model: "AddBankAccount"
+            model: "AddBankAccount",
           },
           {
             path: "pocketCash",
-            model: "PocketCashTransaction"
-          }
-        ]
+            model: "PocketCashTransaction",
+          },
+        ],
       })
       .populate("userId", "name email username role")
       .populate("bankAccountUsed")
@@ -839,7 +849,9 @@ exports.getBulkSoldPhoneById = async (req, res) => {
     res.status(200).json({ success: true, soldPhoneDetail });
   } catch (error) {
     console.error("Error getting detail:", error);
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
 
@@ -897,8 +909,8 @@ exports.getAllPurchasePhone = async (req, res) => {
       userId: req.user.id,
       $or: [
         { status: "Available" },
-        { status: { $exists: false } } // Include documents without status field (legacy data)
-      ]
+        { status: { $exists: false } }, // Include documents without status field (legacy data)
+      ],
     }).populate("soldDetails");
 
     // Format the response to match the required structure
@@ -965,23 +977,25 @@ exports.getAllPurchasePhones = async (req, res) => {
       userId: req.user.id,
       $or: [
         { status: "Available" },
-        { status: { $exists: false } } // Include documents without status field (legacy data)
-      ]
+        { status: { $exists: false } }, // Include documents without status field (legacy data)
+      ],
     }).populate("soldDetails");
     // Fetch all bulk purchased phones with RAM and IMEI details
     const bulkPhones = await BulkPhonePurchase.find({
       userId: req.user.id,
-      status: { $in: ["Available", "Partially Sold"] }
-    }).populate({
-      path: "ramSimDetails",
-      populate: { 
-        path: "imeiNumbers",
-        match: { status: { $ne: "Sold" } }  // $ne = not eq
-      },
-    }).populate({
-      path: "personId",
-      model: "Person", 
-    });
+      status: { $in: ["Available", "Partially Sold"] },
+    })
+      .populate({
+        path: "ramSimDetails",
+        populate: {
+          path: "imeiNumbers",
+          match: { status: { $ne: "Sold" } }, // $ne = not eq
+        },
+      })
+      .populate({
+        path: "personId",
+        model: "Person",
+      });
 
     // Calculate total quantity of mobiles from bulk phones
     const bulkPhonesWithQuantity = bulkPhones.map((bulkPhone) => {
@@ -1239,7 +1253,7 @@ exports.addBulkPhones = async (req, res) => {
     // Handle uploaded files for bulk purchase
     let cnicFrontPic = null;
     let cnicBackPic = null;
-    
+
     if (req.files) {
       if (req.files.cnicFrontPic && req.files.cnicFrontPic[0]) {
         cnicFrontPic = req.files.cnicFrontPic[0].path;
@@ -1252,14 +1266,17 @@ exports.addBulkPhones = async (req, res) => {
     console.log("Received Data:", req.body);
 
     // Calculate total IMEI count for better descriptions
-    const totalImeiCount = ramSimDetails?.reduce((total, ramSim) => {
-      return total + (ramSim.imeiNumbers?.length || 0);
-    }, 0) || 0;
+    const totalImeiCount =
+      ramSimDetails?.reduce((total, ramSim) => {
+        return total + (ramSim.imeiNumbers?.length || 0);
+      }, 0) || 0;
 
     // Get companyName and modelName from ramSimDetails if not present at top level
     const firstRamSim = ramSimDetails?.[0];
-    const effectiveCompanyName = companyName || firstRamSim?.companyName || 'Unknown Company';
-    const effectiveModelName = modelName || firstRamSim?.modelName || 'Unknown Model';
+    const effectiveCompanyName =
+      companyName || firstRamSim?.companyName || "Unknown Company";
+    const effectiveModelName =
+      modelName || firstRamSim?.modelName || "Unknown Model";
 
     // Create a comprehensive phone summary for descriptions
     const phoneSummary = `${effectiveCompanyName} ${effectiveModelName} (${totalImeiCount} IMEIs)`;
@@ -1290,10 +1307,14 @@ exports.addBulkPhones = async (req, res) => {
           description: `Credit purchase of given amount is ${creditPaymentData.payableAmountLater} of ${phoneSummary} by ${entityData.name} - Amount: ${creditPaymentData.payableAmountLater}`,
         });
       } else {
-                const currentTakingCredit = Number(person.takingCredit || 0) + Number(creditPaymentData.payableAmountLater);
+        const currentTakingCredit =
+          Number(person.takingCredit || 0) +
+          Number(creditPaymentData.payableAmountLater);
         const currentGivingCredit = Number(person.givingCredit || 0);
-        const currentAmount = Math.abs(Number(currentTakingCredit - currentGivingCredit))
-        
+        const currentAmount = Math.abs(
+          Number(currentTakingCredit - currentGivingCredit)
+        );
+
         const previousBalance = Number(person.takingCredit || 0);
         person.takingCredit =
           Number(person.takingCredit || 0) +
@@ -1312,7 +1333,6 @@ exports.addBulkPhones = async (req, res) => {
         });
       }
       // Log the credit transaction
-    
     }
     if (purchasePaymentType === "full-payment") {
       if (!person) {
@@ -1329,7 +1349,9 @@ exports.addBulkPhones = async (req, res) => {
           personId: newPerson._id,
           takingCredit: 0,
           balanceAmount: 0,
-          description: `Full payment of ${phoneSummary} by ${entityData.name || newPerson.name} - Per piece: ${prices.buyingPrice}, Total: ${prices.buyingPrice}`,
+          description: `Full payment of ${phoneSummary} by ${
+            entityData.name || newPerson.name
+          } - Per piece: ${prices.buyingPrice}, Total: ${prices.buyingPrice}`,
         });
       } else {
         await CreditTransaction.create({
@@ -1337,7 +1359,9 @@ exports.addBulkPhones = async (req, res) => {
           personId: person._id,
           takingCredit: 0,
           balanceAmount: Number(person.takingCredit),
-          description: `Full payment of ${phoneSummary} by ${entityData.name || person.name} - Per piece: ${prices.buyingPrice}, Total: ${prices.buyingPrice}`,
+          description: `Full payment of ${phoneSummary} by ${
+            entityData.name || person.name
+          } - Per piece: ${prices.buyingPrice}, Total: ${prices.buyingPrice}`,
         });
       }
     }
@@ -1657,22 +1681,24 @@ exports.getBulkPhone = async (req, res) => {
           actualBuyingPrice,
         },
         // Enhanced phone details
-        phoneDetails: purchase.ramSimDetails?.map(ramSim => ({
-          companyName: ramSim.companyName,
-          modelName: ramSim.modelName,
-          ramMemory: ramSim.ramMemory,
-          simOption: ramSim.simOption,
-          priceOfOne: ramSim.priceOfOne,
-          batteryHealth: ramSim.batteryHealth,
-          imeiCount: ramSim.imeiNumbers?.length || 0,
-          imeiDetails: ramSim.imeiNumbers?.map(imei => ({
-            imei1: imei.imei1,
-            imei2: imei.imei2,
-            batteryHealth: imei.batteryHealth,
-            color: imei.color,
-            isDispatched: imei.isDispatched,
-          })) || []
-        })) || []
+        phoneDetails:
+          purchase.ramSimDetails?.map((ramSim) => ({
+            companyName: ramSim.companyName,
+            modelName: ramSim.modelName,
+            ramMemory: ramSim.ramMemory,
+            simOption: ramSim.simOption,
+            priceOfOne: ramSim.priceOfOne,
+            batteryHealth: ramSim.batteryHealth,
+            imeiCount: ramSim.imeiNumbers?.length || 0,
+            imeiDetails:
+              ramSim.imeiNumbers?.map((imei) => ({
+                imei1: imei.imei1,
+                imei2: imei.imei2,
+                batteryHealth: imei.batteryHealth,
+                color: imei.color,
+                isDispatched: imei.isDispatched,
+              })) || [],
+          })) || [],
       };
     });
 
@@ -2053,9 +2079,16 @@ exports.sellPhonesFromBulk = async (req, res) => {
         message: "Bulk Phone Purchase ID is required.",
       });
     }
-    const bulkPhonePurchaseData = await BulkPhonePurchase.findById(bulkPhonePurchaseId);
-   console.log("extracted data", bulkPhonePurchaseData)
-    if (sellingPaymentType === "Credit" && !payableAmountNow && !payableAmountLater && !payableAmountLaterDate) {
+    const bulkPhonePurchaseData = await BulkPhonePurchase.findById(
+      bulkPhonePurchaseId
+    );
+    console.log("extracted data", bulkPhonePurchaseData);
+    if (
+      sellingPaymentType === "Credit" &&
+      !payableAmountNow &&
+      !payableAmountLater &&
+      !payableAmountLaterDate
+    ) {
       return res.status(400).json({
         message: "fill all credit data fields",
       });
@@ -2074,7 +2107,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
 
     if (!dateSold) {
       return res.status(400).json({
-        message: "Date Sold is required."
+        message: "Date Sold is required.",
       });
     }
 
@@ -2087,7 +2120,12 @@ exports.sellPhonesFromBulk = async (req, res) => {
         .status(400)
         .json({ message: "At least one IMEI must be provided" });
     }
-    if (accessories.length === 1 && accessories[0].quantity === 0 && !accessories[0].name && !accessories[0].price) {
+    if (
+      accessories.length === 1 &&
+      accessories[0].quantity === 0 &&
+      !accessories[0].name &&
+      !accessories[0].price
+    ) {
       return res.status(400).json({
         message: "Accessory name and price must be provided if quantity is 0.",
       });
@@ -2108,8 +2146,8 @@ exports.sellPhonesFromBulk = async (req, res) => {
 
     // Ensure we have the purchase data
     if (!bulkPhonePurchase.prices || !bulkPhonePurchase.prices.buyingPrice) {
-      return res.status(400).json({ 
-        message: "Bulk phone purchase is missing price information" 
+      return res.status(400).json({
+        message: "Bulk phone purchase is missing price information",
       });
     }
 
@@ -2134,26 +2172,30 @@ exports.sellPhonesFromBulk = async (req, res) => {
       });
     }
     console.log("check for entityData", entityData);
-    const bulkPurchase = await BulkPhonePurchase.findById(bulkPhonePurchaseId)
-      .populate({
-        path: "ramSimDetails",
-        populate: { path: "imeiNumbers" }
-      });
+    const bulkPurchase = await BulkPhonePurchase.findById(
+      bulkPhonePurchaseId
+    ).populate({
+      path: "ramSimDetails",
+      populate: { path: "imeiNumbers" },
+    });
 
     if (!bulkPurchase) throw new Error("Bulk purchase not found");
 
     const phonesToBeSold = [];
 
-    bulkPurchase.ramSimDetails.forEach(ramSim => {
-      ramSim.imeiNumbers.forEach(imeiDoc => {
-        if (imeiNumbers.includes(imeiDoc.imei1) || imeiNumbers.includes(imeiDoc.imei2)) {
+    bulkPurchase.ramSimDetails.forEach((ramSim) => {
+      ramSim.imeiNumbers.forEach((imeiDoc) => {
+        if (
+          imeiNumbers.includes(imeiDoc.imei1) ||
+          imeiNumbers.includes(imeiDoc.imei2)
+        ) {
           phonesToBeSold.push({
             color: imeiDoc.color || "not mentioned",
             batteryHealth: imeiDoc.batteryHealth || "not mentioned",
             modelName: ramSim.modelName,
             companyName: ramSim.companyName,
             ramMemory: ramSim.ramMemory,
-            priceOfOne: ramSim.priceOfOne
+            priceOfOne: ramSim.priceOfOne,
           });
         }
       });
@@ -2191,8 +2233,17 @@ exports.sellPhonesFromBulk = async (req, res) => {
         personId: person._id,
         givingCredit: Number(payableAmountLater),
         balanceAmount: currentGiveCreditAmount + Number(payableAmountLater),
-        description: `Credit Sale: ${imeiNumbers.length} phones sold to ${entityData.name || person.name
-          } || Credit: ${payableAmountLater} || Model: ${phonesToBeSold.map(phone => phone.modelName).join(", ")} || Company: ${phonesToBeSold.map(phone => phone.companyName).join(", ")} || Battery Health: ${phonesToBeSold.map(phone => phone.batteryHealth).join(", ")} || Color: ${phonesToBeSold.map(phone => phone.color).join(", ")}`,
+        description: `Credit Sale: ${imeiNumbers.length} phones sold to ${
+          entityData.name || person.name
+        } || Credit: ${payableAmountLater} || Model: ${phonesToBeSold
+          .map((phone) => phone.modelName)
+          .join(", ")} || Company: ${phonesToBeSold
+          .map((phone) => phone.companyName)
+          .join(", ")} || Battery Health: ${phonesToBeSold
+          .map((phone) => phone.batteryHealth)
+          .join(", ")} || Color: ${phonesToBeSold
+          .map((phone) => phone.color)
+          .join(", ")}`,
       });
     }
 
@@ -2204,13 +2255,25 @@ exports.sellPhonesFromBulk = async (req, res) => {
           personId: person._id,
           balanceAmount: Number(person.givingCredit),
           givingCredit: 0,
-          description: `Complete Payment of bulk category Sale:  ${imeiNumbers.length
-            } phones sold to  ${entityData.name || person.name
-            }  || Model: ${phonesToBeSold.map(phone => phone.modelName).join(", ")} || Company: ${phonesToBeSold.map(phone => phone.companyName).join(", ")} || Battery Health: ${phonesToBeSold.map(phone => phone.batteryHealth).join(", ")} || Color: ${phonesToBeSold.map(phone => phone.color).join(", ")}`,
+          description: `Complete Payment of bulk category Sale:  ${
+            imeiNumbers.length
+          } phones sold to  ${
+            entityData.name || person.name
+          }  || Model: ${phonesToBeSold
+            .map((phone) => phone.modelName)
+            .join(", ")} || Company: ${phonesToBeSold
+            .map((phone) => phone.companyName)
+            .join(", ")} || Battery Health: ${phonesToBeSold
+            .map((phone) => phone.batteryHealth)
+            .join(", ")} || Color: ${phonesToBeSold
+            .map((phone) => phone.color)
+            .join(", ")}`,
         });
       } else {
         // Do not create a new Person entity, just log or skip
-        console.log("No existing entity found for full payment sale, not creating new entity.");
+        console.log(
+          "No existing entity found for full payment sale, not creating new entity."
+        );
       }
     }
 
@@ -2261,7 +2324,9 @@ exports.sellPhonesFromBulk = async (req, res) => {
           .filter(Boolean);
         // Find the IMEI record in imeiRecords by matching either side
         const imeiRecord = imeiRecords.find(
-          (rec) => parsedImeis.includes(rec.imei1) || (rec.imei2 && parsedImeis.includes(rec.imei2))
+          (rec) =>
+            parsedImeis.includes(rec.imei1) ||
+            (rec.imei2 && parsedImeis.includes(rec.imei2))
         );
         let buyingPrice = 0;
         if (imeiRecord) {
@@ -2288,7 +2353,10 @@ exports.sellPhonesFromBulk = async (req, res) => {
         totalBuyingPrice += buyingPrice;
         totalSellingPrice += Number(sellingPrice);
         profitDetails.push({
-          imei: parsedImeis.length > 0 ? parsedImeis.join(" / ") : String(imeiKey).trim(),
+          imei:
+            parsedImeis.length > 0
+              ? parsedImeis.join(" / ")
+              : String(imeiKey).trim(),
           sellingPrice: Number(sellingPrice),
           buyingPrice,
           profit: Number(sellingPrice) - buyingPrice,
@@ -2299,17 +2367,19 @@ exports.sellPhonesFromBulk = async (req, res) => {
       totalSellingPrice = Number(salePrice);
       // Calculate total buying price for all IMEIs being sold
       const totalImeis = imeiNumbers.length;
-      totalBuyingPrice = (Number(bulkPhonePurchase.prices.buyingPrice) / 
-        bulkPhonePurchase.ramSimDetails.reduce(
-          (sum, rs) => sum + (rs.imeiNumbers ? rs.imeiNumbers.length : 0),
-          0
-        )) * totalImeis;
-      
-      profitDetails = imeiNumbers.map(imei => ({
+      totalBuyingPrice =
+        (Number(bulkPhonePurchase.prices.buyingPrice) /
+          bulkPhonePurchase.ramSimDetails.reduce(
+            (sum, rs) => sum + (rs.imeiNumbers ? rs.imeiNumbers.length : 0),
+            0
+          )) *
+        totalImeis;
+
+      profitDetails = imeiNumbers.map((imei) => ({
         imei,
         sellingPrice: Number(salePrice) / totalImeis,
         buyingPrice: totalBuyingPrice / totalImeis,
-        profit: (Number(salePrice) / totalImeis) - (totalBuyingPrice / totalImeis)
+        profit: Number(salePrice) / totalImeis - totalBuyingPrice / totalImeis,
       }));
     }
 
@@ -2324,7 +2394,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
       0
     );
     console.log("Total Profit:", totalProfit);
-    console.log(req.body)
+    console.log(req.body);
     console.log("Bulk Phone Purchase Data:", bulkPhonePurchaseData);
     // Create a single SoldPhone record for all IMEIs
     const soldPhone = new SoldPhone({
@@ -2460,8 +2530,7 @@ exports.sellPhonesFromBulk = async (req, res) => {
       id: finalSoldPhone._id,
       purchasePrice: finalSoldPhone.purchasePrice,
       bulkPhonePurchaseId: finalSoldPhone.bulkPhonePurchaseId,
-      profit: finalSoldPhone.profit
-      
+      profit: finalSoldPhone.profit,
     });
 
     if (
@@ -2706,35 +2775,34 @@ exports.getAllSales = async (req, res) => {
       // Bulk purchase details (only if available)
       bulkPurchase: sale.bulkPhonePurchaseId
         ? {
-          id: sale.bulkPhonePurchaseId._id,
-          date: sale.bulkPhonePurchaseId.date,
-          purchasePaymentStatus:
-            sale.bulkPhonePurchaseId.purchasePaymentStatus,
-          purchasePaymentType:
-            sale.bulkPhonePurchaseId.purchasePaymentType,
-          prices: sale.bulkPhonePurchaseId.prices,
-          creditPaymentData: sale.bulkPhonePurchaseId.creditPaymentData,
-          status: sale.bulkPhonePurchaseId.status,
-          ramSimDetails: sale.bulkPhonePurchaseId.ramSimDetails?.map(
-            (ramSim) => ({
-              id: ramSim._id,
-              companyName: ramSim.companyName,
-              modelName: ramSim.modelName,
-              ramMemory: ramSim.ramMemory,
-              simOption: ramSim.simOption,
-              priceOfOne: ramSim.priceOfOne,
-              imeiNumbers: ramSim.imeiNumbers?.map((imei) => ({
-                id: imei._id,
-                imei1: imei.imei1,
-                imei2: imei.imei2 || null,
-                color: imei.color,
-                batteryHealth: imei.batteryHealth,
-                isDispatched: imei.isDispatched,
-              })),
-            })
-          ),
-          dispatch: sale.bulkPhonePurchaseId.dispatch,
-        }
+            id: sale.bulkPhonePurchaseId._id,
+            date: sale.bulkPhonePurchaseId.date,
+            purchasePaymentStatus:
+              sale.bulkPhonePurchaseId.purchasePaymentStatus,
+            purchasePaymentType: sale.bulkPhonePurchaseId.purchasePaymentType,
+            prices: sale.bulkPhonePurchaseId.prices,
+            creditPaymentData: sale.bulkPhonePurchaseId.creditPaymentData,
+            status: sale.bulkPhonePurchaseId.status,
+            ramSimDetails: sale.bulkPhonePurchaseId.ramSimDetails?.map(
+              (ramSim) => ({
+                id: ramSim._id,
+                companyName: ramSim.companyName,
+                modelName: ramSim.modelName,
+                ramMemory: ramSim.ramMemory,
+                simOption: ramSim.simOption,
+                priceOfOne: ramSim.priceOfOne,
+                imeiNumbers: ramSim.imeiNumbers?.map((imei) => ({
+                  id: imei._id,
+                  imei1: imei.imei1,
+                  imei2: imei.imei2 || null,
+                  color: imei.color,
+                  batteryHealth: imei.batteryHealth,
+                  isDispatched: imei.isDispatched,
+                })),
+              })
+            ),
+            dispatch: sale.bulkPhonePurchaseId.dispatch,
+          }
         : null,
       // Accessories
       accessories: sale.accessories || [],
@@ -2881,11 +2949,11 @@ exports.dispatchSinglePurchase = async (req, res) => {
       {
         dispatch: true,
         ...(warranty && {
-          $set: { "warranty": warranty }
+          $set: { warranty: warranty },
         }),
         ...(purchasePrice && {
-          $set: { "price.purchasePrice": purchasePrice }
-        })
+          $set: { "price.purchasePrice": purchasePrice },
+        }),
       },
       { new: true }
     );
@@ -3354,12 +3422,12 @@ exports.getBulkDispatches = async (req, res) => {
 exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
   const { customerNumber } = req.params;
   const userId = req.user.id; // Extract user ID from request
-  const {imei} = req.body;
+  const { imei } = req.body;
 
   console.log("customerNumber:", customerNumber);
   console.log("userId:", userId);
   console.log("imei:", imei);
-  
+
   if (!customerNumber || !userId) {
     return res
       .status(400)
@@ -3372,82 +3440,89 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
     let bulkSoldPhones = [];
     let bulkPurchasePhones = [];
 
-   console.log(imei);
-   
+    console.log(imei);
 
     if (imei) {
       // Search by IMEI
       console.log("Searching by IMEI:", customerNumber);
-      
+
       // Search in SingleSoldPhone by IMEI
       singleSoldPhone = await SingleSoldPhone.find({
-        $or: [
-          { imei1: customerNumber },
-          { imei2: customerNumber }
-        ],
+        $or: [{ imei1: customerNumber }, { imei2: customerNumber }],
         userId,
-      }).populate('purchasePhoneId').populate('bankAccountUsed').populate('pocketCash');
+      })
+        .populate("purchasePhoneId")
+        .populate("bankAccountUsed")
+        .populate("pocketCash");
 
       // Search in PurchasePhone by IMEI
       singlePurchasePhone = await PurchasePhone.find({
-        $or: [
-          { imei1: customerNumber },
-          { imei2: customerNumber }
-        ],
+        $or: [{ imei1: customerNumber }, { imei2: customerNumber }],
         userId,
-      }).populate('bankAccountUsed').populate('pocketCash').populate('shopid');
+      })
+        .populate("bankAccountUsed")
+        .populate("pocketCash")
+        .populate("shopid");
 
       // Search in SoldPhone (bulk) by IMEI
       bulkSoldPhones = await SoldPhone.find({
         $or: [
           { imei1: { $in: [customerNumber] } },
-          { imei2: { $in: [customerNumber] } }
+          { imei2: { $in: [customerNumber] } },
         ],
         userId,
-      }).populate('bulkPhonePurchaseId').populate('bankAccountUsed').populate('pocketCash');
+      })
+        .populate("bulkPhonePurchaseId")
+        .populate("bankAccountUsed")
+        .populate("pocketCash");
 
       // Search in BulkPhonePurchase by IMEI through ramSimDetails
       const bulkPurchases = await BulkPhonePurchase.find({
         userId,
       }).populate({
-        path: 'ramSimDetails',
+        path: "ramSimDetails",
         populate: {
-          path: 'imeiNumbers',
+          path: "imeiNumbers",
           match: {
-            $or: [
-              { imei1: customerNumber },
-              { imei2: customerNumber }
-            ]
-          }
-        }
+            $or: [{ imei1: customerNumber }, { imei2: customerNumber }],
+          },
+        },
       });
 
       // Filter bulk purchases that have matching IMEIs
-      bulkPurchasePhones = bulkPurchases.filter(bulk => 
-        bulk.ramSimDetails.some(ramSim => 
-          ramSim.imeiNumbers && ramSim.imeiNumbers.length > 0
+      bulkPurchasePhones = bulkPurchases.filter((bulk) =>
+        bulk.ramSimDetails.some(
+          (ramSim) => ramSim.imeiNumbers && ramSim.imeiNumbers.length > 0
         )
       );
-
     } else {
       // Search by customer number (original logic)
       console.log("Searching by customer number:", customerNumber);
-      
+
       singleSoldPhone = await SingleSoldPhone.find({
         customerNumber,
         userId,
-      }).populate('purchasePhoneId').populate('bankAccountUsed').populate('pocketCash');
-      
+      })
+        .populate("purchasePhoneId")
+        .populate("bankAccountUsed")
+        .populate("pocketCash");
+
       singlePurchasePhone = await PurchasePhone.find({
         mobileNumber: customerNumber,
         userId,
-      }).populate('bankAccountUsed').populate('pocketCash').populate('shopid');
+      })
+        .populate("bankAccountUsed")
+        .populate("pocketCash")
+        .populate("shopid");
 
       // Search bulk sold phones by customer number
       bulkSoldPhones = await SoldPhone.find({
         customerNumber,
         userId,
-      }).populate('bulkPhonePurchaseId').populate('bankAccountUsed').populate('pocketCash');
+      })
+        .populate("bulkPhonePurchaseId")
+        .populate("bankAccountUsed")
+        .populate("pocketCash");
 
       // Search bulk purchases by personId (if customer is a person)
       const person = await Person.findOne({ number: customerNumber, userId });
@@ -3455,67 +3530,70 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
         bulkPurchasePhones = await BulkPhonePurchase.find({
           personId: person._id,
           userId,
-        }).populate('personId').populate('bankAccountUsed').populate('pocketCash');
+        })
+          .populate("personId")
+          .populate("bankAccountUsed")
+          .populate("pocketCash");
       }
     }
 
     // Format results with additional metadata
     const formatResults = (items, type) => {
-      return items.map(item => ({
+      return items.map((item) => ({
         ...item.toObject(),
         recordType: type,
-        searchType: imei ? 'imei' : 'phone_number',
+        searchType: imei ? "imei" : "phone_number",
         searchValue: customerNumber,
         createdAt: item.createdAt,
-        updatedAt: item.updatedAt
+        updatedAt: item.updatedAt,
       }));
     };
 
     const combinedResults = {
       searchInfo: {
         searchValue: customerNumber,
-        searchType: imei ? 'imei' : 'phone_number',
-        totalRecords: 0
+        searchType: imei ? "imei" : "phone_number",
+        totalRecords: 0,
       },
-      singlePurchases: formatResults(singlePurchasePhone, 'single_purchase'),
-      singleSales: formatResults(singleSoldPhone, 'single_sale'),
-      bulkPurchases: formatResults(bulkPurchasePhones, 'bulk_purchase'),
-      bulkSales: formatResults(bulkSoldPhones, 'bulk_sale'),
+      singlePurchases: formatResults(singlePurchasePhone, "single_purchase"),
+      singleSales: formatResults(singleSoldPhone, "single_sale"),
+      bulkPurchases: formatResults(bulkPurchasePhones, "bulk_purchase"),
+      bulkSales: formatResults(bulkSoldPhones, "bulk_sale"),
       summary: {
         totalPurchases: singlePurchasePhone.length + bulkPurchasePhones.length,
         totalSales: singleSoldPhone.length + bulkSoldPhones.length,
         singlePurchases: singlePurchasePhone.length,
         singleSales: singleSoldPhone.length,
         bulkPurchases: bulkPurchasePhones.length,
-        bulkSales: bulkSoldPhones.length
-      }
+        bulkSales: bulkSoldPhones.length,
+      },
     };
 
-    combinedResults.searchInfo.totalRecords = combinedResults.summary.totalPurchases + combinedResults.summary.totalSales;
+    combinedResults.searchInfo.totalRecords =
+      combinedResults.summary.totalPurchases +
+      combinedResults.summary.totalSales;
 
     if (combinedResults.searchInfo.totalRecords === 0) {
       const searchType = imei ? "IMEI" : "phone number";
-      return res
-        .status(404)
-        .json({ 
-          success: false,
-          message: `No records found for this ${searchType}`,
-          searchValue: customerNumber,
-          searchType: imei ? 'imei' : 'phone_number'
-        });
+      return res.status(404).json({
+        success: false,
+        message: `No records found for this ${searchType}`,
+        searchValue: customerNumber,
+        searchType: imei ? "imei" : "phone_number",
+      });
     }
 
     return res.status(200).json({
       success: true,
       message: "Records retrieved successfully",
-      data: combinedResults
+      data: combinedResults,
     });
   } catch (error) {
     console.error("Error fetching customer details:", error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       success: false,
-      message: "Server error", 
-      error: error.message 
+      message: "Server error",
+      error: error.message,
     });
   }
 };
@@ -3875,12 +3953,21 @@ exports.getCustomerSalesRecordDetailsByNumber = async (req, res) => {
 exports.soldAnyPhone = async (req, res) => {
   try {
     const userId = req.user.id;
-  const { imeis, bankAccountUsed, accountCash, pocketCash,entityData ,sellingPaymentType,payableAmountLater,payableAmountNow, payableAmountLaterDate,
-      imeiPrices,// Array of {imei: '', price: ''} objects
-      ...phoneDetails } =
-      req.body;
+    const {
+      imeis,
+      bankAccountUsed,
+      accountCash,
+      pocketCash,
+      entityData,
+      sellingPaymentType,
+      payableAmountLater,
+      payableAmountNow,
+      payableAmountLaterDate,
+      imeiPrices, // Array of {imei: '', price: ''} objects
+      ...phoneDetails
+    } = req.body;
     const accessories = req.body.accessories || [];
-   
+
     // Arrays to store phone details from ramSim - declare at the top
     const phoneModels = [];
     const phoneCompanies = [];
@@ -3904,14 +3991,14 @@ exports.soldAnyPhone = async (req, res) => {
         message: "Either Entity ID or Number must be provided.",
       });
     }
-    
+
     const soldPhones = [];
     const notFoundImeis = [];
-    
+
     // Create a map of IMEI to price for quick lookup
     const imeiToPriceMap = new Map();
     if (imeiPrices && Array.isArray(imeiPrices)) {
-      imeiPrices.forEach(item => {
+      imeiPrices.forEach((item) => {
         if (item.imei && item.price) {
           imeiToPriceMap.set(item.imei, Number(item.price));
         }
@@ -3919,14 +4006,14 @@ exports.soldAnyPhone = async (req, res) => {
     }
 
     // Get all bulk phones for this user (not just one)
-    const bulkPhones = await BulkPhonePurchase.find({ 
+    const bulkPhones = await BulkPhonePurchase.find({
       userId,
-      status: { $in: ["Available", "Partially Sold"] }
+      status: { $in: ["Available", "Partially Sold"] },
     }).populate({
       path: "ramSimDetails",
-      populate: { 
+      populate: {
         path: "imeiNumbers",
-        match: { status: "Available" }
+        // Don't filter by status - we need to see all IMEIs to check if they're available
       },
     });
 
@@ -3938,29 +4025,27 @@ exports.soldAnyPhone = async (req, res) => {
         userId,
         $or: [
           { status: "Available" },
-          { status: { $exists: false } } // Include documents without status field (legacy data)
+          { status: { $exists: false } }, // Include documents without status field (legacy data)
         ],
-        $and: [
-          { $or: [{ imei1: imei }, { imei2: imei }] }
-        ]
+        $and: [{ $or: [{ imei1: imei }, { imei2: imei }] }],
       });
 
-      
       if (purchasePhone) {
         purchasePhone.isSold = true;
         await purchasePhone.save();
-        
+
         // Store phone details in arrays for single phones
         phoneModels.push(purchasePhone.modelName || purchasePhone.name);
         phoneCompanies.push(purchasePhone.companyName);
         phoneColors.push(purchasePhone.color);
         phoneRams.push(purchasePhone.ramMemory);
-        
+
         // Calculate profit for single phone
-        const soldPrice = imeiToPriceMap.get(imei) || Number(phoneDetails.salePrice) || 0;
+        const soldPrice =
+          imeiToPriceMap.get(imei) || Number(phoneDetails.salePrice) || 0;
         const purchasePrice = purchasePhone.price?.purchasePrice || 0;
         const profit = soldPrice - purchasePrice;
-        
+
         const soldPhone = new SingleSoldPhone({
           purchasePhoneId: purchasePhone._id,
           userId,
@@ -3993,12 +4078,14 @@ exports.soldAnyPhone = async (req, res) => {
           ...(sellingPaymentType === "Credit" && {
             payableAmountNow: Number(payableAmountNow || 0),
             payableAmountLater: Number(payableAmountLater || 0),
-            payableAmountLaterDate: payableAmountLaterDate ? new Date(payableAmountLaterDate) : undefined,
+            payableAmountLaterDate: payableAmountLaterDate
+              ? new Date(payableAmountLaterDate)
+              : undefined,
           }),
           invoiceNumber: "INV-" + new Date().getTime(),
           ...phoneDetails, // Now filtered to exclude financial fields
         });
-        
+
         await soldPhone.save();
         // Mark the phone as sold instead of deleting
         purchasePhone.status = "Sold";
@@ -4018,7 +4105,8 @@ exports.soldAnyPhone = async (req, res) => {
         for (const ramSim of bulkPhone.ramSimDetails) {
           console.log("ramSim", ramSim);
           const imeiIndex = ramSim.imeiNumbers.findIndex(
-            (i) => i.imei1 === imei || i.imei2 === imei
+            (i) =>
+              (i.imei1 === imei || i.imei2 === imei) && i.status === "Available"
           );
           if (imeiIndex !== -1) {
             const imeiDoc = ramSim.imeiNumbers[imeiIndex];
@@ -4031,38 +4119,41 @@ exports.soldAnyPhone = async (req, res) => {
             phoneSims.push(ramSim.simOption);
 
             // Calculate profit for bulk phone using unit price, not total bulk price
-            const soldPrice = imeiToPriceMap.get(imei) || Number(phoneDetails.salePrice) || 0;
+            const soldPrice =
+              imeiToPriceMap.get(imei) || Number(phoneDetails.salePrice) || 0;
             const unitPrice = Number(ramSim.priceOfOne) || 0;
             const profit = soldPrice - unitPrice;
-            
+
             const soldPhone = new SoldPhone({
-                bulkPhonePurchaseId: bulkPhone._id,
-                imei1: imeiDoc.imei1,
-                imei2: imeiDoc.imei2,
-                userId,
-                dateSold: phoneDetails.saleDate,
-                companyName: ramSim.companyName || phoneDetails.companyName,
-                modelName: ramSim.modelName || phoneDetails.modelName,
-                color: imeiDoc.color || phoneDetails.color,
-                ramMemory: ramSim.ramMemory,
-                simOption: ramSim.simOption,
-                priceOfOne: ramSim.priceOfOne,
-                purchasePrice: unitPrice, // Use unit price instead of total bulk price
-                salePrice: soldPrice,
-                totalInvoice: soldPrice,
-                profit: profit,
-                sellingPaymentType,
-                ...(sellingPaymentType === "Credit" && {
-                  payableAmountNow: Number(payableAmountNow || 0),
-                  payableAmountLater: Number(payableAmountLater || 0),
-                  payableAmountLaterDate: payableAmountLaterDate ? new Date(payableAmountLaterDate) : undefined,
-                }),
-                customerName: phoneDetails.customerName,
-                customerNumber: phoneDetails.customerNumber,
-                warranty: phoneDetails.warranty,
-                invoiceNumber: "INV-" + new Date().getTime(),
-                ...phoneDetails, // Now filtered to exclude financial fields
-              });
+              bulkPhonePurchaseId: bulkPhone._id,
+              imei1: imeiDoc.imei1,
+              imei2: imeiDoc.imei2,
+              userId,
+              dateSold: phoneDetails.saleDate,
+              companyName: ramSim.companyName || phoneDetails.companyName,
+              modelName: ramSim.modelName || phoneDetails.modelName,
+              color: imeiDoc.color || phoneDetails.color,
+              ramMemory: ramSim.ramMemory,
+              simOption: ramSim.simOption,
+              priceOfOne: ramSim.priceOfOne,
+              purchasePrice: unitPrice, // Use unit price instead of total bulk price
+              salePrice: soldPrice,
+              totalInvoice: soldPrice,
+              profit: profit,
+              sellingPaymentType,
+              ...(sellingPaymentType === "Credit" && {
+                payableAmountNow: Number(payableAmountNow || 0),
+                payableAmountLater: Number(payableAmountLater || 0),
+                payableAmountLaterDate: payableAmountLaterDate
+                  ? new Date(payableAmountLaterDate)
+                  : undefined,
+              }),
+              customerName: phoneDetails.customerName,
+              customerNumber: phoneDetails.customerNumber,
+              warranty: phoneDetails.warranty,
+              invoiceNumber: "INV-" + new Date().getTime(),
+              ...phoneDetails, // Now filtered to exclude financial fields
+            });
 
             await soldPhone.save();
 
@@ -4081,30 +4172,31 @@ exports.soldAnyPhone = async (req, res) => {
               }
             }
 
-            ramSim.imeiNumbers.splice(imeiIndex, 1);
+            // DON'T remove IMEI from ramSim.imeiNumbers - keep it but mark as sold
+            // This is the key difference from the old approach
             ramSimChanged = true;
             await ramSim.save();
-
-            // If ramSim.imeiNumbers is now empty, mark for removal from bulkPhone
-            if (ramSim.imeiNumbers.length === 0) {
-              ramSimToRemove.push(ramSim._id.toString());
-            }
 
             soldPhones.push({ imei, type: "bulk", soldPhone });
             found = true;
             break;
           }
         }
-        // Remove empty ramSimDetails from bulkPhone
-        if (ramSimChanged && ramSimToRemove.length > 0) {
-          bulkPhone.ramSimDetails = bulkPhone.ramSimDetails.filter(
-            (ramSim) => !ramSimToRemove.includes(ramSim._id.toString())
-          );
-          await bulkPhone.save();
-        }
+
         // Update bulk purchase status based on remaining IMEIs
         if (ramSimChanged) {
+          console.log(
+            `Updating bulk purchase status for bulkPhone._id: ${bulkPhone._id}`
+          );
           await updateBulkPurchaseStatus(bulkPhone._id);
+
+          // Verify the status was updated
+          const updatedBulkPhone = await BulkPhonePurchase.findById(
+            bulkPhone._id
+          );
+          console.log(
+            `Bulk purchase status after update: ${updatedBulkPhone.status}`
+          );
         }
         if (found) break;
       }
@@ -4164,7 +4256,13 @@ exports.soldAnyPhone = async (req, res) => {
       await BankTransaction.create({
         bankId: bank._id,
         userId: req.user.id,
-        sourceOfAmountAddition: `Phone Sale: ${imeis.length} of company name ${phoneCompanies.join(", ") || 'N/A'} and model name ${phoneModels.join(", ") || 'N/A'} and color ${phoneColors.join(", ") || 'N/A'} and ram ${phoneRams.join(", ") || 'N/A'} and sold to ${entityData.name || 'Customer'} | Amount: Rs. ${accountCash || 0}`,
+        sourceOfAmountAddition: `Phone Sale: ${imeis.length} of company name ${
+          phoneCompanies.join(", ") || "N/A"
+        } and model name ${phoneModels.join(", ") || "N/A"} and color ${
+          phoneColors.join(", ") || "N/A"
+        } and ram ${phoneRams.join(", ") || "N/A"} and sold to ${
+          entityData.name || "Customer"
+        } | Amount: Rs. ${accountCash || 0}`,
         accountCash: accountCash || 0,
         accountType: bank.accountType,
       });
@@ -4189,7 +4287,13 @@ exports.soldAnyPhone = async (req, res) => {
         amountDeducted: pocketCash || 0,
         accountCash: pocketTransaction.accountCash,
         remainingAmount: pocketTransaction.accountCash,
-        sourceOfAmountAddition: `Phone Sale: ${imeis.length} of company name ${phoneCompanies.join(", ") || 'N/A'} and model name ${phoneModels.join(", ") || 'N/A'} and color ${phoneColors.join(", ") || 'N/A'} and ram ${phoneRams.join(", ") || 'N/A'} and sold to ${entityData.name || 'Customer'} | Amount: Rs. ${pocketCash || 0}`,
+        sourceOfAmountAddition: `Phone Sale: ${imeis.length} of company name ${
+          phoneCompanies.join(", ") || "N/A"
+        } and model name ${phoneModels.join(", ") || "N/A"} and color ${
+          phoneColors.join(", ") || "N/A"
+        } and ram ${phoneRams.join(", ") || "N/A"} and sold to ${
+          entityData.name || "Customer"
+        } | Amount: Rs. ${pocketCash || 0}`,
       });
     }
     let person = null;
@@ -4203,7 +4307,7 @@ exports.soldAnyPhone = async (req, res) => {
     const currentGiveCreditAmount = person ? person.givingCredit : 0;
     console.log("person found:", person);
     console.log("soldPhones structure:", JSON.stringify(soldPhones, null, 2));
-    
+
     // Log the arrays containing phone details
     console.log("=== PHONE DETAILS ARRAYS ===");
     console.log("phoneModels:", phoneModels);
@@ -4215,39 +4319,45 @@ exports.soldAnyPhone = async (req, res) => {
 
     // Helper function to extract phone details for credit transaction description
     const getPhoneDetailsForDescription = (soldPhones) => {
-      const models = soldPhones.map(phone => {
-        if (phone.type === 'single') {
-          return phone.soldPhone?.modelName || phone.soldPhone?.name || 'N/A';
-        } else {
-          // For bulk phones, get model name from the sold phone object
-          return phone.soldPhone?.modelName || 'N/A';
-        }
-      }).filter(model => model !== 'N/A');
-      
-      const companies = soldPhones.map(phone => {
-        if (phone.type === 'single') {
-          return phone.soldPhone?.companyName || 'N/A';
-        } else {
-          // For bulk phones, get company name from the sold phone object
-          return phone.soldPhone?.companyName || 'N/A';
-        }
-      }).filter(company => company !== 'N/A');
-      
-      const colors = soldPhones.map(phone => {
-        if (phone.type === 'single') {
-          return phone.soldPhone?.color || 'N/A';
-        } else {
-          // For bulk phones, get color from the sold phone object
-          return phone.soldPhone?.color || 'N/A';
-        }
-      }).filter(color => color !== 'N/A');
-      
+      const models = soldPhones
+        .map((phone) => {
+          if (phone.type === "single") {
+            return phone.soldPhone?.modelName || phone.soldPhone?.name || "N/A";
+          } else {
+            // For bulk phones, get model name from the sold phone object
+            return phone.soldPhone?.modelName || "N/A";
+          }
+        })
+        .filter((model) => model !== "N/A");
+
+      const companies = soldPhones
+        .map((phone) => {
+          if (phone.type === "single") {
+            return phone.soldPhone?.companyName || "N/A";
+          } else {
+            // For bulk phones, get company name from the sold phone object
+            return phone.soldPhone?.companyName || "N/A";
+          }
+        })
+        .filter((company) => company !== "N/A");
+
+      const colors = soldPhones
+        .map((phone) => {
+          if (phone.type === "single") {
+            return phone.soldPhone?.color || "N/A";
+          } else {
+            // For bulk phones, get color from the sold phone object
+            return phone.soldPhone?.color || "N/A";
+          }
+        })
+        .filter((color) => color !== "N/A");
+
       const result = {
-        models: models.length > 0 ? models.join(", ") : 'N/A',
-        companies: companies.length > 0 ? companies.join(", ") : 'N/A',
-        colors: colors.length > 0 ? colors.join(", ") : 'N/A'
+        models: models.length > 0 ? models.join(", ") : "N/A",
+        companies: companies.length > 0 ? companies.join(", ") : "N/A",
+        colors: colors.length > 0 ? colors.join(", ") : "N/A",
       };
-      
+
       console.log("Extracted phone details:", result);
       return result;
     };
@@ -4267,13 +4377,25 @@ exports.soldAnyPhone = async (req, res) => {
           personId: person._id,
           givingCredit: Number(payableAmountLater),
           balanceAmount: Number(payableAmountLater),
-          description: `Credit Sale: received amount of ${imeis.length} phones is ${payableAmountNow} and sold to ${entityData.name || person.name
-            } || Credit: ${payableAmountLater} || Model: ${phoneModels.join(", ") || 'N/A'} || Company: ${phoneCompanies.join(", ") || 'N/A'} || Color: ${phoneColors.join(", ") || 'N/A'} || RAM: ${phoneRams.join(", ") || 'N/A'} || SIM: ${phoneSims.join(", ") || 'N/A'}`,
+          description: `Credit Sale: received amount of ${
+            imeis.length
+          } phones is ${payableAmountNow} and sold to ${
+            entityData.name || person.name
+          } || Credit: ${payableAmountLater} || Model: ${
+            phoneModels.join(", ") || "N/A"
+          } || Company: ${phoneCompanies.join(", ") || "N/A"} || Color: ${
+            phoneColors.join(", ") || "N/A"
+          } || RAM: ${phoneRams.join(", ") || "N/A"} || SIM: ${
+            phoneSims.join(", ") || "N/A"
+          }`,
         });
       } else {
-        const currentGivingCredit = Number(person.givingCredit || 0) + Number(payableAmountLater);
+        const currentGivingCredit =
+          Number(person.givingCredit || 0) + Number(payableAmountLater);
         const currentTakingCredit = Number(person.takingCredit || 0);
-        const currentAmount = Math.abs(Number(currentGivingCredit - currentTakingCredit))
+        const currentAmount = Math.abs(
+          Number(currentGivingCredit - currentTakingCredit)
+        );
         const previousBalance = Number(person.takingCredit || 0);
         person.givingCredit += Number(payableAmountLater);
         person.status = "Receivable";
@@ -4282,9 +4404,18 @@ exports.soldAnyPhone = async (req, res) => {
           userId: req.user.id,
           personId: person._id,
           givingCredit: Number(payableAmountLater),
-          balanceAmount: Math.abs(currentAmount) ,
-          description: `Credit Sale: received amount of ${imeis.length} phones is ${payableAmountNow} and sold to ${entityData.name || person.name
-            } || Credit: ${payableAmountLater} || Model: ${phoneModels.join(", ") || 'N/A'} || Company: ${phoneCompanies.join(", ") || 'N/A'} || Color: ${phoneColors.join(", ") || 'N/A'} || RAM: ${phoneRams.join(", ") || 'N/A'} || SIM: ${phoneSims.join(", ") || 'N/A'}`,
+          balanceAmount: Math.abs(currentAmount),
+          description: `Credit Sale: received amount of ${
+            imeis.length
+          } phones is ${payableAmountNow} and sold to ${
+            entityData.name || person.name
+          } || Credit: ${payableAmountLater} || Model: ${
+            phoneModels.join(", ") || "N/A"
+          } || Company: ${phoneCompanies.join(", ") || "N/A"} || Color: ${
+            phoneColors.join(", ") || "N/A"
+          } || RAM: ${phoneRams.join(", ") || "N/A"} || SIM: ${
+            phoneSims.join(", ") || "N/A"
+          }`,
         });
       }
     }
@@ -4297,13 +4428,21 @@ exports.soldAnyPhone = async (req, res) => {
           personId: person._id,
           balanceAmount: Number(person.givingCredit),
           givingCredit: 0,
-          description: `Complete Payment of phone Sale:  ${imeis.length
-            } phones sold to  ${entityData.name || person.name
-            }  || Model: ${phoneModels.join(", ") || 'N/A'} || Company: ${phoneCompanies.join(", ") || 'N/A'} || Color: ${phoneColors.join(", ") || 'N/A'} || RAM: ${phoneRams.join(", ") || 'N/A'} || SIM: ${phoneSims.join(", ") || 'N/A'}`,
+          description: `Complete Payment of phone Sale:  ${
+            imeis.length
+          } phones sold to  ${entityData.name || person.name}  || Model: ${
+            phoneModels.join(", ") || "N/A"
+          } || Company: ${phoneCompanies.join(", ") || "N/A"} || Color: ${
+            phoneColors.join(", ") || "N/A"
+          } || RAM: ${phoneRams.join(", ") || "N/A"} || SIM: ${
+            phoneSims.join(", ") || "N/A"
+          }`,
         });
       } else {
         // Do not create a new Person entity, just log or skip
-        console.log("No existing entity found for full payment sale, not creating new entity.");
+        console.log(
+          "No existing entity found for full payment sale, not creating new entity."
+        );
       }
     }
 
@@ -4311,7 +4450,7 @@ exports.soldAnyPhone = async (req, res) => {
     const totalProfit = soldPhones.reduce((sum, phone) => {
       return sum + (phone.soldPhone?.profit || 0);
     }, 0);
-    
+
     return res.status(200).json({
       message: "Processed IMEIs.",
       soldCount: soldPhones.length,
@@ -4420,9 +4559,9 @@ exports.getDetailByImeiNumber = async (req, res) => {
     let imeiList = Array.isArray(imei)
       ? imei
       : imei
-        .split(",")
-        .map((i) => i.trim())
-        .filter(Boolean);
+          .split(",")
+          .map((i) => i.trim())
+          .filter(Boolean);
 
     const results = [];
 
@@ -4569,7 +4708,6 @@ exports.returnSingleSoldToPurchase = async (req, res) => {
   }
 };
 
-
 exports.returnBulkSoldToPurchase = async (req, res) => {
   try {
     const {
@@ -4582,9 +4720,12 @@ exports.returnBulkSoldToPurchase = async (req, res) => {
     } = req.body;
 
     // Validate input
-    if (!bulkSoldId && (!imeiNumbersWithPrices || imeiNumbersWithPrices.length === 0)) {
+    if (
+      !bulkSoldId &&
+      (!imeiNumbersWithPrices || imeiNumbersWithPrices.length === 0)
+    ) {
       return res.status(400).json({
-        message: "Either bulkSoldId or imeiNumbersWithPrices array is required"
+        message: "Either bulkSoldId or imeiNumbersWithPrices array is required",
       });
     }
 
@@ -4597,7 +4738,9 @@ exports.returnBulkSoldToPurchase = async (req, res) => {
     // Use IMEI arrays directly from SoldPhone; do not rely on BulkPhonePurchase
     const soldImei1List = Array.isArray(soldPhone.imei1)
       ? soldPhone.imei1.map(String)
-      : (soldPhone.imei1 ? [String(soldPhone.imei1)] : []);
+      : soldPhone.imei1
+      ? [String(soldPhone.imei1)]
+      : [];
 
     let phonesToReturn = [];
     let totalReturnPrice = 0;
@@ -4637,7 +4780,9 @@ exports.returnBulkSoldToPurchase = async (req, res) => {
       }
 
       if (accountCash > bank.accountCash) {
-        return res.status(400).json({ message: "Insufficient bank account balance" });
+        return res
+          .status(400)
+          .json({ message: "Insufficient bank account balance" });
       }
 
       bank.accountCash -= accountCash;
@@ -4658,7 +4803,9 @@ exports.returnBulkSoldToPurchase = async (req, res) => {
         userId: req.user.id,
       });
       if (!pocketTransaction) {
-        return res.status(404).json({ message: "Pocket cash account not found" });
+        return res
+          .status(404)
+          .json({ message: "Pocket cash account not found" });
       }
 
       if (pocketCash > pocketTransaction.accountCash) {
@@ -4679,7 +4826,10 @@ exports.returnBulkSoldToPurchase = async (req, res) => {
     }
 
     // Handle credit manipulation if the original sale was on credit
-    if (soldPhone.sellingPaymentType === "Credit" && soldPhone.payableAmountLater) {
+    if (
+      soldPhone.sellingPaymentType === "Credit" &&
+      soldPhone.payableAmountLater
+    ) {
       // Lookup person by customer number + user
       let person = await Person.findOne({
         number: Number(soldPhone.customerNumber),
@@ -4688,7 +4838,7 @@ exports.returnBulkSoldToPurchase = async (req, res) => {
       if (person) {
         const payableAmountLater = Number(soldPhone.payableAmountLater);
         const returnPrice = totalReturnPrice;
-        
+
         let remainingAmount = 0;
         let creditType = "";
         let creditAmount = 0;
@@ -4698,16 +4848,19 @@ exports.returnBulkSoldToPurchase = async (req, res) => {
           remainingAmount = returnPrice - payableAmountLater;
           creditType = "takingCredit";
           creditAmount = remainingAmount;
-          person.takingCredit = Number(person.takingCredit || 0) + remainingAmount;
+          person.takingCredit =
+            Number(person.takingCredit || 0) + remainingAmount;
         } else {
           // We owe person
           remainingAmount = payableAmountLater - returnPrice;
           creditType = "givingCredit";
           creditAmount = remainingAmount;
-          person.givingCredit = Number(person.givingCredit || 0) + remainingAmount;
+          person.givingCredit =
+            Number(person.givingCredit || 0) + remainingAmount;
         }
 
-        person.status = creditType === "takingCredit" ? "Payable" : "Receivable";
+        person.status =
+          creditType === "takingCredit" ? "Payable" : "Receivable";
         await person.save();
 
         // Create credit transaction
@@ -4715,21 +4868,26 @@ exports.returnBulkSoldToPurchase = async (req, res) => {
           userId: req.user.id,
           personId: person._id,
           [creditType]: creditAmount,
-          balanceAmount: creditType === "takingCredit" 
-            ? Number(person.takingCredit || 0) 
-            : Number(person.givingCredit || 0),
+          balanceAmount:
+            creditType === "takingCredit"
+              ? Number(person.takingCredit || 0)
+              : Number(person.givingCredit || 0),
           description: `Phone return adjustment - Return amount: ${returnPrice}, Original credit: ${payableAmountLater}, ${creditType}: ${creditAmount}`,
         });
       }
     }
 
     // Create a new bulk purchase record for returned phones
-    const resolvedCompanyName = soldPhone.companyName || deviceInfo.companyName || "Unknown";
-    const resolvedModelName = soldPhone.modelName || deviceInfo.modelName || "Unknown";
-    const resolvedRamMemory = soldPhone.ramMemory || deviceInfo.ramMemory || "N/A";
+    const resolvedCompanyName =
+      soldPhone.companyName || deviceInfo.companyName || "Unknown";
+    const resolvedModelName =
+      soldPhone.modelName || deviceInfo.modelName || "Unknown";
+    const resolvedRamMemory =
+      soldPhone.ramMemory || deviceInfo.ramMemory || "N/A";
     const resolvedSpecifications = deviceInfo.specifications || "Returned";
     const resolvedPhoneCondition = deviceInfo.phoneCondition || "Used";
-    const resolvedWarranty = soldPhone.warranty || deviceInfo.warranty || "12 month";
+    const resolvedWarranty =
+      soldPhone.warranty || deviceInfo.warranty || "12 month";
 
     // Create bulk purchase record for returned phones
     const bulkReturnPurchase = new BulkPhonePurchase({
@@ -4784,16 +4942,19 @@ exports.returnBulkSoldToPurchase = async (req, res) => {
     // Calculate and update profit for the sold phone record
     let totalProfitAdjustment = 0;
     for (const phone of phonesToReturn) {
-      const previousProfit = Number(phone.originalSalePrice) - Number(phone.originalPurchasePrice);
+      const previousProfit =
+        Number(phone.originalSalePrice) - Number(phone.originalPurchasePrice);
       const profitAdjustment = previousProfit - Number(phone.returnPrice);
       totalProfitAdjustment += profitAdjustment;
     }
     soldPhone.profit = Number(soldPhone.profit || 0) - totalProfitAdjustment;
 
     // Remove returned IMEIs from the sold phone record
-    const returnedImei1s = phonesToReturn.map(phone => String(phone.imei1));
-    const remainingImeis = (soldPhone.imei1 || []).filter(imei => !returnedImei1s.includes(String(imei)));
-    
+    const returnedImei1s = phonesToReturn.map((phone) => String(phone.imei1));
+    const remainingImeis = (soldPhone.imei1 || []).filter(
+      (imei) => !returnedImei1s.includes(String(imei))
+    );
+
     if (remainingImeis.length === 0) {
       // All phones returned, delete the sold phone record
       await SoldPhone.findByIdAndDelete(bulkSoldId);
@@ -4810,15 +4971,14 @@ exports.returnBulkSoldToPurchase = async (req, res) => {
         totalReturnPrice,
         returnedPhoneCount: phonesToReturn.length,
         remainingImeis: remainingImeis.length,
-        soldPhoneDeleted: remainingImeis.length === 0
-      }
+        soldPhoneDeleted: remainingImeis.length === 0,
+      },
     });
-
   } catch (error) {
     console.error("Error returning bulk sold phones:", error);
-    res.status(500).json({ 
-      message: "Internal server error", 
-      error: error.message 
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
     });
   }
 };

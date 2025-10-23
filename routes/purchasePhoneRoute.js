@@ -46,36 +46,43 @@ const { decoderMiddleware } = require("../services/authServices");
 // Multer setup for file uploads (specific for adding purchase phones)
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/')
+    cb(null, "uploads/");
   },
   filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-    cb(null, file.fieldname + '-' + uniqueSuffix + '.' + file.originalname.split('.').pop())
-  }
-})
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(
+      null,
+      file.fieldname +
+        "-" +
+        uniqueSuffix +
+        "." +
+        file.originalname.split(".").pop()
+    );
+  },
+});
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: function (req, file, cb) {
     // Accept only image files
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true)
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed!'), false)
+      cb(new Error("Only image files are allowed!"), false);
     }
-  }
+  },
 });
 
 // Route to serve uploaded images
-router.get('/uploads/:filename', (req, res) => {
+router.get("/uploads/:filename", (req, res) => {
   const filename = req.params.filename;
-  const filePath = path.join(__dirname, '../uploads', filename);
+  const filePath = path.join(__dirname, "../uploads", filename);
   res.sendFile(filePath, (err) => {
     if (err) {
-      res.status(404).json({ message: 'File not found' });
+      res.status(404).json({ message: "File not found" });
     }
   });
 });
@@ -84,8 +91,8 @@ router.get('/uploads/:filename', (req, res) => {
 router.post(
   "/purchase-phone",
   upload.fields([
-    { name: 'cnicFrontPic', maxCount: 1 },
-    { name: 'cnicBackPic', maxCount: 1 }
+    { name: "cnicFrontPic", maxCount: 1 },
+    { name: "cnicBackPic", maxCount: 1 },
   ]),
   (req, res, next) => {
     console.log("After Multer:", req.files);
@@ -98,8 +105,8 @@ router.post(
 router.post(
   "/bulk-phone-purchase",
   upload.fields([
-    { name: 'cnicFrontPic', maxCount: 1 },
-    { name: 'cnicBackPic', maxCount: 1 }
+    { name: "cnicFrontPic", maxCount: 1 },
+    { name: "cnicBackPic", maxCount: 1 },
   ]),
   (req, res, next) => {
     console.log("After Multer (Bulk):", req.files);
@@ -156,8 +163,8 @@ router.get("/bulk-sold-phone/:id", decoderMiddleware, getBulkSoldPhoneById);
 router.post(
   "/single-purchase-phone",
   upload.fields([
-    { name: 'cnicFrontPic', maxCount: 1 },
-    { name: 'cnicBackPic', maxCount: 1 }
+    { name: "cnicFrontPic", maxCount: 1 },
+    { name: "cnicBackPic", maxCount: 1 },
   ]),
   (req, res, next) => {
     console.log("After Multer (Single Purchase):", req.files);
@@ -219,7 +226,11 @@ router.post(
   returnSingleSoldToPurchase
 );
 
-router.post("/return-bulk-sold-to-purchase", decoderMiddleware, returnBulkSoldToPurchase);
+router.post(
+  "/return-bulk-sold-to-purchase",
+  decoderMiddleware,
+  returnBulkSoldToPurchase
+);
 
 // Migration endpoint to add status field to existing documents
 router.post("/migrate-status-field", migrateStatusField);
