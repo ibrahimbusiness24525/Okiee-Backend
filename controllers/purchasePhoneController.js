@@ -4982,3 +4982,89 @@ exports.returnBulkSoldToPurchase = async (req, res) => {
     });
   }
 };
+
+// Get all IMEI1 data for both single and bulk phones by userId
+exports.getAllImeis = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Get IMEI1 from single purchase phones
+    const singlePhones = await PurchasePhone.find(
+      { userId: userId },
+      {
+        imei1: 1,
+        companyName: 1,
+        modelName: 1,
+        color: 1,
+        ramMemory: 1,
+        status: 1,
+        createdAt: 1,
+      }
+    ).sort({ createdAt: -1 });
+
+    // Get IMEI1 from bulk purchase phones through RamSim and Imei collections
+    const bulkPhones = await BulkPhonePurchase.find({ userId: userId })
+      .populate({
+        path: "ramSimDetails",
+        populate: {
+          path: "imeiNumbers",
+          select: "imei1 imei2 batteryHealth color status",
+        },
+      })
+      .select("companyName modelName date createdAt status");
+
+    // Format single phones data
+    const singlePhonesData = singlePhones.map((phone) => ({
+      imei1: phone.imei1,
+      phoneType: "single",
+      companyName: phone.companyName,
+      modelName: phone.modelName,
+      color: phone.color,
+      ramMemory: phone.ramMemory,
+      status: phone.status,
+      purchaseDate: phone.createdAt,
+    }));
+
+    // Format bulk phones data
+    const bulkPhonesData = [];
+    bulkPhones.forEach((bulkPhone) => {
+      bulkPhone.ramSimDetails.forEach((ramSim) => {
+        ramSim.imeiNumbers.forEach((imei) => {
+          bulkPhonesData.push({
+            imei1: imei.imei1,
+            phoneType: "bulk",
+            companyName: bulkPhone.companyName,
+            modelName: ramSim.modelName,
+            color: imei.color,
+            ramMemory: ramSim.ramMemory,
+            status: imei.status,
+            purchaseDate: bulkPhone.createdAt,
+          });
+        });
+      });
+    });
+
+    // Combine and sort all IMEI data
+    const allImeis = [...singlePhonesData, ...bulkPhonesData].sort(
+      (a, b) => new Date(b.purchaseDate) - new Date(a.purchaseDate)
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "All IMEI1 data retrieved successfully",
+      data: {
+        totalCount: allImeis.length,
+        singlePhonesCount: singlePhonesData.length,
+        bulkPhonesCount: bulkPhonesData.length,
+        imeis: allImeis,
+      },
+    });
+  } catch (error) {
+    console.error("Error in getAllImeis:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};

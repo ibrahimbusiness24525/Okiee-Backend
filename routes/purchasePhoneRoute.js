@@ -40,6 +40,7 @@ const {
   returnSingleSoldToPurchase,
   returnBulkSoldToPurchase,
   migrateStatusField,
+  getAllImeis,
 } = require("../controllers/purchasePhoneController");
 const { decoderMiddleware } = require("../services/authServices");
 
@@ -234,5 +235,8 @@ router.post(
 
 // Migration endpoint to add status field to existing documents
 router.post("/migrate-status-field", migrateStatusField);
+
+// Route to get all IMEI1 data for both single and bulk phones
+router.get("/all-imeis", decoderMiddleware, getAllImeis);
 
 module.exports = router;
