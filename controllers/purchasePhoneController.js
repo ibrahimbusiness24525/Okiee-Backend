@@ -4503,11 +4503,11 @@ exports.soldAnyPhone = async (req, res) => {
         if (!payableAmountLater || payableAmountLater <= 0) {
           throw new Error("Payable amount later is required for credit sales.");
         }
-        if (!payableAmountNow || payableAmountNow < 0) {
-          throw new Error(
-            "Payable amount now must be provided for credit sales."
-          );
-        }
+        // if (!payableAmountNow || payableAmountNow < 0) {
+        //   throw new Error(
+        //     "Payable amount now must be provided for credit sales."
+        //   );
+        // }
       }
 
       if (entityData && !entityData._id && !entityData.number) {
