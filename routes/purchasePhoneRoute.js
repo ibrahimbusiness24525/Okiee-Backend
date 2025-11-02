@@ -178,6 +178,9 @@ router.post(
 router.put("/single-purchase-phone/:id", updateSinglePurchasePhone);
 
 // Route to delete a purchase phone slip by ID
+// Supports optional query parameter: ?imei=123456789 or ?imei=123,456,789 (comma-separated for multiple)
+// If imei is provided, deletes only those specific IMEI(s) based on imei1
+// If imei is not provided, deletes the entire bulk purchase
 router.delete("/purchase-bulk/delete/:id", decoderMiddleware, deleteBulkPhone);
 router.delete(
   "/purchase-phone/delete/:id",

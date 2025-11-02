@@ -1767,6 +1767,7 @@ exports.updateBulkPhone = async (req, res) => {
 exports.deleteBulkPhone = async (req, res) => {
   try {
     const { id } = req.params;
+    const { imei } = req.query; // Get IMEI from query parameters
     const userId = req.user?.id; // Ensure userId exists
 
     // Find the BulkPhonePurchase document
@@ -1782,6 +1783,70 @@ exports.deleteBulkPhone = async (req, res) => {
         .json({ message: "Unauthorized to delete this bulk phone purchase" });
     }
 
+    // If IMEI is provided, delete only that/those specific IMEI(s)
+    if (imei) {
+      // Find all RamSims associated with this bulk purchase
+      const ramSimIds = bulkPhonePurchase.ramSimDetails;
+      if (ramSimIds.length === 0) {
+        return res
+          .status(404)
+          .json({ message: "No RamSim records found for this bulk purchase" });
+      }
+
+      // Support comma-separated IMEIs or single IMEI
+      const imeiList = Array.isArray(imei)
+        ? imei
+        : imei
+            .split(",")
+            .map((i) => i.trim())
+            .filter(Boolean);
+
+      // Find all IMEIs that match the provided IMEI(s) based on imei1 only
+      const imeiRecords = await Imei.find({
+        imei1: { $in: imeiList },
+        ramSimId: { $in: ramSimIds },
+      });
+
+      if (imeiRecords.length === 0) {
+        return res
+          .status(404)
+          .json({ message: "No matching IMEIs found in this bulk purchase" });
+      }
+
+      // Group IMEI records by ramSimId to update each RamSim efficiently
+      const ramSimUpdateMap = new Map();
+
+      for (const imeiRecord of imeiRecords) {
+        const ramSimId = imeiRecord.ramSimId.toString();
+        if (!ramSimUpdateMap.has(ramSimId)) {
+          ramSimUpdateMap.set(ramSimId, []);
+        }
+        ramSimUpdateMap.get(ramSimId).push(imeiRecord._id);
+      }
+
+      // Update each RamSim's imeiNumbers array
+      for (const [ramSimId, imeiIdsToRemove] of ramSimUpdateMap.entries()) {
+        const ramSim = await RamSim.findById(ramSimId);
+        if (ramSim) {
+          ramSim.imeiNumbers = ramSim.imeiNumbers.filter(
+            (imeiId) => !imeiIdsToRemove.some((id) => id.equals(imeiId))
+          );
+          await ramSim.save();
+        }
+      }
+
+      // Delete all matching IMEI records
+      const imeiIdsToDelete = imeiRecords.map((record) => record._id);
+      await Imei.deleteMany({ _id: { $in: imeiIdsToDelete } });
+
+      const deletedCount = imeiRecords.length;
+      return res.status(200).json({
+        message: `${deletedCount} IMEI(s) deleted successfully from bulk purchase`,
+        deletedCount,
+      });
+    }
+
+    // If no IMEI provided, delete the entire bulk purchase (existing behavior)
     // Delete related RamSim and Imei records
     const ramSimIds = bulkPhonePurchase.ramSimDetails; // Array of RamSim IDs
     if (ramSimIds.length > 0) {
