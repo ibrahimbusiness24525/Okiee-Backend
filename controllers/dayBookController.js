@@ -1,4 +1,7 @@
-const { Accessory, AccessoryTransaction } = require("../schema/accessorySchema");
+const {
+  Accessory,
+  AccessoryTransaction,
+} = require("../schema/accessorySchema");
 const Ledger = require("../schema/LedgerSchema");
 const {
   Person,
@@ -173,9 +176,10 @@ exports.getToDayBook = async (req, res) => {
       const start = new Date(startParam);
       const end = new Date(endParam);
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        return res
-          .status(400)
-          .json({ message: "Invalid date range. Use YYYY-MM-DD for startDate and endDate." });
+        return res.status(400).json({
+          message:
+            "Invalid date range. Use YYYY-MM-DD for startDate and endDate.",
+        });
       }
       // Normalize to [start@00:00:00.000, end+1day@00:00:00.000) to keep $lt semantics
       selectedDate = new Date(start);
@@ -244,29 +248,34 @@ exports.getToDayBook = async (req, res) => {
         userId,
         createdAt: { $gte: selectedDate, $lt: nextDate },
       }),
-      Accessory.find({ userId,
-        //  updatedAt: { $gte: selectedDate, $lt: nextDate } 
-        }),
+      Accessory.find({
+        userId,
+        //  updatedAt: { $gte: selectedDate, $lt: nextDate }
+      }),
       AccessoryTransaction.find({
         userId,
         createdAt: { $gte: selectedDate, $lt: nextDate },
-      })
+      }),
     ]);
     console.log("accessories", accessories);
     // === PHONE STOCK CALCULATIONS ===
-    const totalSinglePhones = allSinglePhones.length;
-    const totalSingleAmount = allSinglePhones.reduce(
+    // Filter out sold single phones
+    const availableSinglePhones = allSinglePhones.filter(
+      (phone) => phone.status !== "Sold" && !phone.isSold
+    );
+    const totalSinglePhones = availableSinglePhones.length;
+    const totalSingleAmount = availableSinglePhones.reduce(
       (sum, phone) => sum + (phone.price?.purchasePrice || 0),
       0
     );
-    const totalSingleNewAmount = allSinglePhones.reduce(
+    const totalSingleNewAmount = availableSinglePhones.reduce(
       (sum, phone) =>
         phone.phoneCondition === "New"
           ? sum + (phone.price?.purchasePrice || 0)
           : sum,
       0
     );
-    const totalSingleUsedAmount = allSinglePhones.reduce(
+    const totalSingleUsedAmount = availableSinglePhones.reduce(
       (sum, phone) =>
         phone.phoneCondition === "Used"
           ? sum + (phone.price?.purchasePrice || 0)
@@ -279,7 +288,10 @@ exports.getToDayBook = async (req, res) => {
     allBulkPhones.forEach((bulk) => {
       if (!bulk.ramSimDetails) return;
       bulk.ramSimDetails.forEach((ramSim) => {
-        const imeiCount = ramSim.imeiNumbers?.length || 0;
+        // Count only IMEIs that are not sold
+        const availableImeis =
+          ramSim.imeiNumbers?.filter((imei) => imei.status !== "Sold") || [];
+        const imeiCount = availableImeis.length;
         const priceOfOne = parseFloat(ramSim.priceOfOne) || 0;
         totalBulkPhones += imeiCount;
         totalBulkAmount += imeiCount * priceOfOne;
@@ -325,7 +337,7 @@ exports.getToDayBook = async (req, res) => {
       (sum, accessory) => sum + (accessory.totalPrice || 0),
       0
     );
-    const todayPersonsOfAccessories = accessories.map(accessory => ({
+    const todayPersonsOfAccessories = accessories.map((accessory) => ({
       name: accessory?.personId?.name || "Unknown",
       phone: accessory?.personId?.number || "Unknown",
       totalPrice: accessory?.totalPrice || 0,
@@ -335,10 +347,21 @@ exports.getToDayBook = async (req, res) => {
     }));
     console.log("total single new stock amount:", totalSingleNewAmount);
     console.log("total single used stock amount:", totalSingleUsedAmount);
-    console.log("total single used stock amount length:", allSinglePhones.filter(phone => phone.phoneCondition === "Used").length);
-    console.log("total single new stock amount length:", allSinglePhones.filter(phone => phone.phoneCondition === "New").length);
+    console.log(
+      "total single used stock amount length:",
+      availableSinglePhones.filter((phone) => phone.phoneCondition === "Used")
+        .length
+    );
+    console.log(
+      "total single new stock amount length:",
+      availableSinglePhones.filter((phone) => phone.phoneCondition === "New")
+        .length
+    );
     console.log("total bulk stock amount:", totalBulkAmount);
-    console.log("total accessory stock amount:", totalAccessoryTransactionAmount);
+    console.log(
+      "total accessory stock amount:",
+      totalAccessoryTransactionAmount
+    );
     res.status(200).json({
       message: `Records fetched for ${dateParam || "today"}`,
       data: {
@@ -348,7 +371,10 @@ exports.getToDayBook = async (req, res) => {
         soldSinglePhone,
         soldBulkPhone,
         totalStockCount: totalSinglePhones + totalBulkPhones,
-        totalStockAmount: totalSingleAmount + totalBulkAmount + Number(totalAccessoryTransactionAmount),
+        totalStockAmount:
+          totalSingleAmount +
+          totalBulkAmount +
+          Number(totalAccessoryTransactionAmount),
         todayPersonsOfAccessories,
         totalAccessoriesProfit,
         totalAccesoriesTransactionLength,
@@ -356,7 +382,7 @@ exports.getToDayBook = async (req, res) => {
         // Echo back the effective date range used so the frontend can display it
         dateRange: {
           startDate: selectedDate,
-          endDate: new Date(nextDate.getTime() - 1) // inclusive end (just before nextDate)
+          endDate: new Date(nextDate.getTime() - 1), // inclusive end (just before nextDate)
         },
         creditSummary: {
           totalPayable,
