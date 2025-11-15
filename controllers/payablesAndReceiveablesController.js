@@ -189,7 +189,7 @@ exports.takeCredit = async (req, res) => {
       await PocketCashTransactionSchema.create({
         userId: req.user.id,
         pocketCashId: pocketTransaction._id, // if you want to associate it
-        amountDeducted: takeCredit?.amountFromPocket,
+        amountAdded: takeCredit?.amountFromPocket,
         accountCash: pocketTransaction.accountCash, // ✅ add this line
         remainingAmount: pocketTransaction.accountCash,
         sourceOfAmountAddition: `take credit from person: ${person.name}, amount from pocket: ${takeCredit?.amountFromPocket} | total amount: ${amount}`,
