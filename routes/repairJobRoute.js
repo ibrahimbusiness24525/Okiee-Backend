@@ -5,6 +5,8 @@ const {
   toggleRepairJobStatus,
   getAllRepairJobs,
   getRepairJobById,
+  toggleRepairJobStatusToPrevious,
+  updateRepairJob,
 } = require("../controllers/repairJobController");
 const { decoderMiddleware } = require("../services/authServices");
 
@@ -12,7 +14,21 @@ const { decoderMiddleware } = require("../services/authServices");
 router.post("/repair-job", decoderMiddleware, createRepairJob);
 
 // Toggle repair job status (todo -> in-progress -> complete -> handover)
-router.patch("/repair-job/:id/toggle-status", decoderMiddleware, toggleRepairJobStatus);
+router.patch(
+  "/repair-job/:id/toggle-status",
+  decoderMiddleware,
+  toggleRepairJobStatus
+);
+
+// Toggle repair job status to previous one (reverse: handover -> complete -> in-progress -> todo)
+router.patch(
+  "/repair-job/:id/toggle-status-previous",
+  decoderMiddleware,
+  toggleRepairJobStatusToPrevious
+);
+
+// Update/edit repair job
+router.put("/repair-job/:id", decoderMiddleware, updateRepairJob);
 
 // Get all repair jobs (optional query: ?status=todo|in-progress|complete|handover)
 router.get("/repair-jobs", decoderMiddleware, getAllRepairJobs);
@@ -21,4 +37,3 @@ router.get("/repair-jobs", decoderMiddleware, getAllRepairJobs);
 router.get("/repair-job/:id", decoderMiddleware, getRepairJobById);
 
 module.exports = router;
-
