@@ -7,6 +7,7 @@ const {
   getRepairJobById,
   toggleRepairJobStatusToPrevious,
   updateRepairJob,
+  deleteRepairJob,
 } = require("../controllers/repairJobController");
 const { decoderMiddleware } = require("../services/authServices");
 
@@ -35,5 +36,8 @@ router.get("/repair-jobs", decoderMiddleware, getAllRepairJobs);
 
 // Get repair job by ID
 router.get("/repair-job/:id", decoderMiddleware, getRepairJobById);
+
+// Delete repair job
+router.delete("/repair-job/:id", decoderMiddleware, deleteRepairJob);
 
 module.exports = router;

@@ -340,6 +340,45 @@ exports.getRepairJobById = async (req, res) => {
   }
 };
 
+// Delete repair job
+exports.deleteRepairJob = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Repair job ID is required",
+      });
+    }
+
+    const deletedJob = await RepairJob.findOneAndDelete({
+      _id: id,
+      userId: userId,
+    });
+
+    if (!deletedJob) {
+      return res.status(404).json({
+        success: false,
+        message: "Repair job not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Repair job deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting repair job:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 // Toggle repair job status to previous one (reverse)
 exports.toggleRepairJobStatusToPrevious = async (req, res) => {
   try {
@@ -542,6 +581,20 @@ exports.updateRepairJob = async (req, res) => {
       } else {
         repairJob.advance = undefined;
         repairJob.payLate = undefined;
+      }
+
+      // Recalculate profit = estimatedAmount - total parts price
+      if (Array.isArray(repairJob.parts) && repairJob.parts.length > 0) {
+        const totalPartsPrice = repairJob.parts.reduce(
+          (sum, part) => sum + Number(part.price || 0),
+          0
+        );
+        repairJob.profit = Math.max(
+          0,
+          Number(repairJob.estimatedAmount || 0) - totalPartsPrice
+        );
+      } else {
+        repairJob.profit = Number(repairJob.estimatedAmount || 0);
       }
 
       await repairJob.save({ session });

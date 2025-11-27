@@ -89,6 +89,12 @@ const RepairJobSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    // Profit (calculated: estimatedAmount - total parts price)
+    profit: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     paymentType: {
       type: String,
       enum: ["full", "credit"],
@@ -124,6 +130,16 @@ RepairJobSchema.pre("save", function (next) {
   if (this.paymentType === "credit" && this.advance !== undefined) {
     this.payLate = this.estimatedAmount - this.advance;
   }
+  // Calculate profit = estimatedAmount - total parts price
+  if (Array.isArray(this.parts) && this.parts.length > 0) {
+    const totalPartsPrice = this.parts.reduce(
+      (sum, part) => sum + Number(part.price || 0),
+      0
+    );
+    this.profit = Math.max(0, this.estimatedAmount - totalPartsPrice);
+  } else {
+    this.profit = this.estimatedAmount;
+  }
   next();
 });
 
@@ -134,4 +150,3 @@ RepairJobSchema.index({ customerNumber: 1, userId: 1 });
 const RepairJob = mongoose.model("RepairJob", RepairJobSchema);
 
 module.exports = RepairJob;
-

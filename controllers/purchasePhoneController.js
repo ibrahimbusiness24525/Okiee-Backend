@@ -5088,11 +5088,73 @@ exports.updateSoldPhone = async (req, res) => {
     // Try to update in SingleSoldPhone first
     let singleSoldPhone = await SingleSoldPhone.findById(id);
     if (singleSoldPhone) {
-      Object.assign(singleSoldPhone, updateData);
-      await singleSoldPhone.save();
+      // Handle conditional fields based on sellingPaymentType
+      const sellingPaymentType =
+        updateData.sellingPaymentType || singleSoldPhone.sellingPaymentType;
+      const previousPaymentType = singleSoldPhone.sellingPaymentType;
+
+      // Prepare update object with $set and $unset
+      const updateObject = { $set: {}, $unset: {} };
+
+      // Set all provided fields
+      Object.keys(updateData).forEach((key) => {
+        if (updateData[key] !== undefined && updateData[key] !== null) {
+          updateObject.$set[key] = updateData[key];
+        }
+      });
+
+      // Clear conditional fields only if payment type is changing
+      if (sellingPaymentType !== previousPaymentType) {
+        if (sellingPaymentType !== "Credit") {
+          updateObject.$unset.payableAmountNow = "";
+          updateObject.$unset.payableAmountLater = "";
+          updateObject.$unset.payableAmountLaterDate = "";
+          // Remove from $set if they exist to avoid conflict
+          delete updateObject.$set.payableAmountNow;
+          delete updateObject.$set.payableAmountLater;
+          delete updateObject.$set.payableAmountLaterDate;
+        }
+        if (sellingPaymentType !== "Bank") {
+          updateObject.$unset.bankName = "";
+          // Remove from $set if it exists to avoid conflict
+          delete updateObject.$set.bankName;
+        }
+        if (sellingPaymentType !== "Exchange") {
+          updateObject.$unset.exchangePhoneDetail = "";
+          // Remove from $set if it exists to avoid conflict
+          delete updateObject.$set.exchangePhoneDetail;
+        }
+      }
+
+      // Remove empty $unset if no fields to unset
+      if (Object.keys(updateObject.$unset).length === 0) {
+        delete updateObject.$unset;
+      }
+      if (Object.keys(updateObject.$set).length === 0) {
+        delete updateObject.$set;
+      }
+
+      console.log(
+        "Update object for SingleSoldPhone:",
+        JSON.stringify(updateObject, null, 2)
+      );
+
+      // Use findByIdAndUpdate with runValidators
+      const updated = await SingleSoldPhone.findByIdAndUpdate(
+        id,
+        updateObject,
+        { new: true, runValidators: true }
+      );
+
+      if (!updated) {
+        return res
+          .status(404)
+          .json({ message: "Single sold phone record not found" });
+      }
+
       return res.status(200).json({
         message: "Single sold phone record updated successfully",
-        soldPhone: singleSoldPhone,
+        soldPhone: updated,
       });
     }
     console.log(
@@ -5106,13 +5168,73 @@ exports.updateSoldPhone = async (req, res) => {
       return res.status(404).json({ message: "Sold phone record not found" });
     }
 
-    // Update the sold phone record
-    Object.assign(soldPhone, updateData);
-    await soldPhone.save();
+    // Handle conditional fields based on sellingPaymentType
+    const sellingPaymentType =
+      updateData.sellingPaymentType || soldPhone.sellingPaymentType;
+    const previousPaymentType = soldPhone.sellingPaymentType;
+
+    // Prepare update object with $set and $unset
+    const updateObject = { $set: {}, $unset: {} };
+
+    // Set all provided fields
+    Object.keys(updateData).forEach((key) => {
+      if (updateData[key] !== undefined && updateData[key] !== null) {
+        updateObject.$set[key] = updateData[key];
+      }
+    });
+
+    // Clear conditional fields only if payment type is changing
+    if (sellingPaymentType !== previousPaymentType) {
+      if (sellingPaymentType !== "Credit") {
+        updateObject.$unset.payableAmountNow = "";
+        updateObject.$unset.payableAmountLater = "";
+        updateObject.$unset.payableAmountLaterDate = "";
+        // Remove from $set if they exist to avoid conflict
+        delete updateObject.$set.payableAmountNow;
+        delete updateObject.$set.payableAmountLater;
+        delete updateObject.$set.payableAmountLaterDate;
+      }
+      if (sellingPaymentType !== "Bank") {
+        updateObject.$unset.bankName = "";
+        // Remove from $set if it exists to avoid conflict
+        delete updateObject.$set.bankName;
+      }
+      if (sellingPaymentType !== "Exchange") {
+        updateObject.$unset.exchangePhoneDetail = "";
+        // Remove from $set if it exists to avoid conflict
+        delete updateObject.$set.exchangePhoneDetail;
+      }
+    }
+
+    // Remove empty $unset if no fields to unset
+    if (Object.keys(updateObject.$unset).length === 0) {
+      delete updateObject.$unset;
+    }
+    if (Object.keys(updateObject.$set).length === 0) {
+      delete updateObject.$set;
+    }
+
+    console.log(
+      "Update object for SoldPhone:",
+      JSON.stringify(updateObject, null, 2)
+    );
+
+    // Use findByIdAndUpdate with runValidators
+    const updated = await SoldPhone.findByIdAndUpdate(id, updateObject, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!updated) {
+      return res.status(404).json({ message: "Sold phone record not found" });
+    }
 
     return res
       .status(200)
-      .json({ message: "Sold phone record updated successfully", soldPhone });
+      .json({
+        message: "Sold phone record updated successfully",
+        soldPhone: updated,
+      });
   } catch (error) {
     console.error("Error updating sold phone:", error);
     return res
