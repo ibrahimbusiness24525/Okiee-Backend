@@ -10,6 +10,7 @@ const {
 } = require("../schema/purchasePhoneSchema");
 const { default: mongoose } = require("mongoose");
 const { invoiceGenerator } = require("../services/invoiceGenerator");
+const { createSaleInvoice } = require("./saleInvoiceController");
 
 // Migration function to add status field to existing documents
 const migrateExistingDocuments = async () => {
@@ -71,6 +72,106 @@ const updateBulkPurchaseStatus = async (bulkPurchaseId) => {
     await bulkPurchase.save();
   } catch (error) {
     console.error("Error updating bulk purchase status:", error);
+  }
+};
+
+// Helper function to create invoice from sale data
+const createInvoiceFromSale = async (userId, saleData) => {
+  try {
+    const invoiceData = {
+      userId,
+      saleType: saleData.saleType || "generic",
+      invoiceNumber: saleData.invoiceNumber || invoiceGenerator(),
+      saleDate: saleData.saleDate || new Date(),
+      customerName: saleData.customerName,
+      customerNumber: saleData.customerNumber,
+      cnicFrontPic: saleData.cnicFrontPic,
+      cnicBackPic: saleData.cnicBackPic,
+      phoneDetails: {
+        imei1: saleData.imei1,
+        imei2: saleData.imei2,
+        companyName: saleData.companyName,
+        modelName: saleData.modelName,
+        color: saleData.color,
+        ramMemory: saleData.ramMemory,
+        batteryHealth: saleData.batteryHealth,
+        simOption: saleData.simOption,
+        specifications: saleData.specifications,
+        phoneCondition: saleData.phoneCondition,
+        warranty: saleData.warranty,
+      },
+      pricing: {
+        salePrice: saleData.salePrice,
+        purchasePrice: saleData.purchasePrice,
+        totalInvoice: saleData.totalInvoice,
+        profit: saleData.profit,
+        demandPrice: saleData.demandPrice,
+        finalPrice: saleData.finalPrice,
+      },
+      payment: {
+        sellingPaymentType: saleData.sellingPaymentType,
+        bankAccountUsed: saleData.bankAccountUsed,
+        accountCash: saleData.accountCash,
+        bankName: saleData.bankName,
+        pocketCash: saleData.pocketCash,
+        payableAmountNow: saleData.payableAmountNow,
+        payableAmountLater: saleData.payableAmountLater,
+        payableAmountLaterDate: saleData.payableAmountLaterDate
+          ? new Date(saleData.payableAmountLaterDate)
+          : undefined,
+        exchangePhoneDetail: saleData.exchangePhoneDetail,
+      },
+      accessories: saleData.accessories || [],
+      entityData: saleData.entityData || {},
+      references: {
+        purchasePhoneId: saleData.purchasePhoneId,
+        bulkPhonePurchaseId: saleData.bulkPhonePurchaseId,
+        singleSoldPhoneId: saleData.singleSoldPhoneId,
+        soldPhoneId: saleData.soldPhoneId,
+      },
+      metadata: {
+        shopid: saleData.shopid,
+        notes: saleData.notes,
+        imeiPrices: saleData.imeiPrices || [],
+      },
+    };
+
+    // Remove undefined values
+    Object.keys(invoiceData).forEach((key) => {
+      if (invoiceData[key] === undefined) {
+        delete invoiceData[key];
+      }
+    });
+
+    if (invoiceData.phoneDetails) {
+      Object.keys(invoiceData.phoneDetails).forEach((key) => {
+        if (invoiceData.phoneDetails[key] === undefined) {
+          delete invoiceData.phoneDetails[key];
+        }
+      });
+    }
+
+    if (invoiceData.pricing) {
+      Object.keys(invoiceData.pricing).forEach((key) => {
+        if (invoiceData.pricing[key] === undefined) {
+          delete invoiceData.pricing[key];
+        }
+      });
+    }
+
+    if (invoiceData.payment) {
+      Object.keys(invoiceData.payment).forEach((key) => {
+        if (invoiceData.payment[key] === undefined) {
+          delete invoiceData.payment[key];
+        }
+      });
+    }
+
+    return await createSaleInvoice(invoiceData);
+  } catch (error) {
+    console.error("Error creating invoice from sale:", error);
+    // Don't throw error - invoice creation failure shouldn't break the sale
+    return null;
   }
 };
 
@@ -752,6 +853,62 @@ exports.sellSinglePhone = async (req, res) => {
     purchasedPhone.soldDetails = soldPhone._id;
     purchasedPhone.status = "Sold";
     await purchasedPhone.save();
+
+    // Create invoice
+    try {
+      await createInvoiceFromSale(req.user.id, {
+        saleType: "single",
+        invoiceNumber: soldPhone.invoiceNumber,
+        saleDate: saleDate || new Date(),
+        customerName,
+        customerNumber,
+        cnicFrontPic,
+        cnicBackPic,
+        imei1: purchasedPhone.imei1,
+        imei2: purchasedPhone.imei2,
+        companyName: purchasedPhone.companyName,
+        modelName: purchasedPhone.modelName,
+        color: purchasedPhone.color,
+        ramMemory: purchasedPhone.ramMemory,
+        batteryHealth: purchasedPhone.batteryHealth,
+        specifications: purchasedPhone.specifications,
+        phoneCondition: purchasedPhone.phoneCondition,
+        warranty: updatedWarranty,
+        salePrice: Number(salePrice),
+        purchasePrice: Number(purchasedPhone.price.purchasePrice),
+        totalInvoice: Number(totalInvoice),
+        profit: Number(salePrice) - Number(purchasedPhone.price.purchasePrice),
+        demandPrice: purchasedPhone.price.demandPrice,
+        finalPrice: finalPrice || purchasedPhone.price.finalPrice,
+        sellingPaymentType,
+        bankAccountUsed,
+        accountCash,
+        bankName: sellingPaymentType === "Bank" ? bankName : undefined,
+        pocketCash,
+        payableAmountNow:
+          sellingPaymentType === "Credit" ? payableAmountNow : undefined,
+        payableAmountLater:
+          sellingPaymentType === "Credit" ? payableAmountLater : undefined,
+        payableAmountLaterDate:
+          sellingPaymentType === "Credit" ? payableAmountLaterDate : undefined,
+        exchangePhoneDetail:
+          sellingPaymentType === "Exchange" ? exchangePhoneDetail : undefined,
+        accessories: accessories || [],
+        entityData: person
+          ? {
+              _id: person._id,
+              name: customerName,
+              number: customerNumber,
+            }
+          : {},
+        purchasePhoneId: purchasedPhone._id,
+        singleSoldPhoneId: soldPhone._id,
+        shopid: purchasedPhone.shopid,
+      });
+    } catch (invoiceError) {
+      console.error("Error creating invoice:", invoiceError);
+      // Continue even if invoice creation fails
+    }
 
     res.status(201).json({ message: "Phone sold successfully", soldPhone });
   } catch (error) {
@@ -2502,6 +2659,72 @@ exports.sellPhonesFromBulk = async (req, res) => {
 
     // Update bulk purchase status based on remaining IMEIs
     await updateBulkPurchaseStatus(bulkPhonePurchase._id);
+
+    // Create invoice
+    try {
+      // Get phone details from first IMEI record
+      const firstImeiRecord = imeiRecords[0];
+      const firstRamSim = bulkPhonePurchase.ramSimDetails.find((rs) =>
+        rs.imeiNumbers.some(
+          (ir) => ir._id.toString() === firstImeiRecord._id.toString()
+        )
+      );
+
+      await createInvoiceFromSale(req.user.id, {
+        saleType: "bulk",
+        invoiceNumber: soldPhone.invoiceNumber,
+        saleDate: dateSold || new Date(),
+        customerName,
+        customerNumber,
+        cnicFrontPic,
+        cnicBackPic,
+        imei1: imei1List,
+        imei2: imei2List.length > 0 ? imei2List : undefined,
+        companyName: firstRamSim?.companyName || bulkPhonePurchase.companyName,
+        modelName: firstRamSim?.modelName || bulkPhonePurchase.modelName,
+        color: firstImeiRecord.color,
+        ramMemory: firstRamSim?.ramMemory,
+        batteryHealth: firstImeiRecord.batteryHealth,
+        simOption: firstRamSim?.simOption,
+        warranty,
+        salePrice: Number(salePrice),
+        purchasePrice: Number(bulkPhonePurchase.prices.buyingPrice),
+        totalInvoice: Number(totalInvoice),
+        profit: totalProfit,
+        sellingPaymentType,
+        bankAccountUsed,
+        accountCash,
+        bankName: sellingPaymentType === "Bank" ? bankName : undefined,
+        pocketCash,
+        payableAmountNow:
+          sellingPaymentType === "Credit" ? payableAmountNow : undefined,
+        payableAmountLater:
+          sellingPaymentType === "Credit" ? payableAmountLater : undefined,
+        payableAmountLaterDate:
+          sellingPaymentType === "Credit" ? payableAmountLaterDate : undefined,
+        exchangePhoneDetail:
+          sellingPaymentType === "Exchange" ? exchangePhoneDetail : undefined,
+        accessories: accessories || [],
+        entityData: person
+          ? {
+              _id: person._id,
+              name: entityData?.name || customerName,
+              number: entityData?.number || customerNumber,
+            }
+          : {},
+        bulkPhonePurchaseId: bulkPhonePurchase._id,
+        soldPhoneId: soldPhone._id,
+        imeiPrices: imeisWithPrices
+          ? Object.entries(imeisWithPrices).map(([imei, price]) => ({
+              imei,
+              price: Number(price),
+            }))
+          : [],
+      });
+    } catch (invoiceError) {
+      console.error("Error creating invoice:", invoiceError);
+      // Continue even if invoice creation fails
+    }
 
     // Refresh the bulkPhonePurchase data after modifications
     await bulkPhonePurchase.save();
@@ -5056,6 +5279,115 @@ exports.soldAnyPhone = async (req, res) => {
         return sum + (phone.soldPhone?.profit || 0);
       }, 0);
 
+      // Create invoice for generic sale (combines all phones)
+      try {
+        // Calculate totals
+        const totalSalePrice = soldPhones.reduce((sum, phone) => {
+          return (
+            sum +
+            (phone.soldPhone?.salePrice || phone.soldPhone?.totalInvoice || 0)
+          );
+        }, 0);
+
+        const totalPurchasePrice = soldPhones.reduce((sum, phone) => {
+          return sum + (phone.soldPhone?.purchasePrice || 0);
+        }, 0);
+
+        // Get IMEIs from sold phones
+        const allImei1s = soldPhones
+          .map((phone) => {
+            if (phone.soldPhone?.imei1) {
+              return Array.isArray(phone.soldPhone.imei1)
+                ? phone.soldPhone.imei1
+                : [phone.soldPhone.imei1];
+            }
+            return [];
+          })
+          .flat();
+
+        const allImei2s = soldPhones
+          .map((phone) => {
+            if (phone.soldPhone?.imei2) {
+              return Array.isArray(phone.soldPhone.imei2)
+                ? phone.soldPhone.imei2
+                : [phone.soldPhone.imei2];
+            }
+            return [];
+          })
+          .flat()
+          .filter(Boolean);
+
+        // Get first phone details for summary
+        const firstPhone = soldPhones[0]?.soldPhone;
+
+        await createInvoiceFromSale(req.user.id, {
+          saleType: "generic",
+          invoiceNumber: invoiceGenerator(),
+          saleDate: phoneDetails.saleDate || new Date(),
+          customerName: phoneDetails.customerName,
+          customerNumber: phoneDetails.customerNumber,
+          imei1:
+            allImei1s.length > 0
+              ? allImei1s.length === 1
+                ? allImei1s[0]
+                : allImei1s
+              : undefined,
+          imei2:
+            allImei2s.length > 0
+              ? allImei2s.length === 1
+                ? allImei2s[0]
+                : allImei2s
+              : undefined,
+          companyName:
+            phoneCompanies.length > 0
+              ? phoneCompanies[0]
+              : firstPhone?.companyName,
+          modelName:
+            phoneModels.length > 0 ? phoneModels[0] : firstPhone?.modelName,
+          color: phoneColors.length > 0 ? phoneColors[0] : firstPhone?.color,
+          ramMemory:
+            phoneRams.length > 0 ? phoneRams[0] : firstPhone?.ramMemory,
+          simOption:
+            phoneSims.length > 0 ? phoneSims[0] : firstPhone?.simOption,
+          warranty: phoneDetails.warranty,
+          salePrice: totalSalePrice,
+          purchasePrice: totalPurchasePrice,
+          totalInvoice: totalSalePrice,
+          profit: totalProfit,
+          sellingPaymentType,
+          bankAccountUsed,
+          accountCash: totalAccountCash,
+          pocketCash: totalPocketCash,
+          payableAmountNow:
+            sellingPaymentType === "Credit" ? payableAmountNow : undefined,
+          payableAmountLater:
+            sellingPaymentType === "Credit" ? payableAmountLater : undefined,
+          payableAmountLaterDate:
+            sellingPaymentType === "Credit"
+              ? payableAmountLaterDate
+                ? new Date(payableAmountLaterDate)
+                : undefined
+              : undefined,
+          accessories: accessories || [],
+          entityData: person
+            ? {
+                _id: person._id,
+                name: entityData?.name || phoneDetails.customerName,
+                number: entityData?.number || phoneDetails.customerNumber,
+              }
+            : {},
+          singleSoldPhoneId: soldPhones.find((p) => p.type === "single")
+            ?.soldPhone?._id,
+          soldPhoneId: soldPhones.find((p) => p.type === "bulk")?.soldPhone
+            ?._id,
+          imeiPrices: imeiPrices || [],
+          notes: `Generic sale of ${soldPhones.length} phone(s)`,
+        });
+      } catch (invoiceError) {
+        console.error("Error creating invoice:", invoiceError);
+        // Continue even if invoice creation fails
+      }
+
       return res.status(200).json({
         message: "Phones sold successfully.",
         soldCount: soldPhones.length,
@@ -5229,12 +5561,10 @@ exports.updateSoldPhone = async (req, res) => {
       return res.status(404).json({ message: "Sold phone record not found" });
     }
 
-    return res
-      .status(200)
-      .json({
-        message: "Sold phone record updated successfully",
-        soldPhone: updated,
-      });
+    return res.status(200).json({
+      message: "Sold phone record updated successfully",
+      soldPhone: updated,
+    });
   } catch (error) {
     console.error("Error updating sold phone:", error);
     return res
