@@ -55,14 +55,14 @@ exports.createRepairJob = async (req, res) => {
       }
 
       // Validate credit payment
-      if (paymentType === "credit") {
-        if (!advance || advance < 0) {
-          throw new Error("Advance amount is required for credit payments");
-        }
-        if (advance >= estimatedAmount) {
-          throw new Error("Advance amount must be less than estimated amount");
-        }
-      }
+      // if (paymentType === "credit") {
+      //   if (!advance || advance < 0) {
+      //     throw new Error("Advance amount is required for credit payments");
+      //   }
+      //   if (advance >= estimatedAmount) {
+      //     throw new Error("Advance amount must be less than estimated amount");
+      //   }
+      // }
 
       // Validate dates
       const received = receivedDate ? new Date(receivedDate) : new Date();

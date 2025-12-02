@@ -78,6 +78,21 @@ const updateBulkPurchaseStatus = async (bulkPurchaseId) => {
 // Helper function to create invoice from sale data
 const createInvoiceFromSale = async (userId, saleData) => {
   try {
+    // High-level log whenever invoice creation flow is triggered from any sale path
+    console.log("🧾 [Sale] createInvoiceFromSale called:", {
+      userId,
+      saleType: saleData?.saleType,
+      invoiceNumber: saleData?.invoiceNumber,
+      saleDate: saleData?.saleDate,
+      customerNumber: saleData?.customerNumber,
+      references: {
+        purchasePhoneId: saleData?.purchasePhoneId,
+        bulkPhonePurchaseId: saleData?.bulkPhonePurchaseId,
+        singleSoldPhoneId: saleData?.singleSoldPhoneId,
+        soldPhoneId: saleData?.soldPhoneId,
+      },
+    });
+
     const invoiceData = {
       userId,
       saleType: saleData.saleType || "generic",
@@ -110,7 +125,8 @@ const createInvoiceFromSale = async (userId, saleData) => {
       },
       payment: {
         sellingPaymentType: saleData.sellingPaymentType,
-        bankAccountUsed: saleData.bankAccountUsed,
+        // Normalize potential empty-string IDs to undefined so Mongoose doesn't try to cast ""
+        bankAccountUsed: saleData.bankAccountUsed || undefined,
         accountCash: saleData.accountCash,
         bankName: saleData.bankName,
         pocketCash: saleData.pocketCash,
@@ -167,9 +183,37 @@ const createInvoiceFromSale = async (userId, saleData) => {
       });
     }
 
-    return await createSaleInvoice(invoiceData);
+    // Log the final cleaned invoice payload that will be persisted
+    console.log("🧾 [Sale] createInvoiceFromSale - final invoiceData:", {
+      userId: invoiceData.userId,
+      saleType: invoiceData.saleType,
+      invoiceNumber: invoiceData.invoiceNumber,
+      saleDate: invoiceData.saleDate,
+      customerNumber: invoiceData.customerNumber,
+      totalInvoice: invoiceData.pricing?.totalInvoice,
+      hasAccessories: Array.isArray(invoiceData.accessories)
+        ? invoiceData.accessories.length
+        : 0,
+      references: invoiceData.references,
+    });
+
+    const createdInvoice = await createSaleInvoice(invoiceData);
+
+    console.log("✅ [Sale] createInvoiceFromSale - invoice persisted:", {
+      id: createdInvoice?._id?.toString?.(),
+      invoiceNumber: createdInvoice?.invoiceNumber,
+      saleType: createdInvoice?.saleType,
+      userId: createdInvoice?.userId,
+    });
+
+    return createdInvoice;
   } catch (error) {
-    console.error("Error creating invoice from sale:", error);
+    console.error("❌ [Sale] Error creating invoice from sale:", {
+      error,
+      userId,
+      saleType: saleData?.saleType,
+      invoiceNumber: saleData?.invoiceNumber,
+    });
     // Don't throw error - invoice creation failure shouldn't break the sale
     return null;
   }
@@ -624,6 +668,20 @@ exports.sellSinglePhone = async (req, res) => {
       exchangePhoneDetail,
     } = req.body;
 
+    console.log("📱 [Sale][Single] sellSinglePhone called:", {
+      userId: req.user?.id,
+      purchasePhoneId,
+      customerName,
+      customerNumber,
+      saleDate,
+      salePrice,
+      totalInvoice,
+      sellingPaymentType,
+      bankAccountUsed,
+      pocketCash,
+      accountCash,
+    });
+
     console.log("Received Data:", req.body);
     // Fetch the purchased phone details
     const purchasedPhone = await PurchasePhone.findById(purchasePhoneId);
@@ -909,6 +967,16 @@ exports.sellSinglePhone = async (req, res) => {
       console.error("Error creating invoice:", invoiceError);
       // Continue even if invoice creation fails
     }
+
+    console.log("✅ [Sale][Single] Phone sold successfully:", {
+      userId: req.user?.id,
+      soldPhoneId: soldPhone._id?.toString?.(),
+      purchasePhoneId: purchasedPhone._id?.toString?.(),
+      invoiceNumber: soldPhone.invoiceNumber,
+      salePrice,
+      totalInvoice,
+      sellingPaymentType,
+    });
 
     res.status(201).json({ message: "Phone sold successfully", soldPhone });
   } catch (error) {
@@ -2296,6 +2364,20 @@ exports.sellPhonesFromBulk = async (req, res) => {
       payableAmountLaterDate,
       exchangePhoneDetail,
     } = req.body;
+
+    console.log("📱 [Sale][Bulk] sellPhonesFromBulk called:", {
+      userId: req.user?.id,
+      bulkPhonePurchaseId,
+      imeiCount: Array.isArray(imeiNumbers) ? imeiNumbers.length : 0,
+      salePrice,
+      totalInvoice,
+      sellingPaymentType,
+      bankAccountUsed,
+      pocketCash,
+      accountCash,
+      customerName,
+      customerNumber,
+    });
     if (!bulkPhonePurchaseId) {
       return res.status(400).json({
         message: "Bulk Phone Purchase ID is required.",
@@ -2843,12 +2925,33 @@ exports.sellPhonesFromBulk = async (req, res) => {
       };
 
       await BulkPhonePurchase.findByIdAndDelete(bulkPhonePurchaseId);
+
+      console.log("✅ [Sale][Bulk] All phones sold, bulk purchase deleted:", {
+        userId: req.user?.id,
+        soldPhoneId: finalSoldPhone._id?.toString?.(),
+        bulkPhonePurchaseId,
+        imeiCount: Array.isArray(imeiNumbers) ? imeiNumbers.length : 0,
+        totalInvoice,
+        salePrice,
+        sellingPaymentType,
+      });
+
       return res.status(200).json({
         message: "All phones sold. Bulk purchase deleted.",
         soldPhone: finalSoldPhone,
         bulkPurchaseDetails,
       });
     }
+
+    console.log("✅ [Sale][Bulk] Phones sold successfully (partial bulk):", {
+      userId: req.user?.id,
+      soldPhoneId: finalSoldPhone._id?.toString?.(),
+      bulkPhonePurchaseId,
+      imeiCount: Array.isArray(imeiNumbers) ? imeiNumbers.length : 0,
+      totalInvoice,
+      salePrice,
+      sellingPaymentType,
+    });
 
     res.status(200).json({
       message: "Phones sold successfully",
@@ -4776,6 +4879,18 @@ exports.soldAnyPhone = async (req, res) => {
         ...phoneDetails
       } = req.body;
 
+      console.log("📱 [Sale][Generic] soldAnyPhone called:", {
+        userId,
+        imeiCount: Array.isArray(imeis) ? imeis.length : 0,
+        sellingPaymentType,
+        bankAccountUsed,
+        accountCash,
+        pocketCash,
+        customerName: phoneDetails?.customerName,
+        customerNumber: phoneDetails?.customerNumber,
+        saleDate: phoneDetails?.saleDate,
+      });
+
       const accessories = req.body.accessories || [];
 
       // Validate required fields
@@ -5320,7 +5435,7 @@ exports.soldAnyPhone = async (req, res) => {
         // Get first phone details for summary
         const firstPhone = soldPhones[0]?.soldPhone;
 
-        await createInvoiceFromSale(req.user.id, {
+        const invoiceData = await createInvoiceFromSale(req.user.id, {
           saleType: "generic",
           invoiceNumber: invoiceGenerator(),
           saleDate: phoneDetails.saleDate || new Date(),
@@ -5383,10 +5498,20 @@ exports.soldAnyPhone = async (req, res) => {
           imeiPrices: imeiPrices || [],
           notes: `Generic sale of ${soldPhones.length} phone(s)`,
         });
+        console.log("invoiceData", invoiceData);
       } catch (invoiceError) {
         console.error("Error creating invoice:", invoiceError);
         // Continue even if invoice creation fails
       }
+
+      console.log("✅ [Sale][Generic] Phones sold successfully:", {
+        userId,
+        soldCount: soldPhones.length,
+        notFoundCount: notFoundImeis.length,
+        totalProfit,
+        imeiCount: Array.isArray(imeis) ? imeis.length : 0,
+        sellingPaymentType,
+      });
 
       return res.status(200).json({
         message: "Phones sold successfully.",

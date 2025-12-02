@@ -8,6 +8,16 @@ const generateInvoiceNumber = () => {
 // Create invoice from sale data
 exports.createSaleInvoice = async (invoiceData) => {
   try {
+    // Debug log for tracking raw incoming invoice payload
+    console.log("🧾 [SaleInvoice] createSaleInvoice called with data:", {
+      userId: invoiceData?.userId,
+      saleType: invoiceData?.saleType,
+      invoiceNumber: invoiceData?.invoiceNumber,
+      saleDate: invoiceData?.saleDate,
+      customerNumber: invoiceData?.customerNumber,
+      totalInvoice: invoiceData?.pricing?.totalInvoice,
+    });
+
     // Generate invoice number if not provided
     if (!invoiceData.invoiceNumber) {
       invoiceData.invoiceNumber = generateInvoiceNumber();
@@ -15,6 +25,17 @@ exports.createSaleInvoice = async (invoiceData) => {
 
     const invoice = new SaleInvoice(invoiceData);
     await invoice.save();
+
+    // Success log after invoice is persisted
+    console.log("✅ [SaleInvoice] Invoice created successfully:", {
+      id: invoice?._id?.toString?.(),
+      invoiceNumber: invoice?.invoiceNumber,
+      userId: invoice?.userId,
+      saleType: invoice?.saleType,
+      saleDate: invoice?.saleDate,
+      totalInvoice: invoice?.pricing?.totalInvoice,
+    });
+
     return invoice;
   } catch (error) {
     console.error("Error creating sale invoice:", error);
