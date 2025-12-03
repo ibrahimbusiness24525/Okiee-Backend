@@ -72,10 +72,6 @@ exports.createRepairJob = async (req, res) => {
         throw new Error("Delivery date is required");
       }
 
-      if (delivery <= received) {
-        throw new Error("Delivery date must be after received date");
-      }
-
       // Validate company exists
       const companyDoc = await Company.findOne({
         _id: company,
@@ -486,20 +482,10 @@ exports.updateRepairJob = async (req, res) => {
       if (receivedDate && deliveryDate) {
         const received = new Date(receivedDate);
         const delivery = new Date(deliveryDate);
-
-        if (delivery <= received) {
-          throw new Error("Delivery date must be after received date");
-        }
       } else if (deliveryDate) {
         const delivery = new Date(deliveryDate);
-        if (delivery <= repairJob.receivedDate) {
-          throw new Error("Delivery date must be after received date");
-        }
       } else if (receivedDate) {
         const received = new Date(receivedDate);
-        if (repairJob.deliveryDate <= received) {
-          throw new Error("Delivery date must be after received date");
-        }
       }
 
       // Validate company if provided
@@ -793,5 +779,71 @@ exports.updateRepairJob = async (req, res) => {
     });
   } finally {
     await session.endSession();
+  }
+};
+
+// Return handover repair job (with note)
+exports.returnRepairJob = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { note } = req.body;
+
+    // Validate required fields
+    if (!note) {
+      return res.status(400).json({
+        success: false,
+        message: "Note is required for return",
+      });
+    }
+
+    // Find the repair job
+    const repairJob = await RepairJob.findOne({
+      _id: id,
+      userId: userId,
+    });
+
+    if (!repairJob) {
+      return res.status(404).json({
+        success: false,
+        message: "Repair job not found",
+      });
+    }
+
+    // Check if job is in handover status
+    if (repairJob.status !== "handover") {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot return repair job. Current status is "${repairJob.status}". Only jobs with status "handover" can be returned.`,
+      });
+    }
+
+    // Update status back to "complete"
+    repairJob.status = "complete";
+
+    // Append return note to faultIssue
+    repairJob.faultIssue = `${repairJob.faultIssue}\n\n[RETURNED] Return Note: ${note}`;
+
+    await repairJob.save();
+
+    // Populate company and model for response
+    await repairJob.populate("company", "name");
+    await repairJob.populate("model", "name");
+
+    return res.status(200).json({
+      success: true,
+      message: "Repair job returned successfully",
+      data: {
+        ...repairJob.toObject(),
+        returnNote: note,
+      },
+    });
+  } catch (error) {
+    console.error("Error returning repair job:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 };

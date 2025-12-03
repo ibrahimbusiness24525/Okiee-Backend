@@ -369,7 +369,11 @@ const createAccessory = async (req, res) => {
       await BankTransaction.create({
         bankId: bank._id,
         userId,
-        reasonOfAmountDeduction: `Purchase of ${accessories.length} accessories | ${accessories.map((acc) => acc.accessoryName).join(", ")}`,
+        reasonOfAmountDeduction: `Purchase of ${
+          accessories.length
+        } accessories | ${accessories
+          .map((acc) => acc.accessoryName)
+          .join(", ")}`,
         amount: amountToDeduct,
         accountCash: bank.accountCash,
         accountType: bank.accountType,
@@ -402,7 +406,11 @@ const createAccessory = async (req, res) => {
         pocketCashId: pocket._id,
         amountDeducted: amountToDeduct,
         accountCash: pocket.accountCash,
-        reasonOfAmountDeduction: `Purchase of ${accessories.length} accessories | ${accessories.map((acc) => acc.accessoryName).join(", ")}`,
+        reasonOfAmountDeduction: `Purchase of ${
+          accessories.length
+        } accessories | ${accessories
+          .map((acc) => acc.accessoryName)
+          .join(", ")}`,
       });
     }
 
@@ -990,9 +998,9 @@ const sellMultipleAccessories = async (req, res) => {
           Number(person.givingCredit) +
           Number(creditPaymentData.payableAmountLater),
         givingCredit: Number(creditPaymentData.payableAmountLater),
-        description: `Credit Sale: ${accessoryNames.join(
-          ", "
-        )} to ${person.name} | Total: ${totalPrice} | Credit: ${
+        description: `Credit Sale: ${accessoryNames.join(", ")} to ${
+          person.name
+        } | Total: ${totalPrice} | Credit: ${
           creditPaymentData.payableAmountLater
         }`,
       });
@@ -1016,7 +1024,9 @@ const sellMultipleAccessories = async (req, res) => {
           balanceAmount: 0,
           description: `Complete Payment of Sale: ${accessoryNames.join(
             ", "
-          )} to ${newPerson.name} | Total: ${totalPrice} | Quantity: ${totalQuantity}`,
+          )} to ${
+            newPerson.name
+          } | Total: ${totalPrice} | Quantity: ${totalQuantity}`,
         });
       } else if (person) {
         await CreditTransaction.create({
@@ -1026,7 +1036,9 @@ const sellMultipleAccessories = async (req, res) => {
           balanceAmount: Number(person.givingCredit),
           description: `Complete Payment of Sale: ${accessoryNames.join(
             ", "
-          )} to ${person.name} | Total: ${totalPrice} | Quantity: ${totalQuantity}`,
+          )} to ${
+            person.name
+          } | Total: ${totalPrice} | Quantity: ${totalQuantity}`,
         });
       } else {
         console.log("no required entityData for full payment sale");
@@ -1357,7 +1369,14 @@ const deleteAccessoryById = async (req, res) => {
 const returnSoldAccessories = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { accessoryId, quantity, perPiecePrice, accessoryName,bankAccountUsed,pocketCash } = req.body;
+    const {
+      accessoryId,
+      quantity,
+      perPiecePrice,
+      accessoryName,
+      bankAccountUsed,
+      pocketCash,
+    } = req.body;
     const accessory = await Accessory.findOne({ _id: accessoryId, userId });
     if (!accessory) {
       const accessory = await Accessory.create({
@@ -1367,12 +1386,16 @@ const returnSoldAccessories = async (req, res) => {
         perPiecePrice,
         totalPrice: perPiecePrice * quantity,
       });
-      return res.status(200).json({ message: "Accessory returned successfully", accessory });
+      return res
+        .status(200)
+        .json({ message: "Accessory returned successfully", accessory });
     }
     accessory.stock += quantity;
     accessory.totalPrice += perPiecePrice * quantity;
     await accessory.save();
-    res.status(200).json({ message: "Accessory returned successfully", accessory });
+    res
+      .status(200)
+      .json({ message: "Accessory returned successfully", accessory });
     const transaction = await AccessoryTransaction.create({
       userId,
       accessoryId,
@@ -1413,12 +1436,79 @@ const returnSoldAccessories = async (req, res) => {
         reasonOfAmountDeduction: `Return of accessory: ${accessoryName}`,
       });
     }
-    res.status(200).json({ message: "Accessory returned successfully", transaction });
+    res
+      .status(200)
+      .json({ message: "Accessory returned successfully", transaction });
   } catch (error) {
     console.error("Error returning sold accessories:", error);
-    res.status(500).json({ message: "Failed to return sold accessories", error });
+    res
+      .status(500)
+      .json({ message: "Failed to return sold accessories", error });
   }
 };
+
+// EDIT accessory by ID
+const editAccessory = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { accessoryName, perPiecePrice } = req.body;
+
+    // Validate input
+    if (!id) {
+      return res.status(400).json({ message: "Accessory ID is required" });
+    }
+
+    if (!accessoryName && !perPiecePrice) {
+      return res.status(400).json({
+        message:
+          "At least one field (accessoryName or perPiecePrice) is required to update",
+      });
+    }
+
+    // Validate perPiecePrice if provided
+    if (perPiecePrice !== undefined) {
+      if (isNaN(perPiecePrice) || perPiecePrice <= 0) {
+        return res.status(400).json({
+          message: "perPiecePrice must be a positive number",
+        });
+      }
+    }
+
+    // Find the accessory
+    const accessory = await Accessory.findOne({ _id: id, userId });
+    if (!accessory) {
+      return res
+        .status(404)
+        .json({ message: "Accessory not found or unauthorized" });
+    }
+
+    // Update fields
+    if (accessoryName) {
+      accessory.accessoryName = accessoryName;
+    }
+
+    if (perPiecePrice !== undefined) {
+      accessory.perPiecePrice = Number(perPiecePrice);
+      // Recalculate totalPrice based on current quantity
+      accessory.totalPrice = Number(perPiecePrice) * Number(accessory.quantity);
+    }
+
+    await accessory.save();
+
+    res.status(200).json({
+      message: "Accessory updated successfully",
+      accessory,
+    });
+  } catch (error) {
+    console.error("Error updating accessory:", error);
+    res.status(500).json({
+      message: "Failed to update accessory",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createAccessory,
   getAllAccessories,
@@ -1431,4 +1521,5 @@ module.exports = {
   deleteAccessoryById,
   getAccessoriesPersonPurchaseRecord,
   returnSoldAccessories,
+  editAccessory,
 };

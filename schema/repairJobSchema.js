@@ -43,12 +43,6 @@ const RepairJobSchema = new mongoose.Schema(
     deliveryDate: {
       type: Date,
       required: true,
-      validate: {
-        validator: function (value) {
-          return value > this.receivedDate;
-        },
-        message: "Delivery date must be after received date",
-      },
     },
     // Issue Description
     faultIssue: {
