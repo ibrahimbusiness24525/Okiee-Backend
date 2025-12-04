@@ -23,6 +23,7 @@ const creditTransaction = require("./routes/payablesAndReceiveablesRoutes.js");
 const passwordRouter = require("./routes/passwordRoute.js");
 const repairJobRouter = require("./routes/repairJobRoute.js");
 const saleInvoiceRouter = require("./routes/saleInvoiceRoute.js");
+const expenseRouter = require("./routes/expenseRoute.js");
 // import rateLimit from 'express-rate-limit';
 
 // const limiter = rateLimit({
@@ -80,5 +81,6 @@ app.use("/api/balanceSheet", BalanceSheetRouter);
 app.use("/api/password", passwordRouter);
 app.use("/api/repair", repairJobRouter);
 app.use("/api/sale-invoice", saleInvoiceRouter);
+app.use("/api/expense", expenseRouter);
 
 app.listen(PORT, () => console.log(`Server listening to port ${PORT}`));
