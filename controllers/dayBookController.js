@@ -13,6 +13,8 @@ const {
   SingleSoldPhone,
   BulkPhonePurchase,
 } = require("../schema/purchasePhoneSchema");
+const { Expense } = require("../schema/ExpenseSchema");
+const RepairJob = require("../schema/repairJobSchema");
 const { getTodaysLedger } = require("./ledgerController");
 // exports.getToDayBook = async (req, res) => {
 //     try {
@@ -215,6 +217,8 @@ exports.getToDayBook = async (req, res) => {
       creditTransactions,
       accessories,
       accessoryTransactions,
+      expenses,
+      repairJobs,
     ] = await Promise.all([
       Ledger.find({ userId, createdAt: { $gte: selectedDate, $lt: nextDate } }),
       PurchasePhone.find({
@@ -253,6 +257,14 @@ exports.getToDayBook = async (req, res) => {
         //  updatedAt: { $gte: selectedDate, $lt: nextDate }
       }),
       AccessoryTransaction.find({
+        userId,
+        createdAt: { $gte: selectedDate, $lt: nextDate },
+      }),
+      Expense.find({
+        userId,
+        date: { $gte: selectedDate, $lt: nextDate },
+      }),
+      RepairJob.find({
         userId,
         createdAt: { $gte: selectedDate, $lt: nextDate },
       }),
@@ -345,6 +357,18 @@ exports.getToDayBook = async (req, res) => {
       accessoryName: accessory.accessoryName || "Unknown",
       quantity: accessory.quantity || 0,
     }));
+
+    // === EXPENSE CALCULATIONS ===
+    const totalExpenses = expenses.reduce(
+      (sum, expense) => sum + (expense.price || 0),
+      0
+    );
+
+    // === REPAIR JOB PROFIT CALCULATIONS ===
+    const totalRepairProfit = repairJobs.reduce(
+      (sum, job) => sum + (job.profit || 0),
+      0
+    );
     console.log("total single new stock amount:", totalSingleNewAmount);
     console.log("total single used stock amount:", totalSingleUsedAmount);
     console.log(
@@ -379,6 +403,8 @@ exports.getToDayBook = async (req, res) => {
         totalAccessoriesProfit,
         totalAccesoriesTransactionLength,
         totalAccessoryTransactionAmount,
+        totalExpenses,
+        totalRepairProfit,
         // Echo back the effective date range used so the frontend can display it
         dateRange: {
           startDate: selectedDate,
