@@ -6254,3 +6254,234 @@ exports.getAllImeis = async (req, res) => {
     });
   }
 };
+
+// Return purchase phone (single or bulk) to supplier
+exports.returnPurchasePhone = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { phoneType, returnAmount, bankAccountUsed, amountFromPocket } = req.body;
+
+    // Validate input
+    if (!id) {
+      return res.status(400).json({ message: "Purchase phone ID is required" });
+    }
+
+    if (!phoneType || !["single", "bulk"].includes(phoneType)) {
+      return res.status(400).json({
+        message: "phoneType is required and must be 'single' or 'bulk'",
+      });
+    }
+
+    if (phoneType === "single") {
+      // Handle single phone return
+      const purchasePhone = await PurchasePhone.findOne({
+        _id: id,
+        userId,
+      });
+
+      if (!purchasePhone) {
+        return res
+          .status(404)
+          .json({ message: "Purchase phone not found or unauthorized" });
+      }
+
+      if (purchasePhone.status === "Sold") {
+        return res.status(400).json({
+          message: "Cannot return a sold phone. Please return from sold phones instead.",
+        });
+      }
+
+      // Calculate return amount (use purchase price if not provided)
+      const amountToReturn =
+        returnAmount || purchasePhone.price?.purchasePrice || 0;
+
+      // Handle bank payment return
+      if (bankAccountUsed && amountFromPocket === 0) {
+        const bank = await AddBankAccount.findById(bankAccountUsed);
+        if (!bank) {
+          return res.status(404).json({ message: "Bank account not found" });
+        }
+
+        bank.accountCash += Number(amountToReturn);
+        await bank.save();
+
+        await BankTransaction.create({
+          bankId: bank._id,
+          userId,
+          sourceOfAmountAddition: `Return of purchase phone: ${purchasePhone.companyName} ${purchasePhone.modelName} (IMEI: ${purchasePhone.imei1})`,
+          amount: Number(amountToReturn),
+          accountCash: bank.accountCash,
+          accountType: bank.accountType,
+        });
+      }
+
+      // Handle pocket cash return
+      if (amountFromPocket > 0) {
+        const pocket = await PocketCashSchema.findOne({ userId });
+        if (!pocket) {
+          return res
+            .status(404)
+            .json({ message: "Pocket cash account not found" });
+        }
+
+        pocket.accountCash += Number(amountFromPocket);
+        await pocket.save();
+
+        await PocketCashTransactionSchema.create({
+          userId,
+          pocketCashId: pocket._id,
+          amountAdded: Number(amountFromPocket),
+          accountCash: pocket.accountCash,
+          sourceOfAmountAddition: `Return of purchase phone: ${purchasePhone.companyName} ${purchasePhone.modelName} (IMEI: ${purchasePhone.imei1})`,
+        });
+      }
+
+      // Handle credit adjustment if person exists
+      if (purchasePhone.personId) {
+        const person = await Person.findById(purchasePhone.personId);
+        if (person) {
+          const creditAmount = Number(amountToReturn);
+          if (person.takingCredit > 0) {
+            person.takingCredit = Math.max(0, person.takingCredit - creditAmount);
+            if (person.takingCredit === 0 && person.givingCredit === 0) {
+              person.status = "Settled";
+            }
+            await person.save();
+
+            await CreditTransaction.create({
+              userId,
+              personId: person._id,
+              takingCredit: -creditAmount,
+              balanceAmount: person.takingCredit,
+              description: `Return of purchase phone: ${purchasePhone.companyName} ${purchasePhone.modelName} - Credit adjustment: ${creditAmount}`,
+            });
+          }
+        }
+      }
+
+      // Delete the purchase phone record
+      await PurchasePhone.findByIdAndDelete(id);
+
+      res.status(200).json({
+        message: "Purchase phone returned successfully",
+        returnedAmount: amountToReturn,
+      });
+    } else {
+      // Handle bulk phone return
+      const bulkPurchase = await BulkPhonePurchase.findOne({
+        _id: id,
+        userId,
+      }).populate("ramSimDetails");
+
+      if (!bulkPurchase) {
+        return res
+          .status(404)
+          .json({ message: "Bulk purchase phone not found or unauthorized" });
+      }
+
+      if (bulkPurchase.status === "Sold") {
+        return res.status(400).json({
+          message: "Cannot return a fully sold bulk purchase.",
+        });
+      }
+
+      // Calculate return amount
+      const totalPhones = bulkPurchase.ramSimDetails.reduce((sum, ramSim) => {
+        return sum + (ramSim.imeiNumbers?.length || 0);
+      }, 0);
+
+      const pricePerPhone =
+        bulkPurchase.prices?.buyingPrice
+          ? Number(bulkPurchase.prices.buyingPrice)
+          : 0;
+      const amountToReturn = returnAmount || totalPhones * pricePerPhone;
+
+      // Handle bank payment return
+      if (bankAccountUsed && amountFromPocket === 0) {
+        const bank = await AddBankAccount.findById(bankAccountUsed);
+        if (!bank) {
+          return res.status(404).json({ message: "Bank account not found" });
+        }
+
+        bank.accountCash += Number(amountToReturn);
+        await bank.save();
+
+        await BankTransaction.create({
+          bankId: bank._id,
+          userId,
+          sourceOfAmountAddition: `Return of bulk purchase: ${bulkPurchase.companyName} (${totalPhones} phones)`,
+          amount: Number(amountToReturn),
+          accountCash: bank.accountCash,
+          accountType: bank.accountType,
+        });
+      }
+
+      // Handle pocket cash return
+      if (amountFromPocket > 0) {
+        const pocket = await PocketCashSchema.findOne({ userId });
+        if (!pocket) {
+          return res
+            .status(404)
+            .json({ message: "Pocket cash account not found" });
+        }
+
+        pocket.accountCash += Number(amountFromPocket);
+        await pocket.save();
+
+        await PocketCashTransactionSchema.create({
+          userId,
+          pocketCashId: pocket._id,
+          amountAdded: Number(amountFromPocket),
+          accountCash: pocket.accountCash,
+          sourceOfAmountAddition: `Return of bulk purchase: ${bulkPurchase.companyName} (${totalPhones} phones)`,
+        });
+      }
+
+      // Handle credit adjustment if person exists
+      if (bulkPurchase.personId) {
+        const person = await Person.findById(bulkPurchase.personId);
+        if (person) {
+          const creditAmount = Number(amountToReturn);
+          if (person.takingCredit > 0) {
+            person.takingCredit = Math.max(0, person.takingCredit - creditAmount);
+            if (person.takingCredit === 0 && person.givingCredit === 0) {
+              person.status = "Settled";
+            }
+            await person.save();
+
+            await CreditTransaction.create({
+              userId,
+              personId: person._id,
+              takingCredit: -creditAmount,
+              balanceAmount: person.takingCredit,
+              description: `Return of bulk purchase: ${bulkPurchase.companyName} - Credit adjustment: ${creditAmount}`,
+            });
+          }
+        }
+      }
+
+      // Delete all related IMEIs and RamSim records
+      for (const ramSim of bulkPurchase.ramSimDetails) {
+        if (ramSim.imeiNumbers && ramSim.imeiNumbers.length > 0) {
+          await Imei.deleteMany({ _id: { $in: ramSim.imeiNumbers } });
+        }
+        await RamSim.findByIdAndDelete(ramSim._id);
+      }
+
+      // Delete the bulk purchase record
+      await BulkPhonePurchase.findByIdAndDelete(id);
+
+      res.status(200).json({
+        message: "Bulk purchase phone returned successfully",
+        returnedAmount: amountToReturn,
+      });
+    }
+  } catch (error) {
+    console.error("Error returning purchase phone:", error);
+    res.status(500).json({
+      message: "Failed to return purchase phone",
+      error: error.message,
+    });
+  }
+};

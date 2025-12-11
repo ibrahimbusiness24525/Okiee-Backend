@@ -1769,6 +1769,188 @@ const editAccessory = async (req, res) => {
   }
 };
 
+// Reduce stock from accessory
+const reduceAccessoryStock = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { quantity } = req.body;
+
+    // Validate input
+    if (!id) {
+      return res.status(400).json({ message: "Accessory ID is required" });
+    }
+
+    if (!quantity || isNaN(quantity) || quantity <= 0) {
+      return res.status(400).json({
+        message: "Quantity is required and must be a positive number",
+      });
+    }
+
+    // Find the accessory
+    const accessory = await Accessory.findOne({ _id: id, userId });
+    if (!accessory) {
+      return res
+        .status(404)
+        .json({ message: "Accessory not found or unauthorized" });
+    }
+
+    // Check if stock is sufficient
+    if (accessory.stock < quantity) {
+      return res.status(400).json({
+        message: `Insufficient stock. Available: ${accessory.stock}, Requested: ${quantity}`,
+      });
+    }
+
+    // Reduce stock
+    accessory.stock -= Number(quantity);
+    accessory.totalPrice -= Number(accessory.perPiecePrice) * Number(quantity);
+
+    await accessory.save();
+
+    res.status(200).json({
+      message: "Stock reduced successfully",
+      accessory,
+    });
+  } catch (error) {
+    console.error("Error reducing accessory stock:", error);
+    res.status(500).json({
+      message: "Failed to reduce accessory stock",
+      error: error.message,
+    });
+  }
+};
+
+// Return accessory purchase to supplier
+const returnAccessoryPurchase = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params; // AccessoryTransaction ID
+    const { returnAmount, bankAccountUsed, amountFromPocket } = req.body;
+
+    // Validate input
+    if (!id) {
+      return res.status(400).json({
+        message: "Accessory purchase transaction ID is required",
+      });
+    }
+
+    // Find the purchase transaction
+    const transaction = await AccessoryTransaction.findOne({
+      _id: id,
+      userId,
+      type: "purchase",
+    });
+
+    if (!transaction) {
+      return res.status(404).json({
+        message: "Accessory purchase transaction not found or unauthorized",
+      });
+    }
+
+    // Find the accessory
+    const accessory = await Accessory.findById(transaction.accessoryId);
+    if (!accessory) {
+      return res.status(404).json({ message: "Accessory not found" });
+    }
+
+    // Calculate return amount (use transaction total price if not provided)
+    const amountToReturn = returnAmount || transaction.totalPrice || 0;
+
+    // Check if we have enough stock to return
+    if (accessory.stock < transaction.quantity) {
+      return res.status(400).json({
+        message: `Insufficient stock to return. Available: ${accessory.stock}, Requested: ${transaction.quantity}`,
+      });
+    }
+
+    // Reduce stock and total price
+    accessory.stock -= transaction.quantity;
+    accessory.totalPrice -= transaction.totalPrice;
+
+    await accessory.save();
+
+    // Handle bank payment return
+    if (bankAccountUsed && (!amountFromPocket || amountFromPocket === 0)) {
+      const bank = await AddBankAccount.findById(bankAccountUsed);
+      if (!bank) {
+        return res.status(404).json({ message: "Bank account not found" });
+      }
+
+      bank.accountCash += Number(amountToReturn);
+      await bank.save();
+
+      await BankTransaction.create({
+        bankId: bank._id,
+        userId,
+        sourceOfAmountAddition: `Return of accessory purchase: ${accessory.accessoryName} (Quantity: ${transaction.quantity})`,
+        amount: Number(amountToReturn),
+        accountCash: bank.accountCash,
+        accountType: bank.accountType,
+      });
+    }
+
+    // Handle pocket cash return
+    if (amountFromPocket > 0) {
+      const pocket = await PocketCashSchema.findOne({ userId });
+      if (!pocket) {
+        return res
+          .status(404)
+          .json({ message: "Pocket cash account not found" });
+      }
+
+      pocket.accountCash += Number(amountFromPocket);
+      await pocket.save();
+
+      await PocketCashTransactionSchema.create({
+        userId,
+        pocketCashId: pocket._id,
+        amountAdded: Number(amountFromPocket),
+        accountCash: pocket.accountCash,
+        sourceOfAmountAddition: `Return of accessory purchase: ${accessory.accessoryName} (Quantity: ${transaction.quantity})`,
+      });
+    }
+
+    // Handle credit adjustment if person exists
+    if (transaction.personId) {
+      const person = await Person.findById(transaction.personId);
+      if (person) {
+        const creditAmount = Number(amountToReturn);
+        if (person.takingCredit > 0) {
+          person.takingCredit = Math.max(0, person.takingCredit - creditAmount);
+          if (person.takingCredit === 0 && person.givingCredit === 0) {
+            person.status = "Settled";
+          }
+          await person.save();
+
+          await CreditTransaction.create({
+            userId,
+            personId: person._id,
+            takingCredit: -creditAmount,
+            balanceAmount: person.takingCredit,
+            description: `Return of accessory purchase: ${accessory.accessoryName} (Quantity: ${transaction.quantity}) - Credit adjustment: ${creditAmount}`,
+          });
+        }
+      }
+    }
+
+    // Delete the purchase transaction
+    await AccessoryTransaction.findByIdAndDelete(id);
+
+    res.status(200).json({
+      message: "Accessory purchase returned successfully",
+      accessory,
+      returnedAmount: amountToReturn,
+    });
+  } catch (error) {
+    console.error("Error returning accessory purchase:", error);
+    res.status(500).json({
+      message: "Failed to return accessory purchase",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createAccessory,
   getAllAccessories,
@@ -1782,4 +1964,6 @@ module.exports = {
   getAccessoriesPersonPurchaseRecord,
   returnSoldAccessories,
   editAccessory,
+  reduceAccessoryStock,
+  returnAccessoryPurchase,
 };

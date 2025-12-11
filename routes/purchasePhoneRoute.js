@@ -41,6 +41,7 @@ const {
   returnBulkSoldToPurchase,
   migrateStatusField,
   getAllImeis,
+  returnPurchasePhone,
 } = require("../controllers/purchasePhoneController");
 const { decoderMiddleware } = require("../services/authServices");
 
@@ -241,5 +242,8 @@ router.post("/migrate-status-field", migrateStatusField);
 
 // Route to get all IMEI1 data for both single and bulk phones
 router.get("/all-imeis", decoderMiddleware, getAllImeis);
+
+// Route to return purchase phone (single or bulk) to supplier
+router.post("/return-purchase-phone/:id", decoderMiddleware, returnPurchasePhone);
 
 module.exports = router;

@@ -1,5 +1,13 @@
 const mongoose = require("mongoose");
 const { ExpenseType, Expense } = require("../schema/ExpenseSchema");
+const {
+  AddBankAccount,
+  BankTransaction,
+} = require("../schema/BankAccountSchema");
+const {
+  PocketCashSchema,
+  PocketCashTransactionSchema,
+} = require("../schema/PocketCashSchema");
 
 // Create a new expense type
 exports.createExpenseType = async (req, res) => {
@@ -76,7 +84,15 @@ exports.createExpense = async (req, res) => {
   try {
     await session.withTransaction(async () => {
       const userId = req.user.id;
-      const { expenseTypeId, price, note, date } = req.body;
+      const {
+        expenseTypeId,
+        price,
+        note,
+        date,
+        bankAccountUsed,
+        pocketCash,
+        accountCash,
+      } = req.body;
 
       if (!expenseTypeId) {
         throw new Error("Expense type is required");
@@ -94,12 +110,90 @@ exports.createExpense = async (req, res) => {
         throw new Error("Expense type not found");
       }
 
+      // Validate payment amounts if payment methods are provided
+      const normalizedPrice = Number(price);
+      const normalizedAccountCash = Number(accountCash || 0);
+      const normalizedPocketCash = Number(pocketCash || 0);
+      const totalPayment = normalizedAccountCash + normalizedPocketCash;
+
+      if (bankAccountUsed || pocketCash) {
+        if (totalPayment > normalizedPrice) {
+          throw new Error(
+            "Total payment amount (accountCash + pocketCash) cannot exceed expense price"
+          );
+        }
+      }
+
+      // Process bank account payment
+      if (bankAccountUsed) {
+        const bank = await AddBankAccount.findById(bankAccountUsed).session(
+          session
+        );
+        if (!bank) {
+          throw new Error("Bank not found");
+        }
+
+        if (normalizedAccountCash > bank.accountCash) {
+          throw new Error("Insufficient bank account balance");
+        }
+
+        // Deduct accountCash from bank account
+        bank.accountCash -= normalizedAccountCash;
+        await bank.save({ session });
+
+        // Log the transaction
+        await BankTransaction.create(
+          [
+            {
+              bankId: bank._id,
+              userId: userId,
+              reasonOfAmountDeduction: `Expense: ${type.name}${note ? ` - ${note}` : ""}`,
+              accountCash: normalizedAccountCash,
+              accountType: bank.accountType,
+            },
+          ],
+          { session }
+        );
+      }
+
+      // Process pocket cash payment
+      if (pocketCash) {
+        const pocketTransaction = await PocketCashSchema.findOne({
+          userId: userId,
+        }).session(session);
+
+        if (!pocketTransaction) {
+          throw new Error("Pocket cash account not found");
+        }
+
+        if (normalizedPocketCash > pocketTransaction.accountCash) {
+          throw new Error("Insufficient pocket cash");
+        }
+
+        pocketTransaction.accountCash -= normalizedPocketCash;
+        await pocketTransaction.save({ session });
+
+        await PocketCashTransactionSchema.create(
+          [
+            {
+              userId: userId,
+              pocketCashId: pocketTransaction._id,
+              amountDeducted: normalizedPocketCash,
+              accountCash: pocketTransaction.accountCash,
+              remainingAmount: pocketTransaction.accountCash,
+              reasonOfAmountDeduction: `Expense: ${type.name}${note ? ` - ${note}` : ""} - Amount: ${normalizedPrice}`,
+            },
+          ],
+          { session }
+        );
+      }
+
       const expense = await Expense.create(
         [
           {
             userId,
             expenseType: expenseTypeId,
-            price: Number(price),
+            price: normalizedPrice,
             note: note || "",
             date: date ? new Date(date) : new Date(),
           },
