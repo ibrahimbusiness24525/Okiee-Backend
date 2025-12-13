@@ -1821,6 +1821,172 @@ const reduceAccessoryStock = async (req, res) => {
   }
 };
 
+// Return sold accessory (restore stock and refund payment)
+const returnSoldAccessory = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params; // AccessoryTransaction ID (sale transaction)
+    const { returnAmount, bankAccountUsed, amountFromPocket } = req.body;
+
+    // Validate input
+    if (!id) {
+      return res.status(400).json({
+        message: "Accessory sale transaction ID is required",
+      });
+    }
+
+    // Find the sale transaction
+    const saleTransaction = await AccessoryTransaction.findOne({
+      _id: id,
+      userId,
+      type: "sale",
+    }).populate("accessoryId", "accessoryName stock perPiecePrice");
+
+    if (!saleTransaction) {
+      return res.status(404).json({
+        message: "Accessory sale transaction not found or unauthorized",
+      });
+    }
+
+    // Calculate return amount (use transaction total price if not provided)
+    const amountToReturn = returnAmount || saleTransaction.totalPrice || 0;
+
+    // Handle single accessory or multiple accessories
+    if (saleTransaction.accessoryId) {
+      // Single accessory sale
+      const accessory = await Accessory.findById(saleTransaction.accessoryId);
+      if (!accessory) {
+        return res.status(404).json({ message: "Accessory not found" });
+      }
+
+      // Restore stock and adjust total price and profit
+      accessory.stock += saleTransaction.quantity;
+      accessory.totalPrice +=
+        Number(accessory.perPiecePrice) * Number(saleTransaction.quantity);
+      // Subtract the profit that was made from this sale
+      accessory.profit = Math.max(
+        0,
+        accessory.profit - (saleTransaction.profit || 0)
+      );
+
+      await accessory.save();
+    } else if (
+      saleTransaction.accessories &&
+      Array.isArray(saleTransaction.accessories) &&
+      saleTransaction.accessories.length > 0
+    ) {
+      // Multiple accessories sale - restore stock for each
+      for (const accItem of saleTransaction.accessories) {
+        const accessory = await Accessory.findById(accItem.accessoryId);
+        if (accessory) {
+          accessory.stock += Number(accItem.quantity);
+          accessory.totalPrice +=
+            Number(accessory.perPiecePrice) * Number(accItem.quantity);
+          // Calculate and subtract profit for this item
+          const itemProfit =
+            (Number(accItem.perPiecePrice) -
+              Number(accessory.perPiecePrice)) *
+            Number(accItem.quantity);
+          accessory.profit = Math.max(0, accessory.profit - itemProfit);
+          await accessory.save();
+        }
+      }
+    }
+
+    // Handle bank payment refund
+    if (bankAccountUsed && (!amountFromPocket || amountFromPocket === 0)) {
+      const bank = await AddBankAccount.findById(bankAccountUsed);
+      if (!bank) {
+        return res.status(404).json({ message: "Bank account not found" });
+      }
+
+      // Deduct from bank (refund to customer)
+      bank.accountCash -= Number(amountToReturn);
+      await bank.save();
+
+      await BankTransaction.create({
+        bankId: bank._id,
+        userId,
+        reasonOfAmountDeduction: `Return of sold accessory: ${
+          saleTransaction.accessoryId?.accessoryName || "Multiple accessories"
+        } (Quantity: ${saleTransaction.quantity})`,
+        amount: Number(amountToReturn),
+        accountCash: bank.accountCash,
+        accountType: bank.accountType,
+      });
+    }
+
+    // Handle pocket cash refund
+    if (amountFromPocket > 0) {
+      const pocket = await PocketCashSchema.findOne({ userId });
+      if (!pocket) {
+        return res
+          .status(404)
+          .json({ message: "Pocket cash account not found" });
+      }
+
+      // Deduct from pocket cash (refund to customer)
+      pocket.accountCash -= Number(amountFromPocket);
+      await pocket.save();
+
+      await PocketCashTransactionSchema.create({
+        userId,
+        pocketCashId: pocket._id,
+        amountDeducted: Number(amountFromPocket),
+        accountCash: pocket.accountCash,
+        remainingAmount: pocket.accountCash,
+        reasonOfAmountDeduction: `Return of sold accessory: ${
+          saleTransaction.accessoryId?.accessoryName || "Multiple accessories"
+        } (Quantity: ${saleTransaction.quantity})`,
+      });
+    }
+
+    // Handle credit adjustment if person exists (credit sale)
+    if (saleTransaction.personId) {
+      const person = await Person.findById(saleTransaction.personId);
+      if (person) {
+        const creditAmount = Number(amountToReturn);
+        if (person.givingCredit > 0) {
+          // Reduce the credit we're giving (customer owes us less)
+          person.givingCredit = Math.max(0, person.givingCredit - creditAmount);
+          if (person.givingCredit === 0 && person.takingCredit === 0) {
+            person.status = "Settled";
+          } else if (person.givingCredit === 0) {
+            person.status = "Payable";
+          }
+          await person.save();
+
+          await CreditTransaction.create({
+            userId,
+            personId: person._id,
+            givingCredit: -creditAmount,
+            balanceAmount: person.givingCredit,
+            description: `Return of sold accessory: ${
+              saleTransaction.accessoryId?.accessoryName ||
+              "Multiple accessories"
+            } (Quantity: ${saleTransaction.quantity}) - Credit adjustment: ${creditAmount}`,
+          });
+        }
+      }
+    }
+
+    // Delete the sale transaction
+    await AccessoryTransaction.findByIdAndDelete(id);
+
+    res.status(200).json({
+      message: "Sold accessory returned successfully",
+      returnedAmount: amountToReturn,
+      restoredStock: saleTransaction.quantity,
+    });
+  } catch (error) {
+    console.error("Error returning sold accessory:", error);
+    res.status(500).json({
+      message: "Failed to return sold accessory",
+      error: error.message,
+    });
+  }
+};
+
 // Return accessory purchase to supplier
 const returnAccessoryPurchase = async (req, res) => {
   try {
@@ -1966,4 +2132,5 @@ module.exports = {
   editAccessory,
   reduceAccessoryStock,
   returnAccessoryPurchase,
+  returnSoldAccessory,
 };

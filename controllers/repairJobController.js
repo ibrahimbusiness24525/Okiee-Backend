@@ -4,6 +4,10 @@ const {
   Person,
   CreditTransaction,
 } = require("../schema/PayablesAndReceiveablesSchema");
+const {
+  Accessory,
+  AccessoryTransaction,
+} = require("../schema/accessorySchema");
 const mongoose = require("mongoose");
 
 // Create a new repair job
@@ -122,6 +126,56 @@ exports.createRepairJob = async (req, res) => {
       });
 
       await repairJob.save({ session });
+
+      // Process parts - deduct from accessory stock as sale
+      if (Array.isArray(parts) && parts.length > 0) {
+        for (const part of parts) {
+          if (!part.id) {
+            throw new Error(`Part ID is required for part: ${part.name || "Unknown"}`);
+          }
+
+          // Find the accessory by ID
+          const accessory = await Accessory.findOne({
+            _id: part.id,
+            userId: userId,
+          });
+
+          if (!accessory) {
+            throw new Error(`Accessory not found for part: ${part.name || part.id}`);
+          }
+
+          // Check if stock is available
+          if (accessory.stock < 1) {
+            throw new Error(
+              `Insufficient stock for accessory: ${accessory.accessoryName}. Available: ${accessory.stock}`
+            );
+          }
+
+          // Deduct stock (quantity = 1 per part)
+          accessory.stock -= 1;
+          accessory.totalPrice -= Number(accessory.perPiecePrice);
+          accessory.profit +=
+            (Number(part.price) - Number(accessory.perPiecePrice)) * 1;
+
+          await accessory.save({ session });
+
+          // Create accessory sale transaction
+          await AccessoryTransaction.create(
+            [
+              {
+                userId: userId,
+                accessoryId: accessory._id,
+                quantity: 1,
+                perPiecePrice: Number(part.price),
+                totalPrice: Number(part.price),
+                type: "sale",
+                profit: Number(part.price) - Number(accessory.perPiecePrice),
+              },
+            ],
+            { session }
+          );
+        }
+      }
 
       // Handle credit payment - create or update Person and CreditTransaction
       if (paymentType === "credit") {
@@ -477,6 +531,7 @@ exports.updateRepairJob = async (req, res) => {
       const originalPayLate = repairJob.payLate || 0;
       const originalCustomerName = repairJob.customerName;
       const originalCustomerNumber = repairJob.customerNumber;
+      const originalParts = repairJob.parts || [];
 
       // Validate dates if provided
       if (receivedDate && deliveryDate) {
@@ -581,6 +636,90 @@ exports.updateRepairJob = async (req, res) => {
         );
       } else {
         repairJob.profit = Number(repairJob.estimatedAmount || 0);
+      }
+
+      // Handle parts changes - restore stock for removed parts, deduct for new parts
+      if (parts !== undefined) {
+        const newParts = Array.isArray(parts) ? parts : [];
+        const oldPartsMap = new Map(
+          originalParts.map((part) => [part.id, part])
+        );
+        const newPartsMap = new Map(
+          newParts.map((part) => [part.id, part])
+        );
+
+        // Restore stock for removed parts (in old but not in new)
+        for (const oldPart of originalParts) {
+          if (!newPartsMap.has(oldPart.id)) {
+            const accessory = await Accessory.findOne({
+              _id: oldPart.id,
+              userId: userId,
+            });
+
+            if (accessory) {
+              // Restore stock
+              accessory.stock += 1;
+              accessory.totalPrice += Number(accessory.perPiecePrice);
+              // Adjust profit (subtract the profit that was made from this sale)
+              const profitFromSale = Number(oldPart.price) - Number(accessory.perPiecePrice);
+              accessory.profit = Math.max(0, accessory.profit - profitFromSale);
+
+              await accessory.save({ session });
+
+              // Note: We don't create a return transaction since the schema only supports "purchase" and "sale"
+              // The stock restoration is sufficient to track the return
+            }
+          }
+        }
+
+        // Deduct stock for new parts (in new but not in old)
+        for (const newPart of newParts) {
+          if (!oldPartsMap.has(newPart.id)) {
+            if (!newPart.id) {
+              throw new Error(`Part ID is required for part: ${newPart.name || "Unknown"}`);
+            }
+
+            const accessory = await Accessory.findOne({
+              _id: newPart.id,
+              userId: userId,
+            });
+
+            if (!accessory) {
+              throw new Error(`Accessory not found for part: ${newPart.name || newPart.id}`);
+            }
+
+            // Check if stock is available
+            if (accessory.stock < 1) {
+              throw new Error(
+                `Insufficient stock for accessory: ${accessory.accessoryName}. Available: ${accessory.stock}`
+              );
+            }
+
+            // Deduct stock
+            accessory.stock -= 1;
+            accessory.totalPrice -= Number(accessory.perPiecePrice);
+            accessory.profit +=
+              (Number(newPart.price) - Number(accessory.perPiecePrice)) * 1;
+
+            await accessory.save({ session });
+
+            // Create accessory sale transaction
+            await AccessoryTransaction.create(
+              [
+                {
+                  userId: userId,
+                  accessoryId: accessory._id,
+                  quantity: 1,
+                  perPiecePrice: Number(newPart.price),
+                  totalPrice: Number(newPart.price),
+                  type: "sale",
+                  profit: Number(newPart.price) - Number(accessory.perPiecePrice),
+                },
+              ],
+              { session }
+            );
+          }
+        }
       }
 
       await repairJob.save({ session });

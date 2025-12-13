@@ -12,6 +12,7 @@ const {
   editAccessory,
   reduceAccessoryStock,
   returnAccessoryPurchase,
+  returnSoldAccessory,
 } = require("../controllers/accessoryController");
 const { decoderMiddleware } = require("../services/authServices");
 const { getAccessoriesData } = require("../controllers/accessoryController");
@@ -31,6 +32,7 @@ router.post("/:id/reduce-stock", reduceAccessoryStock);
 router.get("/accessoryRecord", getAccessoriesPersonRecord);
 router.get("/accessoryRecord/purchase", getAccessoriesPersonPurchaseRecord);
 router.post("/accessoryRecord/purchase/return/:id", returnAccessoryPurchase);
+router.post("/accessoryRecord/sale/return/:id", returnSoldAccessory);
 router.delete("/:id", deleteAccessoryById);
 router.put("/:id", editAccessory);
 
