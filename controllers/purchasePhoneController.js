@@ -2864,9 +2864,9 @@ exports.sellPhonesFromBulk = async (req, res) => {
           return res.status(404).json({ message: "Accessory not found" });
         }
 
-        if (Number(accessory.stock) < Number(accessoryItem.quantity)) {
-          return res.status(400).json({ message: "Insufficient Inventory" });
-        }
+        // if (Number(accessory.stock) < Number(accessoryItem.quantity)) {
+        //   return res.status(400).json({ message: "Insufficient Inventory" });
+        // }
 
         const totalPrice =
           Number(accessoryItem.quantity) * Number(accessoryItem.price);
@@ -6260,7 +6260,8 @@ exports.returnPurchasePhone = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    const { phoneType, returnAmount, bankAccountUsed, amountFromPocket } = req.body;
+    const { phoneType, returnAmount, bankAccountUsed, amountFromPocket } =
+      req.body;
 
     // Validate input
     if (!id) {
@@ -6288,7 +6289,8 @@ exports.returnPurchasePhone = async (req, res) => {
 
       if (purchasePhone.status === "Sold") {
         return res.status(400).json({
-          message: "Cannot return a sold phone. Please return from sold phones instead.",
+          message:
+            "Cannot return a sold phone. Please return from sold phones instead.",
         });
       }
 
@@ -6343,7 +6345,10 @@ exports.returnPurchasePhone = async (req, res) => {
         if (person) {
           const creditAmount = Number(amountToReturn);
           if (person.takingCredit > 0) {
-            person.takingCredit = Math.max(0, person.takingCredit - creditAmount);
+            person.takingCredit = Math.max(
+              0,
+              person.takingCredit - creditAmount
+            );
             if (person.takingCredit === 0 && person.givingCredit === 0) {
               person.status = "Settled";
             }
@@ -6391,10 +6396,9 @@ exports.returnPurchasePhone = async (req, res) => {
         return sum + (ramSim.imeiNumbers?.length || 0);
       }, 0);
 
-      const pricePerPhone =
-        bulkPurchase.prices?.buyingPrice
-          ? Number(bulkPurchase.prices.buyingPrice)
-          : 0;
+      const pricePerPhone = bulkPurchase.prices?.buyingPrice
+        ? Number(bulkPurchase.prices.buyingPrice)
+        : 0;
       const amountToReturn = returnAmount || totalPhones * pricePerPhone;
 
       // Handle bank payment return
@@ -6444,7 +6448,10 @@ exports.returnPurchasePhone = async (req, res) => {
         if (person) {
           const creditAmount = Number(amountToReturn);
           if (person.takingCredit > 0) {
-            person.takingCredit = Math.max(0, person.takingCredit - creditAmount);
+            person.takingCredit = Math.max(
+              0,
+              person.takingCredit - creditAmount
+            );
             if (person.takingCredit === 0 && person.givingCredit === 0) {
               person.status = "Settled";
             }
