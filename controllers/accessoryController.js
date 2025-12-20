@@ -1163,28 +1163,41 @@ const handleAddAcessoryStockById = async (req, res) => {
     } = req.body;
 
     // Validate basic required fields
-    if (!quantity || !perPiecePrice) {
-      return res
-        .status(400)
-        .json({ message: "Quantity and price are required" });
+    if (!quantity || quantity === undefined || quantity === null) {
+      return res.status(400).json({ message: "quantity is required" });
     }
 
     if (
-      isNaN(quantity) ||
-      isNaN(perPiecePrice) ||
-      quantity <= 0 ||
-      perPiecePrice <= 0
+      !perPiecePrice ||
+      perPiecePrice === undefined ||
+      perPiecePrice === null
     ) {
-      return res
-        .status(400)
-        .json({ message: "Quantity and price must be positive numbers" });
+      return res.status(400).json({ message: "perPiecePrice is required" });
+    }
+
+    // Validate quantity - must be positive integer
+    if (
+      isNaN(quantity) ||
+      quantity <= 0 ||
+      !Number.isInteger(Number(quantity))
+    ) {
+      return res.status(400).json({
+        message: "quantity must be a positive integer",
+      });
+    }
+
+    // Validate perPiecePrice - must be positive number
+    if (isNaN(perPiecePrice) || perPiecePrice < 0) {
+      return res.status(400).json({
+        message: "perPiecePrice must be a positive number",
+      });
     }
 
     // Validate purchasePaymentType
     if (!purchasePaymentType) {
-      return res
-        .status(400)
-        .json({ message: "purchasePaymentType is required" });
+      return res.status(400).json({
+        message: "purchasePaymentType is required",
+      });
     }
 
     if (
@@ -1197,87 +1210,73 @@ const handleAddAcessoryStockById = async (req, res) => {
     }
 
     // Validate entityData
-    if (!entityData || !entityData.name || !entityData.number) {
+    if (!entityData || typeof entityData !== "object") {
       return res.status(400).json({
-        message: "entityData with name and number is required",
-      });
-    }
-
-    // Validate givePayment
-    if (!givePayment) {
-      return res.status(400).json({ message: "givePayment is required" });
-    }
-
-    if (
-      givePayment.amountFromBank === undefined ||
-      givePayment.amountFromPocket === undefined
-    ) {
-      return res.status(400).json({
-        message: "givePayment must contain amountFromBank and amountFromPocket",
-      });
-    }
-
-    if (
-      isNaN(givePayment.amountFromBank) ||
-      isNaN(givePayment.amountFromPocket) ||
-      givePayment.amountFromBank < 0 ||
-      givePayment.amountFromPocket < 0
-    ) {
-      return res.status(400).json({
-        message:
-          "amountFromBank and amountFromPocket must be non-negative numbers",
-      });
-    }
-
-    // Validate bankAccountUsed if amountFromBank > 0
-    if (
-      Number(givePayment.amountFromBank) > 0 &&
-      !givePayment.bankAccountUsed
-    ) {
-      return res.status(400).json({
-        message: "bankAccountUsed is required when amountFromBank > 0",
+        message: "entityData is required and must be an object",
       });
     }
 
     const totalPrice = Number(quantity) * Number(perPiecePrice);
-    const totalPayment =
-      Number(givePayment.amountFromBank) + Number(givePayment.amountFromPocket);
+
+    // Validate givePayment for full-payment
+    if (purchasePaymentType === "full-payment") {
+      if (!givePayment || typeof givePayment !== "object") {
+        return res.status(400).json({
+          message: "givePayment is required for full-payment transactions",
+        });
+      }
+
+      const amountFromBank = Number(givePayment.amountFromBank || 0);
+      const amountFromPocket = Number(givePayment.amountFromPocket || 0);
+
+      // At least one payment method should have amount > 0git add
+
+      // Total payment should match or be less than total purchase amount
+      const totalPayment = amountFromBank + amountFromPocket;
+      if (totalPayment > totalPrice) {
+        return res.status(400).json({
+          message: "Total payment cannot exceed total purchase amount",
+        });
+      }
+    }
 
     // Validate creditPaymentData for credit payments
     if (purchasePaymentType === "credit") {
-      if (!creditPaymentData) {
+      if (!creditPaymentData || typeof creditPaymentData !== "object") {
         return res.status(400).json({
-          message: "creditPaymentData is required for credit payments",
+          message: "creditPaymentData is required for credit transactions",
         });
       }
 
-      if (
-        creditPaymentData.payableAmountNow === undefined ||
-        creditPaymentData.payableAmountLater === undefined ||
-        !creditPaymentData.dateOfPayment
-      ) {
+      const payableAmountNow = Number(creditPaymentData.payableAmountNow || 0);
+      const payableAmountLater = Number(
+        creditPaymentData.payableAmountLater || 0
+      );
+
+      if (isNaN(payableAmountNow) || payableAmountNow < 0) {
         return res.status(400).json({
-          message:
-            "creditPaymentData must contain payableAmountNow, payableAmountLater, and dateOfPayment",
+          message: "creditPaymentData.payableAmountNow must be a number >= 0",
         });
       }
 
-      if (
-        isNaN(creditPaymentData.payableAmountNow) ||
-        isNaN(creditPaymentData.payableAmountLater) ||
-        creditPaymentData.payableAmountNow < 0 ||
-        creditPaymentData.payableAmountLater < 0
-      ) {
+      if (isNaN(payableAmountLater) || payableAmountLater < 0) {
         return res.status(400).json({
-          message:
-            "payableAmountNow and payableAmountLater must be non-negative numbers",
+          message: "creditPaymentData.payableAmountLater must be a number >= 0",
         });
       }
 
-      const creditTotal =
-        Number(creditPaymentData.payableAmountNow) +
-        Number(creditPaymentData.payableAmountLater);
+      // Validate dateOfPayment if provided (optional according to docs)
+      if (creditPaymentData.dateOfPayment) {
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(creditPaymentData.dateOfPayment)) {
+          return res.status(400).json({
+            message: "dateOfPayment must be in ISO format (YYYY-MM-DD)",
+          });
+        }
+      }
 
+      // payableAmountNow + payableAmountLater should equal total purchase amount
+      const creditTotal = payableAmountNow + payableAmountLater;
       if (Math.abs(creditTotal - totalPrice) > 0.01) {
         return res.status(400).json({
           message:
@@ -1285,32 +1284,43 @@ const handleAddAcessoryStockById = async (req, res) => {
         });
       }
 
-      // Validate payment amount matches payableAmountNow for credit
-      if (
-        Math.abs(totalPayment - Number(creditPaymentData.payableAmountNow)) >
-        0.01
-      ) {
-        return res.status(400).json({
-          message:
-            "Total payment (amountFromBank + amountFromPocket) must equal payableAmountNow for credit payments",
-        });
-      }
-    } else {
-      // For full-payment, total payment should equal total price
-      if (Math.abs(totalPayment - totalPrice) > 0.01) {
-        return res.status(400).json({
-          message:
-            "Total payment (amountFromBank + amountFromPocket) must equal total price (quantity * perPiecePrice) for full-payment",
-        });
+      // For credit, validate givePayment if payableAmountNow > 0
+      if (payableAmountNow > 0) {
+        if (!givePayment || typeof givePayment !== "object") {
+          return res.status(400).json({
+            message: "givePayment is required when payableAmountNow > 0",
+          });
+        }
+
+        const amountFromBank = Number(givePayment.amountFromBank || 0);
+        const amountFromPocket = Number(givePayment.amountFromPocket || 0);
+        const totalPayment = amountFromBank + amountFromPocket;
+
+        if (Math.abs(totalPayment - payableAmountNow) > 0.01) {
+          return res.status(400).json({
+            message:
+              "Total payment (amountFromBank + amountFromPocket) must equal payableAmountNow for credit payments",
+          });
+        }
+
+        // Validate bankAccountUsed if amountFromBank > 0
+        if (
+          amountFromBank > 0 &&
+          (!givePayment.bankAccountUsed || givePayment.bankAccountUsed === 0)
+        ) {
+          return res.status(400).json({
+            message: "bankAccountUsed is required when amountFromBank > 0",
+          });
+        }
       }
     }
 
     // Find the accessory
     const accessory = await Accessory.findOne({ _id: id, userId });
     if (!accessory) {
-      return res
-        .status(404)
-        .json({ message: "Accessory not found or unauthorized" });
+      return res.status(404).json({
+        message: "Accessory not found or unauthorized",
+      });
     }
 
     // Handle entity (Person) - find or create
@@ -1345,17 +1355,19 @@ const handleAddAcessoryStockById = async (req, res) => {
 
     // Process credit payment if applicable
     if (purchasePaymentType === "credit") {
-      const payableLater = Number(creditPaymentData.payableAmountLater);
+      const payableLater = Number(creditPaymentData.payableAmountLater || 0);
+      const payableNow = Number(creditPaymentData.payableAmountNow || 0);
 
       person.takingCredit = Number(person.takingCredit || 0) + payableLater;
       person.status = "Payable";
       await person.save();
 
+      const dateOfPayment = creditPaymentData.dateOfPayment || "Not specified";
       await CreditTransaction.create({
         userId: req.user.id,
         personId: person._id,
         takingCredit: payableLater,
-        description: `Credit purchase of ${quantity} ${accessory.accessoryName} at ${perPiecePrice} per piece by ${entityData.name}. Total: ${totalPrice}, Paid now: ${creditPaymentData.payableAmountNow}, Due: ${payableLater}, Due date: ${creditPaymentData.dateOfPayment}`,
+        description: `Credit purchase of ${quantity} ${accessory.accessoryName} at ${perPiecePrice} per piece by ${entityData.name}. Total: ${totalPrice}, Paid now: ${payableNow}, Due: ${payableLater}, Due date: ${dateOfPayment}`,
         balanceAmount: Number(person.takingCredit),
       });
     } else {
@@ -1369,8 +1381,8 @@ const handleAddAcessoryStockById = async (req, res) => {
       });
     }
 
-    // Process bank payment
-    if (Number(givePayment.amountFromBank) > 0) {
+    // Process bank payment (for both full-payment and credit with payableAmountNow > 0)
+    if (givePayment && Number(givePayment.amountFromBank || 0) > 0) {
       const bank = await AddBankAccount.findById(givePayment.bankAccountUsed);
       if (!bank) {
         return res.status(404).json({ message: "Bank account not found" });
@@ -1395,8 +1407,8 @@ const handleAddAcessoryStockById = async (req, res) => {
       });
     }
 
-    // Process pocket cash payment
-    if (Number(givePayment.amountFromPocket) > 0) {
+    // Process pocket cash payment (for both full-payment and credit with payableAmountNow > 0)
+    if (givePayment && Number(givePayment.amountFromPocket || 0) > 0) {
       const pocket = await PocketCashSchema.findOne({ userId });
       if (!pocket) {
         return res
@@ -1445,7 +1457,7 @@ const handleAddAcessoryStockById = async (req, res) => {
     await accessory.save();
 
     // Create AccessoryTransaction record
-    await AccessoryTransaction.create({
+    const transaction = await AccessoryTransaction.create({
       userId,
       accessoryId: accessory._id,
       quantity: Number(quantity),
@@ -1456,9 +1468,13 @@ const handleAddAcessoryStockById = async (req, res) => {
     });
 
     res.status(200).json({
-      message: "Accessory stock updated successfully",
-      accessory,
-      person,
+      success: true,
+      message: "Stock added successfully",
+      data: {
+        accessory,
+        transaction,
+        entity: person,
+      },
     });
   } catch (error) {
     console.error("Error updating accessory stock:", error);
@@ -1884,8 +1900,7 @@ const returnSoldAccessory = async (req, res) => {
             Number(accessory.perPiecePrice) * Number(accItem.quantity);
           // Calculate and subtract profit for this item
           const itemProfit =
-            (Number(accItem.perPiecePrice) -
-              Number(accessory.perPiecePrice)) *
+            (Number(accItem.perPiecePrice) - Number(accessory.perPiecePrice)) *
             Number(accItem.quantity);
           accessory.profit = Math.max(0, accessory.profit - itemProfit);
           await accessory.save();
@@ -1964,7 +1979,9 @@ const returnSoldAccessory = async (req, res) => {
             description: `Return of sold accessory: ${
               saleTransaction.accessoryId?.accessoryName ||
               "Multiple accessories"
-            } (Quantity: ${saleTransaction.quantity}) - Credit adjustment: ${creditAmount}`,
+            } (Quantity: ${
+              saleTransaction.quantity
+            }) - Credit adjustment: ${creditAmount}`,
           });
         }
       }
