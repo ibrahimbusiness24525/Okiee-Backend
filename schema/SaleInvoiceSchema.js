@@ -216,6 +216,18 @@ const SaleInvoiceSchema = new mongoose.Schema(
         },
       ],
     },
+
+    // Return/Refund Information
+    isReturned: {
+      type: Boolean,
+      default: false,
+    },
+    returnedAt: {
+      type: Date,
+    },
+    returnReason: {
+      type: String,
+    },
   },
   {
     timestamps: true,

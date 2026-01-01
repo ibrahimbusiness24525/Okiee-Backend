@@ -18,6 +18,12 @@ router.get("/:id", saleInvoiceController.getInvoiceById);
 // Get invoice by invoice number
 router.get("/number/:invoiceNumber", saleInvoiceController.getInvoiceByNumber);
 
+// Get detailed phone information by invoice number
+router.get("/phone-details/:invoiceNumber", saleInvoiceController.getPhoneDetailsByInvoiceNumber);
+
+// Return/Refund invoice
+router.post("/:id/return", saleInvoiceController.returnInvoice);
+
 // Delete invoice
 router.delete("/:id", saleInvoiceController.deleteInvoice);
 
