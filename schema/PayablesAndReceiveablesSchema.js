@@ -29,6 +29,9 @@ const creditTransactionSchema = mongoose.Schema(
     takingCredit: { type: Number, default: 0 },
     givingCredit: { type: Number, default: 0 },
     description: { type: String, default: "" },
+    invoiceExist: { type: Boolean, default: false },
+    invoiceNumber: { type: String, required: false },
+    invoiceDetails: { type: mongoose.Schema.Types.Mixed, required: false },
     balanceAmount: { type: Number, default: 0, required: false },
   },
   { timestamps: true }

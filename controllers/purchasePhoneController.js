@@ -5032,7 +5032,7 @@ exports.soldAnyPhone = async (req, res) => {
                 ? new Date(payableAmountLaterDate)
                 : undefined,
             }),
-            invoiceNumber: "INV-" + new Date().getTime(),
+            invoiceNumber: invoiceGenerator(),
             ...phoneDetails,
           });
 
@@ -5114,7 +5114,7 @@ exports.soldAnyPhone = async (req, res) => {
                 customerName: phoneDetails.customerName,
                 customerNumber: phoneDetails.customerNumber,
                 warranty: phoneDetails.warranty,
-                invoiceNumber: "INV-" + new Date().getTime(),
+                invoiceNumber: invoiceGenerator(),
                 ...phoneDetails,
               });
 
@@ -5313,6 +5313,16 @@ exports.soldAnyPhone = async (req, res) => {
                 personId: person._id,
                 givingCredit: Number(payableAmountLater),
                 balanceAmount: Number(payableAmountLater),
+                invoiceExist: true,
+                invoiceNumber: invoiceGenerator(),
+                invoiceDetails: {
+                  imeis: imeis,
+                  phoneModels: phoneModels,
+                  phoneCompanies: phoneCompanies,
+                  phoneColors: phoneColors,
+                  phoneRams: phoneRams,
+                  phoneSims: phoneSims,
+                },
                 description: `Credit Sale: received amount of ${
                   imeis.length
                 } phones is ${payableAmountNow} and sold to ${
@@ -5347,6 +5357,16 @@ exports.soldAnyPhone = async (req, res) => {
                 personId: person._id,
                 givingCredit: Number(payableAmountLater),
                 balanceAmount: Math.abs(currentAmount),
+                invoiceExist: true,
+                invoiceNumber: invoiceGenerator(),
+                invoiceDetails: {
+                  imeis: imeis,
+                  phoneModels: phoneModels,
+                  phoneCompanies: phoneCompanies,
+                  phoneColors: phoneColors,
+                  phoneRams: phoneRams,
+                  phoneSims: phoneSims,
+                },
                 description: `Credit Sale: received amount of ${
                   imeis.length
                 } phones is ${payableAmountNow} and sold to ${
@@ -5374,6 +5394,16 @@ exports.soldAnyPhone = async (req, res) => {
               personId: person._id,
               balanceAmount: Number(person.givingCredit),
               givingCredit: 0,
+              invoiceExist: true,
+              invoiceNumber: invoiceGenerator(),
+              invoiceDetails: {
+                imeis: imeis,
+                phoneModels: phoneModels,
+                phoneCompanies: phoneCompanies,
+                phoneColors: phoneColors,
+                phoneRams: phoneRams,
+                phoneSims: phoneSims,
+              },
               description: `Complete Payment of phone Sale: ${
                 imeis.length
               } phones sold to ${entityData?.name || person.name} || Model: ${

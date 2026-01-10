@@ -1019,3 +1019,210 @@ exports.getVerificationByPassword = async (req, res) => {
       .json({ message: "Error fetching verification by password", error });
   }
 };
+
+// Get detailed credit transaction information
+exports.getCreditTransactionDetails = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Credit transaction ID is required",
+      });
+    }
+
+    // Find the credit transaction with populated person details
+    const creditTransaction = await CreditTransaction.findOne({
+      _id: id,
+      userId: userId,
+    }).populate({
+      path: "personId",
+      select:
+        "name number reference favourite status takingCredit givingCredit createdAt updatedAt",
+    });
+
+    if (!creditTransaction) {
+      return res.status(404).json({
+        success: false,
+        message: "Credit transaction not found",
+      });
+    }
+
+    // Build comprehensive transaction details
+    const transactionDetails = {
+      _id: creditTransaction._id,
+      userId: creditTransaction.userId,
+      personId: creditTransaction.personId?._id,
+      personDetails: creditTransaction.personId
+        ? {
+            name: creditTransaction.personId.name,
+            number: creditTransaction.personId.number,
+            reference: creditTransaction.personId.reference,
+            favourite: creditTransaction.personId.favourite,
+            status: creditTransaction.personId.status,
+            takingCredit: creditTransaction.personId.takingCredit,
+            givingCredit: creditTransaction.personId.givingCredit,
+            createdAt: creditTransaction.personId.createdAt,
+            updatedAt: creditTransaction.personId.updatedAt,
+          }
+        : null,
+      transactionType: creditTransaction.takingCredit > 0 ? "taking" : "giving",
+      amounts: {
+        takingCredit: creditTransaction.takingCredit,
+        givingCredit: creditTransaction.givingCredit,
+        netAmount:
+          creditTransaction.takingCredit - creditTransaction.givingCredit,
+      },
+      description: creditTransaction.description,
+      invoiceInfo: {
+        invoiceExist: creditTransaction.invoiceExist,
+        invoiceNumber: creditTransaction.invoiceNumber,
+        invoiceDetails: creditTransaction.invoiceDetails,
+      },
+      balanceAmount: creditTransaction.balanceAmount,
+      createdAt: creditTransaction.createdAt,
+      updatedAt: creditTransaction.updatedAt,
+    };
+
+    // Add additional context based on invoice information
+    if (creditTransaction.invoiceExist && creditTransaction.invoiceDetails) {
+      transactionDetails.invoiceContext = {
+        hasInvoiceData: true,
+        saleType: creditTransaction.invoiceDetails.saleType,
+        totalInvoice: creditTransaction.invoiceDetails.pricing?.totalInvoice,
+        customerName: creditTransaction.invoiceDetails.customerName,
+        customerNumber: creditTransaction.invoiceDetails.customerNumber,
+        saleDate: creditTransaction.invoiceDetails.saleDate,
+        paymentType:
+          creditTransaction.invoiceDetails.payment?.sellingPaymentType,
+        phoneCount:
+          creditTransaction.invoiceDetails.phoneDetails?.imei1?.length || 1,
+        accessoriesCount:
+          creditTransaction.invoiceDetails.accessories?.length || 0,
+      };
+    } else {
+      transactionDetails.invoiceContext = {
+        hasInvoiceData: false,
+      };
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Credit transaction details retrieved successfully",
+      data: transactionDetails,
+    });
+  } catch (error) {
+    console.error("Error fetching credit transaction details:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// Get all credit transactions for a user with filtering options
+exports.getAllCreditTransactions = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      personId,
+      startDate,
+      endDate,
+      transactionType, // "taking", "giving", or "all"
+      invoiceExist, // true, false, or "all"
+      page = 1,
+      limit = 50,
+    } = req.query;
+
+    // Build filter
+    const filter = { userId };
+
+    if (personId) {
+      filter.personId = personId;
+    }
+
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (endDate) filter.createdAt.$lte = new Date(endDate);
+    }
+
+    if (transactionType === "taking") {
+      filter.takingCredit = { $gt: 0 };
+    } else if (transactionType === "giving") {
+      filter.givingCredit = { $gt: 0 };
+    }
+
+    if (invoiceExist === "true") {
+      filter.invoiceExist = true;
+    } else if (invoiceExist === "false") {
+      filter.invoiceExist = false;
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Fetch transactions with pagination
+    const transactions = await CreditTransaction.find(filter)
+      .populate({
+        path: "personId",
+        select: "name number reference status",
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    // Get total count for pagination
+    const total = await CreditTransaction.countDocuments(filter);
+
+    // Format transactions for response
+    const formattedTransactions = transactions.map((transaction) => ({
+      _id: transaction._id,
+      personId: transaction.personId?._id,
+      personName: transaction.personId?.name,
+      personNumber: transaction.personId?.number,
+      personReference: transaction.personId?.reference,
+      personStatus: transaction.personId?.status,
+      transactionType: transaction.takingCredit > 0 ? "taking" : "giving",
+      amounts: {
+        takingCredit: transaction.takingCredit,
+        givingCredit: transaction.givingCredit,
+        netAmount: transaction.takingCredit - transaction.givingCredit,
+      },
+      description: transaction.description,
+      invoiceInfo: {
+        invoiceExist: transaction.invoiceExist,
+        invoiceNumber: transaction.invoiceNumber,
+        hasDetails: !!transaction.invoiceDetails,
+      },
+      balanceAmount: transaction.balanceAmount,
+      createdAt: transaction.createdAt,
+      updatedAt: transaction.updatedAt,
+    }));
+
+    res.status(200).json({
+      success: true,
+      message: "Credit transactions retrieved successfully",
+      data: {
+        transactions: formattedTransactions,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(total / parseInt(limit)),
+          totalItems: total,
+          itemsPerPage: parseInt(limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching credit transactions:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};

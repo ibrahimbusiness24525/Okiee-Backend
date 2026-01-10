@@ -222,12 +222,46 @@ const SaleInvoiceSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    returnStatus: {
+      type: String,
+      enum: ["semi-return", "full-return", null],
+      default: null,
+    },
     returnedAt: {
       type: Date,
     },
     returnReason: {
       type: String,
     },
+    returnedImeis: {
+      type: [String], // Array of IMEIs that have been returned (for bulk phones)
+      default: [],
+    },
+    returnedAccessories: [
+      {
+        name: { type: mongoose.Schema.Types.ObjectId, ref: "Accessory" },
+        quantity: { type: Number },
+      },
+    ],
+    returnAmount: {
+      type: Number, // Partial return amount if not full return
+      default: 0,
+    },
+    returnHistory: [
+      {
+        returnedAt: { type: Date, default: Date.now },
+        returnReason: { type: String },
+        returnStatus: { type: String },
+        returnAmount: { type: Number },
+        returnedImeis: [String],
+        returnedAccessories: [
+          {
+            name: { type: mongoose.Schema.Types.ObjectId, ref: "Accessory" },
+            quantity: { type: Number },
+          },
+        ],
+      },
+    ],
   },
   {
     timestamps: true,

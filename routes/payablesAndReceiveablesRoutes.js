@@ -42,10 +42,36 @@ router.delete(
   decoderMiddleware,
   creditController.deleteTransaction
 );
-router.put("/update-transaction/:id", decoderMiddleware, creditController.editTransaction);
-router.get("/detail-of-purchase-sale-by-person/:personId?/:startDate?/:endDate?", decoderMiddleware, creditController.getDetailOfPurchaseSaleByPerson);
+router.put(
+  "/update-transaction/:id",
+  decoderMiddleware,
+  creditController.editTransaction
+);
+router.get(
+  "/detail-of-purchase-sale-by-person/:personId?/:startDate?/:endDate?",
+  decoderMiddleware,
+  creditController.getDetailOfPurchaseSaleByPerson
+);
 
 // Verify password (returns boolean) using same logic as login
-router.post("/verify-password", decoderMiddleware, creditController.getVerificationByPassword);
+router.post(
+  "/verify-password",
+  decoderMiddleware,
+  creditController.getVerificationByPassword
+);
+
+// Get detailed credit transaction information by ID
+router.get(
+  "/credit-transaction/:id",
+  decoderMiddleware,
+  creditController.getCreditTransactionDetails
+);
+
+// Get all credit transactions with filtering
+router.get(
+  "/credit-transactions",
+  decoderMiddleware,
+  creditController.getAllCreditTransactions
+);
 
 module.exports = router;
