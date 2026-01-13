@@ -1900,6 +1900,160 @@ exports.getPhoneDetailsByInvoiceNumber = async (req, res) => {
   }
 };
 
+// Add phone to invoice
+exports.addPhoneToInvoice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const {
+      imei1,
+      imei2,
+      salePrice,
+      purchasePrice,
+      companyName,
+      modelName,
+      color,
+      ramMemory,
+      batteryHealth,
+      phoneCondition,
+      warranty,
+    } = req.body;
+
+    // Validate required fields
+    if (!imei1 || !salePrice) {
+      return res.status(400).json({
+        success: false,
+        message: "IMEI1 and salePrice are required",
+      });
+    }
+
+    // Find the invoice
+    const invoice = await SaleInvoice.findOne({ _id: id, userId });
+
+    if (!invoice) {
+      return res.status(404).json({
+        success: false,
+        message: "Invoice not found",
+      });
+    }
+
+    // Check if invoice is returned
+    if (invoice.isReturned && invoice.returnStatus === "full-return") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot add phone to a fully returned invoice",
+      });
+    }
+
+    // Get existing IMEIs (handle both string and array)
+    const existingImei1 = Array.isArray(invoice.phoneDetails?.imei1)
+      ? invoice.phoneDetails.imei1
+      : invoice.phoneDetails?.imei1
+      ? [invoice.phoneDetails.imei1]
+      : [];
+
+    const existingImei2 = Array.isArray(invoice.phoneDetails?.imei2)
+      ? invoice.phoneDetails.imei2
+      : invoice.phoneDetails?.imei2
+      ? [invoice.phoneDetails.imei2]
+      : [];
+
+    // Check if IMEI already exists in invoice
+    if (existingImei1.includes(imei1)) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone with this IMEI already exists in the invoice",
+      });
+    }
+
+    // Add new IMEI
+    existingImei1.push(imei1);
+    if (imei2) {
+      existingImei2.push(imei2);
+    }
+
+    // Update phone details
+    invoice.phoneDetails = invoice.phoneDetails || {};
+    invoice.phoneDetails.imei1 = existingImei1.length === 1 ? existingImei1[0] : existingImei1;
+    invoice.phoneDetails.imei2 = existingImei2.length > 0
+      ? existingImei2.length === 1
+        ? existingImei2[0]
+        : existingImei2
+      : undefined;
+
+    // Update phone specifications if provided (only if not already set or if different)
+    if (companyName) invoice.phoneDetails.companyName = companyName;
+    if (modelName) invoice.phoneDetails.modelName = modelName;
+    if (color) invoice.phoneDetails.color = color;
+    if (ramMemory) invoice.phoneDetails.ramMemory = ramMemory;
+    if (batteryHealth) invoice.phoneDetails.batteryHealth = batteryHealth;
+    if (phoneCondition) invoice.phoneDetails.phoneCondition = phoneCondition;
+    if (warranty) invoice.phoneDetails.warranty = warranty;
+
+    // Update pricing
+    invoice.pricing = invoice.pricing || {};
+    const currentSalePrice = invoice.pricing.salePrice || 0;
+    const currentPurchasePrice = invoice.pricing.purchasePrice || 0;
+    const currentTotalInvoice = invoice.pricing.totalInvoice || 0;
+
+    const newSalePrice = Number(salePrice);
+    const newPurchasePrice = purchasePrice ? Number(purchasePrice) : 0;
+    const newProfit = newSalePrice - newPurchasePrice;
+
+    invoice.pricing.salePrice = currentSalePrice + newSalePrice;
+    invoice.pricing.purchasePrice = currentPurchasePrice + newPurchasePrice;
+    invoice.pricing.totalInvoice = currentTotalInvoice + newSalePrice;
+    invoice.pricing.profit = (invoice.pricing.profit || 0) + newProfit;
+
+    // Update sale type to bulk if multiple phones
+    if (existingImei1.length > 1 && invoice.saleType === "single") {
+      invoice.saleType = "bulk";
+    }
+
+    // Update metadata.imeiPrices array
+    invoice.metadata = invoice.metadata || {};
+    invoice.metadata.imeiPrices = invoice.metadata.imeiPrices || [];
+    
+    // Add new IMEI and price to metadata.imeiPrices
+    invoice.metadata.imeiPrices.push({
+      imei: imei1,
+      price: newSalePrice,
+    });
+
+    // Update metadata notes if it exists (optional, update phone count)
+    if (invoice.metadata.notes) {
+      const phoneCount = existingImei1.length;
+      invoice.metadata.notes = `Generic sale of ${phoneCount} phone(s)`;
+    }
+
+    await invoice.save();
+
+    // Populate and return updated invoice
+    const updatedInvoice = await SaleInvoice.findById(id)
+      .populate("payment.bankAccountUsed")
+      .populate("entityData._id")
+      .populate("references.purchasePhoneId")
+      .populate("references.bulkPhonePurchaseId")
+      .populate("references.singleSoldPhoneId")
+      .populate("references.soldPhoneId")
+      .populate("accessories.name")
+      .populate("metadata.shopid");
+
+    res.status(200).json({
+      success: true,
+      message: "Phone added to invoice successfully",
+      data: updatedInvoice,
+    });
+  } catch (error) {
+    console.error("Error adding phone to invoice:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 // Get invoice statistics
 exports.getInvoiceStatistics = async (req, res) => {
   try {

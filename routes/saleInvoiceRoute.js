@@ -19,10 +19,16 @@ router.get("/:id", saleInvoiceController.getInvoiceById);
 router.get("/number/:invoiceNumber", saleInvoiceController.getInvoiceByNumber);
 
 // Get detailed phone information by invoice number
-router.get("/phone-details/:invoiceNumber", saleInvoiceController.getPhoneDetailsByInvoiceNumber);
+router.get(
+  "/phone-details/:invoiceNumber",
+  saleInvoiceController.getPhoneDetailsByInvoiceNumber
+);
 
 // Return/Refund invoice
 router.post("/:id/return", saleInvoiceController.returnInvoice);
+
+// Add phone to invoice
+router.put("/:id/add-phone", saleInvoiceController.addPhoneToInvoice);
 
 // Delete invoice
 router.delete("/:id", saleInvoiceController.deleteInvoice);
